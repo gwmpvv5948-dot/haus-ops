@@ -305,7 +305,7 @@ class HausOps extends HTMLElement {
     const accesses = this.accesses();
     const open = accesses.filter(item => item.open);
     const complete = accesses.length > 0 && accesses.every(item => item.open !== undefined);
-    const alarm = open.length ? `${open.length} offen` : complete ? 'Alles gesichert' : 'Status unvollständig';
+    const alarm = open.length ? `${open.length} offen` : complete ? 'Gesichert' : 'Status unvollständig';
     const accessLabel = item => item.open === undefined ? 'Keine Daten' : item.lock
       ? (item.open ? 'Entriegelt' : 'Verriegelt') : (item.open ? 'Offen' : 'Geschlossen');
     const rooms = this.temperatures();

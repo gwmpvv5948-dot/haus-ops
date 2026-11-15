@@ -67,7 +67,7 @@ button svg{width:26px;height:26px}.levels button{background:var(--purple);height
 .climate-row{grid-template-columns:180px 1fr 78px;min-height:57px;border:0}.climate-row>div:first-child{border-left:21px solid var(--room-color);border-radius:24px 0 0 24px;padding:5px 0 5px 10px;color:var(--sand)}.climate-row small{color:var(--pink)}.climate-row small.warn{color:#ffcb41}.climate-row strong{color:var(--room-color);font-size:34px}.climate-row .segments{height:20px}
 .roll-summary .band{min-height:58px}
 nav{grid-template-rows:repeat(5,minmax(0,1fr)) minmax(0,1.28fr)}
-nav [data-page]{color:#fff4e8;align-content:end;padding:0 8px 7px}
+nav [data-page]{align-content:end;padding:0 8px 7px}
 nav [data-page][aria-current=true]:not(:focus-visible){box-shadow:none}
 nav [data-settings],nav [data-nav-spacer]{margin:0;border-radius:0;background:var(--peach);color:#000;text-align:right;align-content:end;padding:0 9px 5px;font-size:14px;letter-spacing:.3px}
 nav [hidden]{display:none}
@@ -138,17 +138,21 @@ nav {
 .nav-scroll::-webkit-scrollbar { display: none; }
 .nav-scroll > * { scroll-snap-align: start; }
 .nav-scroll button{touch-action:none}
-.nav-scroll a{display:flex;justify-content:flex-end;align-items:flex-end;padding:0 8px 7px;border-radius:8px;color:#fff4e8;text-decoration:none;font-size:14px;touch-action:none}
+.nav-scroll a{display:flex;justify-content:flex-end;align-items:flex-end;padding:0 8px 7px;border-radius:8px;text-decoration:none;touch-action:none}
 .nav-scroll a:focus-visible{outline:3px solid white;outline-offset:-4px}
+
+nav :is(.nav-scroll > button, .nav-scroll > a, [data-settings], [data-nav-spacer]) {
+  color: #000;
+  font-family: Antonio, "Arial Narrow", sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+}
 
 .nav-scroll > :is(button, a) {
   display: flex;
   justify-content: flex-end;
   align-items: center;
   padding: 0 15px 0 4px;
-  font-family: Antonio, "Arial Narrow", sans-serif;
-  font-size: 14px;
-  font-weight: 700;
   line-height: 1.15;
   letter-spacing: .04em;
   text-align: right;
