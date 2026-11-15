@@ -172,3 +172,26 @@ nav {
 @media(prefers-reduced-motion:reduce){.blind-controls button.moving:not(:disabled){animation:none}.blind-window [data-slats]{transition:none}}
 footer .rail{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 footer .rail.blind-error{background:#3a1713;color:var(--red)}
+
+.energy-page{--solar:#ffaa00;--battery:#99ddbb;gap:6px;min-height:0;user-select:none;letter-spacing:.04em}
+.energy-page .band{min-height:18px}
+.energy-sources,.energy-balance,.energy-loads{display:grid;gap:6px;grid-template-columns:repeat(4,minmax(0,1fr))}
+.energy-source{border-left:12px solid var(--source);border-radius:16px 0 0 16px;padding:4px 4px 4px 7px;height:138px;min-width:0;transition:opacity .4s}
+.energy-source.idle{opacity:.45}
+.energy-source>div:first-child{display:flex;align-items:center;justify-content:space-between;gap:2px;color:var(--source);font-size:18px}
+.energy-source>div>small{border-radius:9px;background:var(--source);color:black;padding:1px 4px;font-size:10px;white-space:nowrap}
+.energy-source p{margin:0;color:var(--sand);font-size:40px;line-height:1.18;white-space:nowrap}
+.energy-source p small{font-size:16px}.energy-source aside{font-size:12px;color:#aaa}
+.energy-soc{display:flex;gap:2px;margin:4px 0}.energy-soc i{height:10px;flex:1;background:#222}.energy-soc .filled{background:var(--soc)}
+.energy-flow{height:34px;border-radius:0 17px 17px 0;display:flex;overflow:hidden;background:#222;align-items:center;font-size:14px}
+.energy-flow span{flex:none;width:var(--share);height:100%;display:flex;align-items:center;justify-content:end;white-space:nowrap;overflow:hidden;color:black;background-color:var(--flow);background-image:repeating-linear-gradient(90deg,transparent 0 20px,#0003 20px 28px);animation:energy-flow 1s linear infinite;transition:width .6s}
+@keyframes energy-flow{to{background-position:28px 0}}
+@media(prefers-reduced-motion:reduce){.energy-flow span{animation:none;transition:none}}
+.energy-balance{grid-template-columns:repeat(5,minmax(0,1fr))}
+.energy-balance article{background:#141414;border-top:4px solid var(--source);height:54px;padding:2px 7px;white-space:nowrap;overflow:hidden}
+.energy-balance small{color:var(--source);font-size:12px}.energy-balance article div{color:var(--sand);font-size:21px}.energy-balance article span{color:#aaa;font-size:12px}
+.energy-loads span{display:flex;align-items:center;justify-content:space-between;border-radius:15px;background:#2a2a2a;padding:0 10px;height:30px;font-size:14px}.energy-loads strong{color:var(--sand)}
+.energy-loads .active{background:var(--pink);color:#000}.energy-loads .active strong{color:inherit}
+nav [data-frequency]{background:var(--pink)}
+nav [data-frequency][hidden]{display:none}
+nav [data-page="6"][aria-current=true]{background:var(--peach)!important;color:#000}
