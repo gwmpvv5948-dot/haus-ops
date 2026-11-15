@@ -4,7 +4,7 @@ from pathlib import Path
 
 import voluptuous as vol
 
-from homeassistant.components import panel_custom
+from homeassistant.components import frontend, panel_custom
 from homeassistant.components.http import StaticPathConfig
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import config_validation as cv
@@ -44,12 +44,13 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     await hass.http.async_register_static_paths(
         [StaticPathConfig(ASSET_URL, str(Path(__file__).parent / "frontend"), False)]
     )
+    frontend.add_extra_js_url(hass, f"{ASSET_URL}/enterprise-icon.js?v=1")
     await panel_custom.async_register_panel(
         hass,
         frontend_url_path="haus-ops",
         webcomponent_name="haus-ops",
         sidebar_title="HAUS-OPS",
-        sidebar_icon="mdi:monitor-dashboard",
+        sidebar_icon="haus_ops:enterprise",
         module_url=f"{ASSET_URL}/haus-ops.js",
         config=config[DOMAIN],
     )
