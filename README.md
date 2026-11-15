@@ -16,7 +16,7 @@ Home-Assistant-Panel für ein Raspberry-Pi-Display im Querformat (800 × 480) mi
 - **Lüftung:** Die Trafo-Anzeige verwendet `number.trafocurrentvolt`. Die fünf Stufen verwenden `input_button.trafo_button` und die Varianten mit den Endungen `_80`, `_150`, `_175` und `_230`. Die bisherige YAML-Konfiguration mit `select` oder `input_select` funktioniert als Alternative.
 - **Rollos:** Für Wohnen, Küche und Terrasse je eine `cover.*`-Entität hinterlegen. Namen und Presets sind konfigurierbar. Für die Übersicht können Auf und Ab getrennt belegt werden. Optional synchronisiert ein `input_select.rollo_auswahl` mit den Optionen `alle`, `wohnen`, `kueche` und `terrasse` die Auswahl zwischen Geräten.
 - **Klima:** HAUS-OPS verwendet vorhandene Heizungsmanager-Daten oder die in den Einstellungen hinterlegten Klimasensoren und Thermostate.
-- **Navigation:** Strom und Wasser verlinken auf die separaten Panels unter `/solar-pilot` und `/wassermanager`, sofern diese installiert sind. Garten ist als Platzhalter vorhanden.
+- **Navigation:** Wasser verlinkt auf das separate Panel unter `/wassermanager`, sofern es installiert ist. Garten ist als Platzhalter vorhanden.
 
 ## Vorschau und manuelle Installation
 

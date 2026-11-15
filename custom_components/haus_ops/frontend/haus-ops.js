@@ -2,7 +2,7 @@ import { energyFields, energyView } from './energy-panel.js';
 import { ClimatePanel, roomNames } from './climate-panel.js';
 const energyPageIndex = 6;
 const pages = ['Übersicht', 'Sicherheit', 'Lüftung', 'Rollos', 'Klima', 'Garten'];
-const managerLinks = [['Strom', '/solar-pilot', '--sand'], ['Wasser', '/wassermanager', '--blue']];
+const managerLinks = [['Wasser', '/wassermanager', '--blue']];
 const colors = ['--sand', '--red', '--pink', '--purple', '--sand'];
 const levels = ['Aus', 'Low', '1', '2', 'Max'];
 const climate = new Intl.NumberFormat('de-DE', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
@@ -53,6 +53,7 @@ class HausOps extends HTMLElement {
           <footer><span class="rail">${this.demo ? 'Demo · System bereit' : 'System bereit'}</span><span class="cap"></span></footer>
         </div><div class="notice" role="status"></div></div>`;
       this.shadowRoot.addEventListener('click', event => this.click(event));
+      this.bindNavigationSwipe();
     }
     try { this.blindSelection = localStorage.getItem('haus-ops.blind-selection') || 'all'; } catch {}
     this.resize = new ResizeObserver(() => {
@@ -62,6 +63,40 @@ class HausOps extends HTMLElement {
     this.render();
     this.tick();
     this.clock = setInterval(() => { this.tick(); this.render(); }, 1000);
+  }
+
+  bindNavigationSwipe() {
+    const navigation = this.shadowRoot.querySelector('.nav-scroll');
+    let gesture;
+    let suppressClick = false;
+    navigation.addEventListener('pointerdown', event => {
+      suppressClick = false;
+      if (event.pointerType === 'touch' && event.isPrimary) {
+        gesture = { id: event.pointerId, y: event.clientY };
+      }
+    });
+    navigation.addEventListener('pointercancel', () => { gesture = undefined; });
+    navigation.addEventListener('pointerup', event => {
+      if (gesture?.id !== event.pointerId) return;
+      const delta = gesture.y - event.clientY;
+      gesture = undefined;
+      const scale = navigation.getBoundingClientRect().height / navigation.clientHeight;
+      if (Math.abs(delta) < 24 * scale) return;
+      suppressClick = true;
+      const [first, second] = navigation.children;
+      const step = second.offsetTop - first.offsetTop;
+      const blocks = Math.max(1, Math.round(Math.abs(delta) / (step * scale)));
+      navigation.scrollTo({
+        top: (Math.round(navigation.scrollTop / step) + Math.sign(delta) * blocks) * step,
+        behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth',
+      });
+    });
+    navigation.addEventListener('click', event => {
+      if (!suppressClick || event.detail === 0) return;
+      suppressClick = false;
+      event.preventDefault();
+      event.stopPropagation();
+    }, { capture: true });
   }
 
   disconnectedCallback() {
