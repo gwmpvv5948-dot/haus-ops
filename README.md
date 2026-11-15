@@ -1,24 +1,25 @@
 # HAUS-OPS · LCARS-Wanddisplay
 
-Ein Home-Assistant-Panel mit fünf Ansichten für ein Raspberry-Pi-Display im Querformat (800 × 480). Das Panel skaliert proportional mit der Fenstergröße.
-
-## Vorschau
-
-Im Stammverzeichnis des Repos `python3 -m http.server 8000 --bind 127.0.0.1` ausführen und [die Demo](http://127.0.0.1:8000/vorschau.html) öffnen. Alle Bedienaktionen in der Demo ändern simulierte Zustände. Beim Neuladen werden die Demo-Daten zurückgesetzt.
+Home-Assistant-Panel für ein Raspberry-Pi-Display im Querformat (800 × 480) mit Übersicht, Sicherheit, Lüftung, Rollos und Klima. Antonio und die zugehörige Schriftlizenz sind im Paket enthalten.
 
 ## Installation über HACS
 
-HACS lädt benutzerdefinierte Repositories von öffentlichen GitHub-Repositories. Solange dieses Repository privat ist, kannst du die Integration manuell installieren.
+1. In Home Assistant unter **HACS → ⋮ → Benutzerdefinierte Repositories** das Repository `https://github.com/gwmpvv5948-dot/haus-ops` als **Integration** hinzufügen. Anschließend **HAUS-OPS** herunterladen oder aktualisieren.
+2. Falls der bisherige HAUS-OPS-Eintrag unter `panel_custom:` eingerichtet ist, diesen Eintrag entfernen, damit `/haus-ops` nur einmal registriert wird.
+3. In der `configuration.yaml` einmal `haus_ops: {}` ergänzen. Eine vorhandene `haus_ops:`-Konfiguration kann beibehalten werden.
+4. Die Home-Assistant-Konfiguration prüfen und Home Assistant neu starten. **HAUS-OPS** erscheint mit dem Enterprise-Symbol in der Seitenleiste. Die URL für den Raspberry bleibt `/haus-ops`.
+5. Als Administrator **82873.4** antippen, Entitäten mit vollständiger ID eintragen und mit **OK** speichern. Eine vorhandene Konfiguration aus dem aktuellen Panel wird übernommen.
 
-1. In Home Assistant **HACS → ⋮ → Benutzerdefinierte Repositories** öffnen. `https://github.com/gwmpvv5948-dot/haus-ops` mit der Kategorie **Integration** hinzufügen und **HAUS-OPS** herunterladen.
-2. Den Block aus [haus_ops.example.yaml](haus_ops.example.yaml) in die `configuration.yaml` übernehmen. Unter **Entwicklerwerkzeuge → Zustände** findest du die tatsächlichen Entitäts-IDs. Bei der Lüftung die fünf Optionen deines `input_select` oder `select` in der Reihenfolge Aus, Low, 1, 2, Max eintragen. Für den Timer einen HA-Timer-Helfer und für die Rollos eine Cover-Gruppe verwenden.
-3. Falls der alte HAUS-OPS-Eintrag unter `panel_custom:` schon eingerichtet ist, diesen einen Eintrag entfernen, damit die URL `/haus-ops` nur einmal registriert wird.
-4. Die Home-Assistant-Konfiguration prüfen und Home Assistant neu starten. **HAUS-OPS** erscheint in der Seitenleiste. Für Chromium im Kioskmodus die volle URL verwenden, beispielsweise `http://homeassistant.local:8123/haus-ops`.
+## Entitäten und Funktionen
 
-## Manuelle Installation
+- **Sicherheit:** Kontakte können als `binary_sensor.*` eingetragen werden. Ein steuerbares Schloss benötigt `lock.*`.
+- **Lüftung:** Die Trafo-Anzeige verwendet `number.trafocurrentvolt`. Die fünf Stufen verwenden `input_button.trafo_button` und die Varianten mit den Endungen `_80`, `_150`, `_175` und `_230`. Die bisherige YAML-Konfiguration mit `select` oder `input_select` funktioniert als Alternative.
+- **Rollos:** Für Wohnen, Küche und Terrasse je eine `cover.*`-Entität hinterlegen. Namen und Presets sind konfigurierbar. Für die Übersicht können Auf und Ab getrennt belegt werden. Optional synchronisiert ein `input_select.rollo_auswahl` mit den Optionen `alle`, `wohnen`, `kueche` und `terrasse` die Auswahl zwischen Geräten.
+- **Klima:** HAUS-OPS verwendet vorhandene Heizungsmanager-Daten oder die in den Einstellungen hinterlegten Klimasensoren und Thermostate.
+- **Navigation:** Strom und Wasser verlinken auf die separaten Panels unter `/solar-pilot` und `/wassermanager`, sofern diese installiert sind. Garten ist als Platzhalter vorhanden.
 
-Den Ordner `custom_components/haus_ops` in den Ordner `custom_components` neben deiner Home-Assistant-`configuration.yaml` kopieren. Danach mit Schritt 2 oben fortfahren. Die [bisherige panel_custom-Konfiguration](panel_custom.example.yaml) bleibt als Referenz verfügbar. Bei Bedarf liegen die dazugehörigen JS- und CSS-Dateien unter `custom_components/haus_ops/frontend`.
+## Vorschau und manuelle Installation
 
-„+10 min“ startet den Timer oder verlängert die verbleibende Zeit. „Stop“ bricht ihn ab. Wenn der Timer deine Lüftung nach Ablauf regeln soll, übernimmt das eine Automation in Home Assistant. Das Panel zeigt die Zeit seit dem letzten vom Frontend bereitgestellten Sensorbericht an und verwendet ersatzweise die letzte Zustandsaktualisierung.
+Für die Demo im Repository `python3 -m http.server 8000 --bind 127.0.0.1` ausführen und [vorschau.html](http://127.0.0.1:8000/vorschau.html) öffnen. Die Demo verwendet simulierte Zustände.
 
-[Home Assistant · Custom Panel](https://www.home-assistant.io/integrations/panel_custom/)
+Für eine manuelle Installation `custom_components/haus_ops` nach `/config/custom_components/haus_ops` kopieren und ab Schritt 2 fortfahren. [YAML-Beispiel](haus_ops.example.yaml).

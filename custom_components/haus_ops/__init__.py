@@ -19,21 +19,19 @@ NAMED_ENTITY = vol.Schema(
 
 CONFIG_SCHEMA = vol.Schema(
     {
-        vol.Required(DOMAIN): vol.Schema(
-            {
-                vol.Required("access"): [NAMED_ENTITY],
-                vol.Required("ventilation"): {
-                    vol.Required("entity"): cv.entity_id,
-                    vol.Required("options"): vol.All(
-                        [cv.string], vol.Length(min=5, max=5)
-                    ),
+        vol.Required(DOMAIN): vol.Any(
+            None,
+            vol.Schema(
+                {
+                    vol.Optional("access"): [NAMED_ENTITY],
+                    vol.Optional("timer"): cv.entity_id,
+                    vol.Optional("cover"): cv.entity_id,
+                    vol.Optional("switches"): [NAMED_ENTITY],
+                    vol.Optional("climate"): [NAMED_ENTITY],
                 },
-                vol.Required("timer"): cv.entity_id,
-                vol.Required("cover"): cv.entity_id,
-                vol.Required("switches"): [NAMED_ENTITY],
-                vol.Required("climate"): [NAMED_ENTITY],
-            }
-        )
+                extra=vol.ALLOW_EXTRA,
+            ),
+        ),
     },
     extra=vol.ALLOW_EXTRA,
 )
@@ -45,13 +43,14 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
         [StaticPathConfig(ASSET_URL, str(Path(__file__).parent / "frontend"), False)]
     )
     frontend.add_extra_js_url(hass, f"{ASSET_URL}/enterprise-icon.js?v=1")
+    version = "1.1.0"
     await panel_custom.async_register_panel(
         hass,
         frontend_url_path="haus-ops",
         webcomponent_name="haus-ops",
         sidebar_title="HAUS-OPS",
         sidebar_icon="haus_ops:enterprise",
-        module_url=f"{ASSET_URL}/haus-ops.js",
-        config=config[DOMAIN],
+        module_url=f"{ASSET_URL}/haus-ops.js?v={version}",
+        config=config[DOMAIN] or {},
     )
     return True

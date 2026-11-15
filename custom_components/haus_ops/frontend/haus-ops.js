@@ -1,4 +1,6 @@
-const pages = ['Übersicht', 'Sicherheit', 'Lüftung', 'Rollos', 'Klima'];
+import { ClimatePanel, roomNames } from './climate-panel.js';
+const pages = ['Übersicht', 'Sicherheit', 'Lüftung', 'Rollos', 'Klima', 'Garten'];
+const managerLinks = [['Strom', '/solar-pilot', '--sand'], ['Wasser', '/wassermanager', '--blue']];
 const colors = ['--sand', '--red', '--pink', '--purple', '--sand'];
 const levels = ['Aus', 'Low', '1', '2', 'Max'];
 const climate = new Intl.NumberFormat('de-DE', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
@@ -24,8 +26,12 @@ class HausOps extends HTMLElement {
   demoStart = Date.now();
   busy = false;
 
-  set hass(value) { this.ha = value; this.render(); }
-  set panel(value) { this.config = value?.config; this.render(); }
+  settings = new HausOpsSettings(this);
+  climatePanel = new ClimatePanel(this);
+
+  set hass(value) { this.ha = value; this.settings.load(value); this.render(); }
+  set panel(value) { this.yamlConfig = value?.config; this.render(); }
+  get config() { return this.savedConfig ?? this.yamlConfig; }
   get demo() { return this.hasAttribute('demo'); }
 
   connectedCallback() {
@@ -36,12 +42,17 @@ class HausOps extends HTMLElement {
         <div class="stage"><div class="frame">
           <div class="brand">LCARS 77</div>
           <header><span class="rail"></span><strong>HAUS-OPS</strong><time></time><span class="cap"></span></header>
-          <nav aria-label="Ansichten">${pages.map((page, i) => `<button data-page="${i}" style="background:var(${colors[i]})">${page}</button>`).join('')}<p>82873.4</p></nav>
+          <nav aria-label="Ansichten"><div class="nav-scroll">
+            ${pages.slice(0,5).map((page, i) => `<button data-page="${i}" style="background:var(${colors[i]})">${page}</button>`).join('')}
+            ${managerLinks.map(([name, url, color]) => `<a href="${url}" style="background:var(${color})">${name}</a>`).join('')}
+            <button data-page="5" style="background:var(--pink)">Garten</button>
+          </div><button data-settings aria-label="82873.4 – Konfiguration" hidden>82873.4</button><p data-nav-spacer>82873.4</p></nav>
           <main></main><div class="heel"></div>
           <footer><span class="rail">${this.demo ? 'Demo · System bereit' : 'System bereit'}</span><span class="cap"></span></footer>
         </div><div class="notice" role="status"></div></div>`;
       this.shadowRoot.addEventListener('click', event => this.click(event));
     }
+    try { this.blindSelection = localStorage.getItem('haus-ops.blind-selection') || 'all'; } catch {}
     this.resize = new ResizeObserver(() => {
       this.style.setProperty('--scale', Math.min(this.clientWidth / 800, this.clientHeight / 480));
     });
@@ -66,7 +77,7 @@ class HausOps extends HTMLElement {
       const lock = entity?.startsWith('lock.');
       const state = this.state(entity)?.state;
       return { name, entity, lock, open: lock ? ({ locked: false, unlocked: true, open: true })[state]
-        : ({ on: true, off: false })[state] };
+        : ({ on: true, off: false, open: true, closed: false, opening: true, closing: true })[state] };
     });
   }
 
@@ -87,11 +98,43 @@ class HausOps extends HTMLElement {
       stale: room.age !== null && room.age >= 30 }));
   }
 
-  get vent() { return this.state(this.config?.ventilation?.entity); }
-  get options() { return this.config?.ventilation?.options ?? []; }
-  get level() { return this.demo ? this.demoLevel : this.options.indexOf(this.vent?.state); }
+  get vent() { return this.state(trafo.entity); }
+  get volts() {
+    return valid(this.vent) && this.vent.state.trim() ? Number(this.vent.state) : NaN;
+  }
+  get level() {
+    if (this.demo) return this.demoLevel;
+    if (Number.isFinite(this.volts)) return trafo.volts.findIndex(volts => Math.abs(volts - this.volts) < 0.05);
+    return this.legacyVent?.options?.indexOf(this.state(this.legacyVent.entity)?.state) ?? -1;
+  }
+  get legacyVent() { return this.config?.ventilation; }
+  canSetLevel(index) {
+    return this.demo || valid(this.state(trafo.buttons[index]))
+      || Boolean(this.legacyVent?.options?.[index] && valid(this.state(this.legacyVent.entity)));
+  }
   get timer() { return this.state(this.config?.timer); }
   get cover() { return this.state(this.config?.cover); }
+
+  coverTarget(index) {
+    return (index ? this.config?.cover_up : this.config?.cover_down) || this.config?.cover;
+  }
+
+  coverService(entity, index) {
+    switch (entity.split('.')[0]) {
+      case 'cover': return index ? 'open_cover' : 'close_cover';
+      case 'button':
+      case 'input_button': return 'press';
+      case 'script':
+      case 'scene':
+      case 'switch': return 'turn_on';
+      default: return null;
+    }
+  }
+
+  canMoveCover(index) {
+    const entity = this.coverTarget(index);
+    return this.demo || Boolean(entity && valid(this.state(entity)) && this.coverService(entity, index));
+  }
 
   get remaining() {
     if (this.demo) return Math.max(0, Math.ceil((this.demoEnd - Date.now()) / 1000));
@@ -105,7 +148,10 @@ class HausOps extends HTMLElement {
   tick() {
     const clock = this.shadowRoot?.querySelector('time');
     if (!clock) return;
-    clock.textContent = new Date().toLocaleTimeString('de-DE');
+    const offline = this.page === 4 && !this.demo && this.ha?.connection?.connected === false;
+    clock.classList.toggle('offline', offline);
+    clock.textContent = offline ? 'Offline' : new Date().toLocaleTimeString('de-DE', this.page === 4
+      ? {hour:'2-digit', minute:'2-digit'} : undefined);
     const seconds = this.remaining;
     const formatted = `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`;
     this.shadowRoot.querySelectorAll('[data-countdown]').forEach(node => { node.textContent = formatted; });
@@ -116,9 +162,105 @@ class HausOps extends HTMLElement {
     });
   }
 
+  blindSelection = 'all';
+  demoBlinds = [100, 60, 0];
+
+  blinds() {
+    return blindFields.map(([key, label, , , fallback], index) => {
+      const configured = this.config?.blinds?.find(item => item.key === key);
+      const entity = configured?.entity || fallback;
+      const state = this.state(entity);
+      const available = this.demo || (this.ha?.connection?.connected !== false && valid(state));
+      const raw = state?.attributes?.current_position;
+      const position = this.demo ? this.demoBlinds[index] : !available ? null
+        : Number.isFinite(raw) ? Math.max(0, Math.min(100, raw))
+        : state.state === 'closed' ? 0 : null;
+      const movement = ({ opening: 'auf', closing: 'ab' })[state?.state];
+      const status = !available ? 'Keine Verbindung' : position === 100 ? 'Offen'
+        : position === 0 ? 'Zu' : position === null ? 'Keine Position' : `${position} % offen`;
+      return { key, name: configured?.name || label, entity, available, position, movement, status,
+        features: this.demo ? 15 : state?.attributes?.supported_features ?? 0, index };
+    });
+  }
+
+  selectedBlind() {
+    const helper = this.state(this.config?.blind_selection || 'input_select.rollo_auswahl');
+    const selection = this.pendingBlindSelection ?? (valid(helper) && helper.attributes?.options?.length
+      ? helper.state : this.blindSelection);
+    return this.blinds().some(blind => blind.key === selection) ? selection : 'all';
+  }
+
+  renderBlinds(devices) {
+    const blinds = this.blinds();
+    const selection = this.selectedBlind();
+    const all = selection === 'all';
+    const selected = blinds.find(blind => blind.key === selection);
+    const targets = blinds.filter(blind => all || blind === selected);
+    const enabled = feature => targets.some(blind => blind.available && (blind.features & feature));
+    return `<div class="blind-page"><section>
+      ${band('Fenster wählen', '--purple')}
+      <div class="blind-select">
+        ${[{key:'all',name:'Alle',status:'3 Fenster'}, ...blinds].map(blind =>
+          `<button data-action="blind-select:${blind.key}" aria-pressed="${selection === blind.key}"><strong>${escape(blind.name)}</strong><small>${blind.status}</small></button>`).join('')}
+      </div>
+      ${band('Steuerung · ' + escape(selected?.name ?? 'Alle Fenster'), '--peach')}
+      <div class="blind-controls">
+        ${blindCommands.slice(0, 3).map(([label, , feature, movement, arrow], index) =>
+          `<button data-action="blind-command:${index}" class="${movement && targets.some(blind => blind.movement === movement) ? 'moving' : ''}" ${enabled(feature) ? '' : 'disabled'}>${arrow ? `<span aria-hidden="true">${arrow}</span>` : ''}${label}</button>`).join('')}
+      </div>
+      <div class="blind-presets">${blindCommands.slice(3).map(([label, , feature], index) =>
+        `<button data-action="blind-command:${index + 3}" ${enabled(feature) ? '' : 'disabled'}>${label}</button>`).join('')}</div>
+      ${band('Stromkreise', '--pink')}
+      <div class="blind-power">${devices.map((device, i) =>
+        `<button data-action="switch:${i}" aria-pressed="${device.on}" ${device.ready ? '' : 'disabled'}>${escape(device.name)} · ${device.ready ? device.on ? 'An' : 'Aus' : 'Keine Daten'}</button>`).join('')}</div>
+    </section><section>
+      ${band('Position', '--purple')}
+      <div class="blind-windows">${blinds.map(blind =>
+        `<button data-action="blind-frame:${blind.key}" aria-pressed="${all || blind === selected}" class="${blind.available ? '' : 'unavailable'}">
+          <span class="blind-window"><span data-slats="${blind.key}"></span></span>
+          <strong>${escape(blind.name)}</strong><small>${blind.position === null ? 'Keine Daten' : `${100 - blind.position} %`}</small>
+        </button>`).join('')}</div>
+    </section></div>`;
+  }
+
+  async selectBlind(key) {
+    this.blindSelection = key;
+    try { localStorage.setItem('haus-ops.blind-selection', key); } catch {}
+    const helper = this.config?.blind_selection || 'input_select.rollo_auswahl';
+    const options = this.state(helper)?.attributes?.options;
+    const option = key === 'all' && options?.includes('alle') ? 'alle' : key;
+    if (!options?.includes(option)) return;
+    this.pendingBlindSelection = key;
+    this.render();
+    try { await this.call(helper, 'select_option', { option }); }
+    finally { this.pendingBlindSelection = undefined; }
+  }
+
+  async moveBlinds(index) {
+    const [, service, feature] = blindCommands[index];
+    const selection = this.selectedBlind();
+    const targets = this.blinds().filter(blind => (selection === 'all' || selection === blind.key)
+      && blind.available && (blind.features & feature));
+    const configured = this.config?.blind_presets?.[index - 3];
+    const closed = configured === undefined ? [0, 50, 80][index - 3] : Number(configured);
+    const position = Math.round(100 - Math.max(0, Math.min(100, closed)));
+    if (this.demo) {
+      targets.forEach(blind => {
+        if (index !== 1) this.demoBlinds[blind.index] = index === 0 ? 0 : index === 2 ? 100 : position;
+      });
+      return;
+    }
+    const ids = [...new Set(targets.map(blind => blind.entity))];
+    if (ids.length) await this.ha.callService('cover', service,
+      { entity_id: ids, ...(index >= 3 ? { position } : {}) });
+  }
+
   render() {
     const main = this.shadowRoot?.querySelector('main');
     if (!main) return;
+    const canConfigure = Boolean(this.ha?.user?.is_admin);
+    this.shadowRoot.querySelector('[data-settings]').hidden = !canConfigure;
+    this.shadowRoot.querySelector('[data-nav-spacer]').hidden = canConfigure;
     const accesses = this.accesses();
     const open = accesses.filter(item => item.open);
     const complete = accesses.length > 0 && accesses.every(item => item.open !== undefined);
@@ -127,12 +269,10 @@ class HausOps extends HTMLElement {
       ? (item.open ? 'Entriegelt' : 'Verriegelt') : (item.open ? 'Offen' : 'Geschlossen');
     const rooms = this.temperatures();
     const level = this.level;
+    const voltage = !this.demo && Number.isFinite(this.volts) ? `${this.volts.toLocaleString('de-DE')} V` : '';
+    const ventLabel = level >= 0 ? 'Stufe ' + levels[level] : voltage || 'Keine Daten';
     const blind = this.cover;
-    const rawPosition = blind?.attributes?.current_position;
-    const position = this.demo ? this.demoPosition : !valid(blind) ? null
-      : Number.isFinite(rawPosition) ? Math.min(100, Math.max(0, rawPosition))
-        : blind.state === 'closed' ? 0 : null;
-    const blindLabel = this.demo ? (position ? 'Geöffnet' : 'Geschlossen')
+    const blindLabel = this.demo ? (this.demoPosition ? 'Geöffnet' : 'Geschlossen')
       : ({ opening: 'Fährt auf', closing: 'Fährt ab', open: 'Offen', closed: 'Geschlossen' })[blind?.state] ?? 'Keine Daten';
     const devices = this.demo ? ['TV Strom', 'Schreibtisch'].map((name, i) => ({ name, on: this.demoSwitches[i], ready: true }))
       : (this.config?.switches ?? []).map(({ name, entity }) => ({
@@ -140,26 +280,27 @@ class HausOps extends HTMLElement {
       }));
     const deviceLabel = device => device.ready ? (device.on ? 'An' : 'Aus') : 'Keine Daten';
     const coverButtons = `<div class="actions">${['ab', 'auf'].map((action, index) =>
-      `<button data-action="cover:${index}" ${this.demo || valid(blind) ? '' : 'disabled'}><span aria-hidden="true">${index ? '↑' : '↓'}</span> Alle ${action}</button>`).join('')}</div>`;
+      `<button data-action="cover:${index}" ${this.canMoveCover(index) ? '' : 'disabled'}><span aria-hidden="true">${index ? '↑' : '↓'}</span> Alle ${action}</button>`).join('')}</div>`;
     let layout;
     switch (this.page) {
       case 0:
         layout = `<div class="overview">
-          <section>${band('Sicherheit', '--red')}<button class="summary" data-page="1">
-            <strong class="big ${open.length ? 'bad' : ''}">${alarm}</strong>
-            <span>${open.length ? escape(open[0].name) + ' ' + accessLabel(open[0]) : 'Zugänge'}</span>
+          <section style="gap:5px">${band('Sicherheit', '--red')}<button class="summary" data-page="1">
+            <strong class="big ${open.length ? 'alarm' : ''}" style="min-height:46px;display:flex;align-items:center;${open.length ? 'color:var(--red)' : ''}">${alarm}</strong>
+            <span style="min-height:20px;line-height:20px">${open.length ? escape(open[0].name) + ' ' + accessLabel(open[0]) : 'Zugänge'}</span>
             ${segments(accesses.map(item => item.open === undefined ? null : item.open ? '--red' : '--purple'))}
           </button></section>
-          <section>${band('Hauslüftung', '--pink')}<button class="summary" data-page="2">
-            <span class="row"><strong class="big">${level >= 0 ? 'Stufe ' + levels[level] : 'Keine Daten'}</strong><span>◷ <span data-countdown></span></span></span>
-            ${segments(levels.map((_, i) => i === level ? '--peach' : null))}
-            <span class="small">Aus · Low · 1 · 2 · Max</span>
-          </button></section>
+          <section style="gap:5px">${band('Hauslüftung', '--pink')}
+            <button class="summary vent-open" style="flex:0 0 auto;min-height:46px" data-page="2"><span class="row vent-summary"><strong class="big">${ventLabel}</strong></span></button>
+            <span style="min-height:20px;line-height:20px">Aus · Low · 1 · 2 · Max</span>
+            <div class="segments vent-controls" role="group" aria-label="Lüftungsstufen">${levels.map((name, i) =>
+              `<button data-action="vent:${i}" aria-label="${name}" aria-pressed="${i === level}" ${this.canSetLevel(i) ? '' : 'disabled'} style="background:${i === level && i > 0 ? 'var(--peach)' : '#262626'};min-width:0;flex:1;height:14px;border-radius:1px;padding:0"></button>`).join('')}</div>
+          </section>
           <section class="roll-summary"><button class="band" style="--band:var(--purple)" data-page="3">Rollos</button>
             ${coverButtons}<span class="small">${blindLabel}${devices.map(device => ' · ' + escape(device.name) + ' ' + deviceLabel(device)).join('')}</span>
           </section>
           <section>${band('Klima · Quartiere', '--sand')}<button class="summary" data-page="4">
-            ${rooms.map(room => `<span class="row"><span>${escape(room.name)} ${room.stale ? '<small class="warn">· Still</small>' : ''}</span><strong>${room.display}</strong></span>`).join('') || 'Keine Daten'}
+            ${rooms.map(room => `<span class="row"><span>${escape(room.name)} ${room.stale ? '<small class="warn">· Still</small>' : ''}</span><strong style="color:var(${room.value < 19 ? '--blue' : room.value < 21 ? '--purple' : '--peach'})">${room.display}</strong></span>`).join('') || 'Keine Daten'}
           </button></section></div>`;
         break;
       case 1:
@@ -172,37 +313,51 @@ class HausOps extends HTMLElement {
             <span><strong>${escape(item.name)}</strong><small>${accessLabel(item)}</small></span></button>`).join('')}</div></section>`;
         break;
       case 2:
-        layout = `<section class="detail">${band('Hauslüftung · Stufe', '--pink')}
-          <div class="levels">${levels.map((name, i) => `<button data-action="vent:${i}" aria-pressed="${i === level}" ${this.demo || (valid(this.vent) && this.vent.attributes.options?.includes(this.options[i])) ? '' : 'disabled'}>${icon(fanIcon + (i === 0 ? 'M3 3l18 18' : ''))}<span>${name}</span></button>`).join('')}</div>
+        layout = `<section class="detail">${band(voltage ? 'Hauslüftung · ' + voltage : 'Hauslüftung · Stufe', '--pink')}
+          <div class="levels">${levels.map((name, i) => `<button data-action="vent:${i}" aria-pressed="${i === level}" ${this.canSetLevel(i) ? '' : 'disabled'}>${icon(fanIcon + (i === 0 ? 'M3 3l18 18' : ''))}<span>${name}</span></button>`).join('')}</div>
           ${band('Stoßlüftung · Timer', '--peach')}<div class="timer-row"><strong class="big" data-countdown></strong>
           <div data-timer-bar>${segments(Array(20).fill(null))}</div>
           <div class="actions">${['+10 min', 'Stop'].map((label, i) => `<button data-action="timer:${i}" ${this.demo || valid(this.timer) ? '' : 'disabled'}>${label}</button>`).join('')}</div></div></section>`;
         break;
       case 3:
-        layout = `<section class="detail"><div class="cover-grid"><section>${band('Rollos · Alle Räume', '--purple')}${coverButtons}${band('Stromkreise', '--peach')}
-            <div class="actions devices">${devices.map((device, i) => `<button data-action="switch:${i}" aria-pressed="${device.on}" ${device.ready ? '' : 'disabled'}>${escape(device.name)} · ${deviceLabel(device)}</button>`).join('')}</div></section>
-          <section>${band('Position', '--purple')}<div class="window" aria-hidden="true"><div class="slats"></div></div><div class="cover-info">${position === null ? blindLabel : `${100 - position} % zu`}</div></section></div></section>`;
+        layout = this.renderBlinds(devices);
         break;
       case 4:
-        layout = `<section class="detail">${band('Klima · Raumtemperaturen', '--sand')}
-          ${rooms.map(room => `<div class="climate-row" style="--room-color:var(${room.value < 19 ? '--blue' : room.value < 21 ? '--purple' : '--peach'})"><div>${escape(room.name)}${room.stale ? `<br><small class="warn">Sensor still · vor ${room.age} min</small>` : room.age !== null ? `<br><small>Vor ${room.age} min</small>` : ''}</div>
-          <div>${segments(Array.from({ length: 20 }, (_, i) => i < Math.round((room.mark ?? 0) / 5) ? (i < 8 ? '--blue' : i < 13 ? '--purple' : '--peach') : null))}<div class="numbers"><span>15°</span><span>20°</span><span>25°</span></div></div><strong>${room.display}</strong></div>`).join('') || 'Keine Daten'}</section>`;
+        layout = this.climatePanel.render();
+        break;
+      case 5:
+        layout = `<section class="detail">${band('Garten', '--pink')}<p>Gartenansicht noch ohne Inhalte</p></section>`;
         break;
     }
+    const climatePage = this.page === 4;
+    this.shadowRoot.querySelector('.frame').classList.toggle('climate-page', climatePage);
+    this.shadowRoot.querySelector('header strong').textContent = climatePage ? 'Klima' : this.page === 3 ? 'Rollos' : 'HAUS-OPS';
     this.shadowRoot.querySelector('footer .rail').textContent = [
       this.demo ? 'Demo' : '', level >= 0 ? 'Lüftung Stufe ' + levels[level] : 'Haus-Ops'
     ].filter(Boolean).join(' · ');
-    const slats = main.querySelector('.slats');
+    const footer = this.shadowRoot.querySelector('footer .rail');
+    const blinds = this.page === 3 ? this.blinds() : [];
+    footer.classList.toggle('blind-error', blinds.some(blind => !blind.available));
+    if (blinds.length) {
+      const moving = blinds.filter(blind => blind.available && blind.movement);
+      const status = (moving.length ? moving : blinds.filter(blind => blind.available)).map(blind =>
+        `${blind.name} ${blind.movement ? `fährt ${blind.movement}${blind.position === null ? '' : ` ${100 - blind.position} %`}` : blind.status}`);
+      footer.textContent = [...blinds.filter(blind => !blind.available).map(blind => `${blind.name} keine Verbindung`),
+        ...(!moving.length && status.length ? ['Bereit'] : []), ...status].join(' · ');
+    }
+    const slats = [...main.querySelectorAll('[data-slats]')];
     if (this.layout !== layout) {
       const focused = this.shadowRoot.activeElement;
       const action = main.contains(focused) && focused.dataset.action;
       main.innerHTML = layout;
-      if (slats && main.querySelector('.slats')) main.querySelector('.slats').replaceWith(slats);
+      slats.forEach(node => main.querySelector(`[data-slats="${node.dataset.slats}"]`)?.replaceWith(node));
       if (action) [...main.querySelectorAll('[data-action]')].find(node => node.dataset.action === action)?.focus({ preventScroll: true });
       this.layout = layout;
     }
-    main.querySelector('.slats')?.style.setProperty('--closed', position === null ? '0%' : `${100 - position}%`);
-    this.shadowRoot.querySelectorAll('nav button').forEach((button, i) => button.setAttribute('aria-current', i === this.page));
+    blinds.forEach(blind => main.querySelector(`[data-slats="${blind.key}"]`)
+      ?.style.setProperty('height', `${blind.position === null ? 0 : 100 - blind.position}%`));
+    this.shadowRoot.querySelectorAll('nav [data-page]').forEach(button =>
+      button.setAttribute('aria-current', Number(button.dataset.page) === this.page));
     this.tick();
   }
 
@@ -220,13 +375,20 @@ class HausOps extends HTMLElement {
   async click(event) {
     const button = event.target.closest('button');
     if (!button || button.disabled) return;
+    if (button.hasAttribute('data-settings')) { this.settings.open(); return; }
     if (button.dataset.page !== undefined) {
       this.page = Number(button.dataset.page);
       this.render();
       this.shadowRoot.querySelector('nav [aria-current=true]')?.focus({ preventScroll: true });
       return;
     }
-    if (this.busy || !button.dataset.action) return;
+    if (!button.dataset.action) return;
+    const step = /^climate-(plus|minus|cancel):(\d+)$/.exec(button.dataset.action);
+    if (step) {
+      this.climatePanel.change(Number(step[2]), {plus:1,minus:-1,cancel:0}[step[1]]);
+      return;
+    }
+    if (this.busy) return;
     const [kind, index] = button.dataset.action.split(':');
     const i = Number(index);
     this.busy = true;
@@ -241,7 +403,9 @@ class HausOps extends HTMLElement {
         }
         case 'vent':
           if (this.demo) this.demoLevel = i;
-          else await this.call(this.config.ventilation.entity, 'select_option', { option: this.options[i] });
+          else if (valid(this.state(trafo.buttons[i]))) await this.call(trafo.buttons[i], 'press');
+          else if (this.canSetLevel(i)) await this.call(this.legacyVent.entity, 'select_option',
+            { option: this.legacyVent.options[i] });
           break;
         case 'timer': {
           const seconds = this.remaining + 600;
@@ -255,7 +419,17 @@ class HausOps extends HTMLElement {
         }
         case 'cover':
           if (this.demo) this.demoPosition = i ? 100 : 0;
-          else await this.call(this.config.cover, i ? 'open_cover' : 'close_cover');
+          else if (this.canMoveCover(i)) {
+            const entity = this.coverTarget(i);
+            await this.call(entity, this.coverService(entity, i));
+          }
+          break;
+        case 'blind-select':
+        case 'blind-frame':
+          await this.selectBlind(index);
+          break;
+        case 'blind-command':
+          await this.moveBlinds(i);
           break;
         case 'switch':
           if (this.demo) this.demoSwitches[i] = !this.demoSwitches[i];
@@ -267,6 +441,161 @@ class HausOps extends HTMLElement {
     } finally {
       this.busy = false;
       this.render();
+    }
+  }
+}
+
+const trafo = {
+  entity: 'number.trafocurrentvolt',
+  buttons: ['input_button.trafo_button', 'input_button.trafo_button_80',
+    'input_button.trafo_button_150', 'input_button.trafo_button_175', 'input_button.trafo_button_230'],
+  volts: [0, 80, 150, 175, 230],
+};
+const settingsKey = 'haus_ops.entities';
+const blindCommands = [
+  ['Ab', 'close_cover', 2, 'ab', '↓'],
+  ['Stop', 'stop_cover', 8],
+  ['Auf', 'open_cover', 1, 'auf', '↑'],
+  ['Offen', 'set_cover_position', 4],
+  ['Halb', 'set_cover_position', 4],
+  ['Schatten', 'set_cover_position', 4],
+];
+const blindFields = [
+  ['wohnen', 'Wohnen', ['cover'], 'Rollo Wohnen', 'cover.rollo_wohnen'],
+  ['kueche', 'Küche', ['cover'], 'Rollo Küche', 'cover.rollo_kueche'],
+  ['terrasse', 'Terrasse', ['cover'], 'Rollo Terrasse', 'cover.rollo_terrasse'],
+];
+const entityFields = [
+  ['Sicherheit', [
+    ['access.0', 'Garagentor', ['binary_sensor', 'cover']],
+    ['access.1', 'Garagentür', ['binary_sensor']],
+    ['access.2', 'Türschloss', ['lock', 'binary_sensor']],
+    ['access.3', 'Haustür', ['binary_sensor']],
+    ['access.4', 'CA Fenster', ['binary_sensor']],
+    ['access.5', 'KU Fenster', ['binary_sensor']],
+    ['access.6', 'Terrasse', ['binary_sensor']],
+    ['access.7', 'AZ Fenster', ['binary_sensor']],
+  ]],
+  ['Lüftung', [
+    ['timer', 'Stoßlüftungstimer', ['timer']],
+  ]],
+  ['Rollos und Strom', [
+    ['cover_down', 'Alle Rollos ab', ['cover', 'button', 'input_button', 'script', 'scene', 'switch']],
+    ['cover_up', 'Alle Rollos auf', ['cover', 'button', 'input_button', 'script', 'scene', 'switch']],
+    ['cover', 'Cover-Gruppe für die Übersicht', ['cover']],
+    ...blindFields.map(([key, ...field]) => [`blinds.${key}`, ...field]),
+    ['blind_selection', 'Auswahl-Helfer (optional)', ['input_select']],
+    ['switches.0', 'TV Strom', ['switch']],
+    ['switches.1', 'Schreibtisch', ['switch']],
+  ]],
+  ...[...roomNames, 'Bad'].map((name, i) => [`Klima · ${name}`, [
+    [`climate.${i}`, name, ['sensor'], 'Temperatursensor'],
+    ...(!['Schlafzimmer','Bad'].includes(name) ? [
+      [`thermostats.${i}`, name, ['climate'], 'Thermostat'],
+      [`schedules.${i}`, name, ['sensor'], 'Zeitplan-Sensor'],
+      [`valves.${i}`, name, ['number','sensor'], 'Ventile (kommagetrennt)'],
+    ] : []),
+  ]]),
+  ['Klima · Heizungsaktionen', [
+    ['override_script', 'Übersteuerung starten', ['script']],
+    ['cancel_script', 'Übersteuerung beenden', ['script']],
+  ]],
+];
+const isTemperature = entity => entity.attributes.device_class === 'temperature'
+  || ['°C', '°F'].includes(entity.attributes.unit_of_measurement);
+
+class HausOpsSettings {
+  constructor(panel) { this.panel = panel; }
+
+  async load(hass) {
+    if (!hass?.callWS || this.loading) return;
+    this.loading = true;
+    try {
+      const { value } = await hass.callWS({ type: 'frontend/get_system_data', key: settingsKey });
+      this.panel.savedConfig = value ?? undefined;
+      this.panel.render();
+    } catch {
+      this.panel.notify('HAUS-OPS-Konfiguration konnte nicht geladen werden');
+    }
+  }
+
+  open() {
+    const panel = this.panel;
+    if (!panel.ha?.user?.is_admin || this.dialog?.open) return;
+    const config = panel.config ?? {};
+    const existing = key => {
+      const [group, index] = key.split('.');
+      const field = config[group];
+      if (group === 'blinds') return field?.find(item => item.key === index)?.entity;
+      if (group === 'valves') return field?.[roomNames[index]]?.join(', ');
+      if (index !== undefined) {
+        const label = entityFields.flatMap(([, fields]) => fields).find(([id]) => id === key)[1];
+        return (field ?? []).find(item => item.name === label)?.entity ?? '';
+      }
+      return field;
+    };
+    this.dialog = document.createElement('dialog');
+    this.dialog.className = 'settings';
+    this.dialog.innerHTML = `<style>
+      .settings{box-sizing:border-box;width:min(680px,96vw);height:min(680px,94dvh);max-height:94dvh;padding:0;overflow:hidden;border:2px solid #ff995f;border-radius:16px;background:#121014;color:#ffe3cd;font:16px system-ui;text-transform:none}
+      .settings form{height:100%;display:grid;grid-template-rows:auto minmax(0,1fr) auto auto}.settings .fields{overflow:auto;padding:0 18px}.settings::backdrop{background:#000b}.settings h2{margin:0;padding:14px 18px;color:#ff995f}.settings fieldset{margin:12px 0;border:1px solid #77617a;border-radius:10px;padding:10px}
+      .settings legend{color:#cd9bd0;font-weight:700}.settings label{display:grid;gap:4px;margin-bottom:8px}.settings input{min-height:44px;width:100%;max-width:100%;background:#26212b;color:#fff;border:1px solid #a19aff;border-radius:6px;padding:6px;font:inherit}
+      .settings .controls{background:#121014;padding:9px 18px;border-top:1px solid #77617a;display:flex;gap:8px;justify-content:flex-end}.settings button{min-height:48px;padding:0 14px;border-radius:8px}.settings [role=status]{color:#ffcc99;margin:0;padding:4px 18px}.settings [role=status]:empty{display:none}.settings [type=submit]{background:#ff995f;font-weight:800}
+    </style><form><h2>HAUS-OPS konfigurieren</h2><div class="fields">
+      ${entityFields.map(([title, fields]) => `<fieldset><legend>${title}</legend>${fields.map(([key, label, , caption]) =>
+        `<label>${caption ?? label}<input name="${key}" value="${escape(existing(key))}" placeholder="Entitäts-ID" spellcheck="false" autocapitalize="none"></label>`).join('')}
+        ${title === 'Rollos und Strom' ? blindFields.map(([key, label]) =>
+          `<label>Anzeigename · ${label}<input name="blind-name.${key}" maxlength="24" value="${escape(config.blinds?.find(item => item.key === key)?.name || label)}"></label>`).join('') +
+          blindCommands.slice(3).map(([label], index) =>
+            `<label>${label} · % geschlossen<input type="number" min="0" max="100" name="blind-preset.${index}" value="${escape(config.blind_presets?.[index] ?? [0, 50, 80][index])}"></label>`).join('') : ''}
+        ${title === 'Lüftung' ? '<p>Stufensteuerung über Trafo-Helfer</p>' : ''}</fieldset>`).join('')}
+      </div><p role="status"></p><div class="controls"><button type="button" data-cancel>Abbrechen</button><button type="submit">OK</button></div></form>`;
+    const form = this.dialog.querySelector('form');
+    this.dialog.querySelector('[data-cancel]').onclick = () => this.dialog.close();
+    this.dialog.addEventListener('close', () => this.dialog.remove(), { once: true });
+    form.addEventListener('submit', event => {
+      event.preventDefault();
+      this.save(form);
+    });
+    panel.shadowRoot.append(this.dialog);
+    this.dialog.showModal();
+  }
+
+  async save(form) {
+    const data = new FormData(form);
+    const submit = form.querySelector('[type=submit]');
+    const status = form.querySelector('[role=status]');
+    const next = { ventilation: this.panel.config?.ventilation, blinds: blindFields.map(([key, label]) => ({ key, name: data.get(`blind-name.${key}`)?.trim() || label })),
+      blind_presets: [0, 50, 80].map((fallback, index) => {
+        const value = data.get(`blind-preset.${index}`);
+        return value ? Number(value) : fallback;
+      }), access: [], switches: [], climate: [], thermostats: [], schedules: [], valves: {} };
+    for (const [, fields] of entityFields) {
+      for (const [key, name, domains] of fields) {
+        const entity = data.get(key)?.trim();
+        if (!entity) continue;
+        const [group, index] = key.split('.');
+        const ids = group === 'valves' ? entity.split(',').map(id => id.trim()).filter(Boolean) : [entity];
+        if (!ids.length || ids.some(id => !domains.includes(id.split('.')[0]) || !this.panel.ha.states[id])) {
+          status.textContent = `${name}: Bitte eine vorhandene passende Entitäts-ID eingeben.`;
+          return;
+        }
+        if (group === 'valves') next.valves[name] = ids;
+        else if (group === 'blinds') next.blinds.find(blind => blind.key === index).entity = entity;
+        else if (index !== undefined) next[group].push({ name, entity });
+        else next[group] = entity;
+      }
+    }
+    submit.disabled = true;
+    try {
+      await this.panel.ha.callWS({ type: 'frontend/set_system_data', key: settingsKey, value: next });
+      this.panel.savedConfig = next;
+      this.panel.render();
+      this.dialog.close();
+      this.panel.notify('Konfiguration gespeichert');
+    } catch {
+      status.textContent = 'Speichern fehlgeschlagen. Bitte erneut versuchen.';
+      submit.disabled = false;
     }
   }
 }
