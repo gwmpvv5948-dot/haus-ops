@@ -1,0 +1,29 @@
+panel_custom:
+  - name: haus-ops
+    sidebar_title: HAUS-OPS
+    sidebar_icon: mdi:monitor-dashboard
+    url_path: haus-ops
+    module_url: /local/haus-ops.js?v=1
+    config:
+      access:
+        - { name: Garagentor, entity: binary_sensor.garagentor }
+        - { name: Garagentür, entity: binary_sensor.garagentuer }
+        - { name: Türschloss, entity: lock.haustuer }
+        - { name: Haustür, entity: binary_sensor.haustuer }
+        - { name: CA Fenster, entity: binary_sensor.ca_fenster }
+        - { name: KU Fenster, entity: binary_sensor.ku_fenster }
+        - { name: Terrasse, entity: binary_sensor.terrasse }
+        - { name: AZ Fenster, entity: binary_sensor.az_fenster }
+      ventilation:
+        entity: input_select.lueftungsstufe
+        options: ["Aus", "Low", "1", "2", "Max"]
+      timer: timer.stosslueftung
+      cover: cover.alle_rollos
+      switches:
+        - { name: TV Strom, entity: switch.tv_strom }
+        - { name: Schreibtisch, entity: switch.schreibtisch }
+      climate:
+        - { name: Schlafzimmer, entity: sensor.schlafzimmer_temperatur }
+        - { name: Wohnzimmer, entity: sensor.wohnzimmer_temperatur }
+        - { name: Bad, entity: sensor.bad_temperatur }
+        - { name: Flur, entity: sensor.flur_temperatur }
