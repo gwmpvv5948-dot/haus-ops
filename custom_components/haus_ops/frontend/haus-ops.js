@@ -1,9 +1,9 @@
-import { LightPanel } from './light-panel.js?v=1.6.13';
-import { CircuitsPanel } from './circuits-panel.js?v=1.6.13';
-import { OverviewPanel, overviewFields } from './overview-panel.js?v=1.6.13';
-import { MusicPanel, musicFields } from './music-panel.js?v=1.6.13';
-import { WaterPanel, waterFields } from './water-panel.js?v=1.6.13';
-import { energyFields, energyView } from './energy-panel.js?v=1.6.13';
+import { LightPanel } from './light-panel.js?v=1.6.14';
+import { CircuitsPanel } from './circuits-panel.js?v=1.6.14';
+import { OverviewPanel, overviewFields } from './overview-panel.js?v=1.6.14';
+import { MusicPanel, musicFields } from './music-panel.js?v=1.6.14';
+import { WaterPanel, waterFields } from './water-panel.js?v=1.6.14';
+import { energyFields, energyView } from './energy-panel.js?v=1.6.14';
 import { ClimatePanel, roomNames } from './climate-panel.js';
 const antonio = new FontFace('Antonio', `url("${new URL('./Antonio.ttf', import.meta.url).href}")`, {
   weight: '400 700',
@@ -82,7 +82,7 @@ class HausOps extends HTMLElement {
     if (!this.shadowRoot) {
       this.attachShadow({ mode: 'open' });
       this.shadowRoot.innerHTML = `
-        <link rel="stylesheet" href="${new URL('./haus-ops.css?v=1.6.13', import.meta.url)}">
+        <link rel="stylesheet" href="${new URL('./haus-ops.css?v=1.6.14', import.meta.url)}">
         <div class="stage"><div class="frame">
           <div class="brand">LCARS 77</div>
           <header><span class="rail"></span><strong>HAUS-OPS</strong><time></time><span class="cap"></span></header>
@@ -797,7 +797,7 @@ class HausOps extends HTMLElement {
     if (!button.dataset.action) return;
     if (button.dataset.action.startsWith('music-')) {
       const [action, value] = button.dataset.action.slice(6).split(':');
-      await this.music.act(action, Number(value));
+      await this.music.act(action, action === 'sonos' ? value : Number(value));
       return;
     }
     const step = /^climate-(plus|minus|cancel):(\d+)$/.exec(button.dataset.action);
@@ -994,11 +994,13 @@ class HausOpsSettings {
         <label>Eine Entitäts-ID pro Zeile. Ergänze oder entferne Leuchten direkt in der Liste.
           <textarea name="light-selection" rows="8" spellcheck="false" autocapitalize="none">${escape((config.light_selection_saved ? config.lights : panel.lightsPanel.lights().map(light=>light.id)).join('\n'))}</textarea>
         </label>
+        <button type="button" data-fill-entities="light-selection">Fehlende Entitäten hinzufügen</button>
       </fieldset>
       <fieldset><legend>Stromkreise</legend>
         <label>Eine Schalter- oder Leuchten-ID pro Zeile. Ergänze oder entferne Entitäten direkt in der Liste.
           <textarea name="circuit-include" rows="8" spellcheck="false" autocapitalize="none" ${circuitSelectionPending ? 'disabled' : ''}>${escape(circuitSelection.join('\n'))}</textarea>
         </label>
+        <button type="button" data-fill-entities="circuit-include" ${circuitSelectionPending ? 'disabled' : ''}>Fehlende Entitäten hinzufügen</button>
         ${circuitSelectionPending ? '<p>Für die bisherige Label-Auswahl muss die HA-Registry geladen sein. Öffne die Einstellungen danach erneut.</p>' : ''}
         <label>Geschützte Entitäten (kommagetrennt)<input name="circuit-protected" value="${escape(config.circuits?.protected?.join(', '))}" spellcheck="false"></label>
         <label>Leistungssensoren (Schalter = Sensor, kommagetrennt)<input name="circuit-power" value="${escape(Object.entries(config.circuits?.power ?? {}).map(pair => pair.join(' = ')).join(', '))}" spellcheck="false"></label>
@@ -1014,6 +1016,24 @@ class HausOpsSettings {
         ${title === 'Lüftung' ? '<p>Stufensteuerung über Trafo-Helfer</p>' : ''}</fieldset>`).join('')}
       </div><p role="status"></p><div class="controls"><button type="button" data-cancel>Abbrechen</button><button type="submit">OK</button></div></form>`;
     const form = this.dialog.querySelector('form');
+    form.querySelectorAll('[data-fill-entities]').forEach(button => {
+      button.onclick = () => {
+        const field = form.elements.namedItem(button.dataset.fillEntities);
+        const ids = new Set(field.value.split(/[\s,]+/).filter(Boolean));
+        const discovered = panel.overview.discoveredLights();
+        if (field.name === 'circuit-include') {
+          discovered.push(...Object.keys(panel.ha?.states ?? {}).filter(id => id.startsWith('switch.')).sort());
+        }
+        const missing = discovered.filter(id => !ids.has(id));
+        if (missing.length) {
+          const separator = field.value && !field.value.endsWith('\n') ? '\n' : '';
+          field.value += separator + missing.join('\n');
+          field.scrollTop = field.scrollHeight;
+        }
+        form.querySelector('[role=status]').textContent = missing.length
+          ? `${missing.length} Entitäten ergänzt.` : 'Alle erkannten Entitäten sind bereits enthalten.';
+      };
+    });
     this.dialog.querySelector('[data-cancel]').onclick = () => this.dialog.close();
     this.dialog.addEventListener('close', () => this.dialog.remove(), { once: true });
     form.addEventListener('submit', event => {

@@ -63,6 +63,31 @@ export class MusicPanel {
       groupMembers(players[1]).includes(this.id(rooms[0]));
   }
 
+  loadFavorites(entity, ready) {
+    this.sonosFavorites ??= new Map();
+    const cache = this.sonosFavorites.get(entity);
+    if (!ready || !this.panel.ha?.callWS || cache?.loading || cache?.until > Date.now()) return cache;
+    const result = {...cache, loading:true};
+    this.sonosFavorites.set(entity,result);
+    const browse = (type,id='') => this.panel.ha.callWS({
+      type:'media_player/browse_media',entity_id:entity,media_content_type:type,media_content_id:id,
+    });
+    browse('favorites').then(async root => {
+      const children = root.children ?? [];
+      const folders = children.filter(item=>item.media_content_type==='favorites_folder' && item.can_expand);
+      const pages = await Promise.allSettled(folders.map(item=>browse(item.media_content_type,item.media_content_id)));
+      const entries = [...children,...pages.flatMap(page=>page.status==='fulfilled'?page.value.children ?? []:[])];
+      result.items = [...new Map(entries.filter(item=>item.can_play&&item.media_content_type==='favorite_item_id')
+        .map(item=>[item.media_content_id,item])).values()];
+      result.error = pages.some(page=>page.status==='rejected');
+    }).catch(()=>{result.error=true;}).finally(()=>{
+      result.loading = false;
+      result.until = Date.now()+(result.error?30000:60000);
+      this.panel.render();
+    });
+    return result;
+  }
+
   view() {
     const players = this.players();
     const index = this.selected();
@@ -84,6 +109,7 @@ export class MusicPanel {
     const standard = players.map((item,i) => !available(item) ? names[i] + ' nicht erreichbar'
       : names[i] + (item.state === 'playing' ? ' spielt ' + (item.attributes.media_title ?? '') : item.state === 'paused' ? ' pausiert' : ' in Ruhe')).join(' · ');
     const radio = this.id('radio');
+    const sonos = this.loadFavorites(this.id(rooms[index]), !this.panel.demo && available(player));
     return {
       status: flash?.text ?? (standard + (grouped ? ' · Gruppe aktiv' : '')),
       tone: flash ? flash.error ? 'error' : 'ok' : players.some(item=>!available(item)) ? 'offline' : '',
@@ -95,8 +121,8 @@ export class MusicPanel {
             <span>${escape(item?.attributes?.media_title || (!available(item) ? 'Keine Verbindung' : ''))}</span></button>
             <button class="music-room-play" data-action="music-room-play:${i}" aria-label="${names[i]} ${item?.state==='playing'?'pausieren':'abspielen'}"
               ${supported(item,item?.state==='playing'?1:16384)?'':'disabled'}>${transportIcon(item?.state==='playing'?'pause':'play')}</button></div>`).join('')}
-          ${band('Shortcut','--pink')}
-          <button class="music-radio ${flash?.radio?'flashing':''}" data-action="music-radio" ${this.panel.demo || available(this.panel.state(radio))?'':'disabled'}>Radio</button>
+          <div class="music-shortcut-heading">${band('Shortcut','--pink')}</div>
+          <button class="music-radio ${flash?.radio?'flashing':''}" data-action="music-radio" ${this.panel.demo || available(this.panel.state(radio))?'':'disabled'}>Radio<small>in Küche</small></button>
           <button class="music-group" data-action="music-group" aria-pressed="${grouped}"
             ${available(players[1]) && (grouped ? supported(players[1],524288) : supported(players[0],524288))?'':'disabled'}>${grouped?'Gruppe lösen':players.some(item=>!available(item))?'Verbinden · Raum offline':'Räume verbinden'}</button>
         </section>
@@ -124,10 +150,9 @@ export class MusicPanel {
             <button data-action="music-mute" aria-pressed="${Boolean(muted)}" ${supported(player,8)?'':'disabled'}>Mute</button>
           </div>
           ${band('Favoriten','--sand')}
-          <div class="music-favorites">${favorites.map(([key,label],i)=>{
-            const id = this.id(key) || (i===0 ? radio : '');
-            return `<button data-action="music-favorite:${i}" ${this.panel.demo || (id && available(this.panel.state(id)))?'':'disabled'}>${label}</button>`;
-          }).join('')}</div>
+          <div class="music-favorites"> ${this.panel.demo ? favorites.map(([,label])=>`<button disabled>${label}</button>`).join('')
+            : sonos?.items?.length ? sonos.items.map(item=>`<button data-action="music-sonos:${encodeURIComponent(item.media_content_id)}" title="${escape(item.title)}" ${available(player)?'':'disabled'}>${escape(item.title)}</button>`).join('')
+            : `<small>${!available(player)?'Raum offline':sonos?.loading?'Favoriten werden geladen …':sonos?.error?'Favoriten konnten nicht geladen werden':'Keine Sonos-Favoriten verfügbar'}</small>`}</div>
         </section></section>`,
     };
   }
@@ -173,9 +198,14 @@ export class MusicPanel {
     const targets = (grouped ? [0,1] : [index]).filter(i=>available(players[i]));
     try {
       if (action === 'room') await this.select(amount);
-      else if (action === 'radio' || action === 'favorite') {
-        const radio = action === 'radio' ? this.id('radio')
-          : this.id(favorites[amount][0]) || (amount === 0 ? this.id('radio') : '');
+      else if (action === 'sonos') {
+        const entity = this.id(rooms[index]);
+        const favorite = this.sonosFavorites?.get(entity)?.items?.find(item=>encodeURIComponent(item.media_content_id)===amount);
+        if (!favorite || !available(selected)) return;
+        await panel.call(entity,'play_media',{media_content_type:favorite.media_content_type,media_content_id:favorite.media_content_id});
+        this.message(favorite.title+' · '+names[index]);
+      } else if (action === 'radio') {
+        const radio = this.id('radio');
         if (!radio) return;
         if (!panel.demo) await panel.call(radio, radio.startsWith('input_button.') ? 'press' : 'turn_on');
         this.message(radio+' ausgelöst',false,true);

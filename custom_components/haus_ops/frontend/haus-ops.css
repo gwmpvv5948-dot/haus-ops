@@ -658,3 +658,7 @@ footer .rail[data-music-tone=error]{background:var(--red)}
 .light-group-label{background:var(--room-color);border-radius:0 0 5px 5px;color:#000;text-align:center;font-size:8px;line-height:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .light-data i{display:block;font-style:normal}
 .music-transport-icon{display:inline-block;width:22px;height:22px;vertical-align:middle;fill:currentColor;pointer-events:none}
+.music-shortcut-heading{margin-top:6px}
+.music-radio small{display:block;font-size:10px;line-height:1;text-transform:none}
+.music-favorites{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(90px,1fr);grid-template-columns:none;overflow-x:auto;scrollbar-width:none}
+.music-favorites button{white-space:nowrap}
