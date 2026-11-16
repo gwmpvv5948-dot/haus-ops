@@ -7,7 +7,8 @@ const defaults = {
 const rooms = ['esszimmer', 'arbeitszimmer'];
 const names = ['Esszimmer', 'Arbeitszimmer'];
 export const musicFields = Object.entries(defaults).map(([key, id], index) =>
-  ['music.' + key, [...names, 'Radio-Script', 'Raumauswahl'][index], [id.split('.')[0]]]);
+  ['music.' + key, [...names, 'Radio-Shortcut (Helfer oder Script)', 'Raumauswahl'][index],
+    key === 'radio' ? ['input_button', 'script'] : [id.split('.')[0]]]);
 const escape = value => String(value ?? '').replace(/[&<>"']/g, character =>
   ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[character]);
 const band = (title, color) => `<h2 class="band" style="--band:var(--${color})">${escape(title)}</h2>`;
@@ -148,8 +149,9 @@ export class MusicPanel {
     try {
       if (action === 'room') await this.select(amount);
       else if (action === 'radio') {
-        if (!panel.demo) await panel.call(this.id('radio'),'turn_on');
-        this.message(this.id('radio')+' ausgeführt',false,true);
+        const radio = this.id('radio');
+        if (!panel.demo) await panel.call(radio, radio.startsWith('input_button.') ? 'press' : 'turn_on');
+        this.message(radio+' ausgelöst',false,true);
         await this.select(0);
       } else if (!panel.demo) {
         if (action === 'group') {

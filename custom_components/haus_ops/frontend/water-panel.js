@@ -1,7 +1,8 @@
 const sensors = {
   meter: ['Wasserzähler', 'sensor.wasserzaehler'],
-  today: ['Verbrauch heute', 'sensor.wasser_taeglich'],
-  year: ['Verbrauch seit Januar', 'sensor.wasser_jaehrlich'],
+  today: ['Verbrauch heute', 'sensor.wassermanager_verbrauch_heute'],
+  year: ['Verbrauch seit Januar', 'sensor.wassermanager_verbrauch_seit_januar'],
+  average: ['Durchschnitt 14 Tage', 'sensor.wassermanager_durchschnitt_14_tage'],
   flow: ['Durchfluss (L/min)', 'sensor.wasser_durchfluss'],
   leak: ['Dauerfluss-Warnung', 'binary_sensor.wasser_dauerfluss'],
 };
@@ -25,7 +26,7 @@ export class WaterPanel {
     const panel = this.panel;
     const entity = this.entity('today');
     const source = panel.state(entity);
-    if (panel.demo || !panel.ha?.callApi || !source) return;
+    if (panel.demo || !panel.ha?.callApi || !source || source.attributes.daily_liters) return;
     const key = entity + '/' + dayKey(today);
     if (this.historyKey === key && Date.now() < this.nextFetch) return;
     if (this.historyKey !== key) this.history = [];
@@ -131,16 +132,19 @@ export class WaterPanel {
       this.live = [];
     }
     if (Number.isFinite(used) && this.live.at(-1)?.[1] !== used) this.live.push([minute(now), used]);
+    const published = this.panel.state(this.entity('today'))?.attributes;
     const previous = Array.from({length: 13}, (_, index) => {
       const date = new Date(midnight);
       date.setDate(date.getDate() - 13 + index);
-      return [weekdays.format(date).replace('.', ''), demo ? demoDays[index] : days.get(dayKey(date))];
+      return [weekdays.format(date).replace('.', ''), demo ? demoDays[index] : published?.daily_liters?.[dayKey(date)] ?? days.get(dayKey(date))];
     });
     const available = previous.map(([, value]) => value).filter(Number.isFinite);
-    const average = available.length ? available.reduce((sum, value) => sum + value, 0) / available.length : NaN;
+    const publishedAverage = read('average', true);
+    const average = !demo && Number.isFinite(publishedAverage) ? publishedAverage
+      : available.length ? available.reduce((sum, value) => sum + value, 0) / available.length : NaN;
     const maximum = Math.max(260, Number.isFinite(used) ? used : 0, ...available);
     const trend = demo ? [[60,54],[330,62],[415,96],[430,100],[500,107]] :
-      [...points, ...this.live].sort((a,b) => a[0]-b[0]);
+      [...(published?.today_points ?? points), ...this.live].sort((a,b) => a[0]-b[0]);
     const status = alarm ? 'Warnung · Dauerfluss erkannt · Leck prüfen' : stale ? 'Zähler keine Daten'
       : flowing ? `Wasser fließt · ${format(flow,1)} L/min` : `Wasser OK · heute ${format(used)} L · Ø ${format(average)} L`;
     return {
