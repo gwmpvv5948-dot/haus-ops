@@ -295,7 +295,7 @@ class HausOps extends HTMLElement {
   render() {
     const main = this.shadowRoot?.querySelector('main');
     if (!main) return;
-    const energy = this.page === energyPageIndex ? energyView(this) : null;
+    const energy = this.page === energyPageIndex ? energyView(this, this.engineeringMode) : null;
     const canConfigure = Boolean(this.ha?.user?.is_admin);
     this.shadowRoot.querySelector('[data-settings]').hidden = !canConfigure || Boolean(energy);
     this.shadowRoot.querySelector('[data-nav-spacer]').hidden = canConfigure || Boolean(energy);
@@ -312,6 +312,10 @@ class HausOps extends HTMLElement {
     const level = this.level;
     const voltage = !this.demo && Number.isFinite(this.volts) ? `${this.volts.toLocaleString('de-DE')} V` : '';
     const ventLabel = level >= 0 ? 'Stufe ' + levels[level] : voltage || 'Keine Daten';
+    const showCountdown = (this.demo || this.timer?.state === 'active') && this.remaining > 0;
+    const ventSummary = showCountdown
+      ? `${levels[level] ?? voltage} <span data-countdown></span>`.trim()
+      : ventLabel;
     const blind = this.cover;
     const blindLabel = this.demo ? (this.demoPosition ? 'Geöffnet' : 'Geschlossen')
       : ({ opening: 'Fährt auf', closing: 'Fährt ab', open: 'Offen', closed: 'Geschlossen' })[blind?.state] ?? 'Keine Daten';
@@ -332,7 +336,7 @@ class HausOps extends HTMLElement {
             ${segments(accesses.map(item => item.open === undefined ? null : item.open ? '--red' : '--purple'))}
           </button></section>
           <section style="gap:5px">${band('Hauslüftung', '--pink')}
-            <button class="summary vent-open" style="flex:0 0 auto;min-height:46px" data-page="2"><span class="row vent-summary"><strong class="big">${ventLabel}</strong></span></button>
+            <button class="summary vent-open" style="flex:0 0 auto;min-height:46px" data-page="2"><span class="row vent-summary"><strong class="big">${ventSummary}</strong></span></button>
             <span style="min-height:20px;line-height:20px">Aus · Low · 1 · 2 · Max</span>
             <div class="segments vent-controls" role="group" aria-label="Lüftungsstufen">${levels.map((name, i) =>
               `<button data-action="vent:${i}" aria-label="${name}" aria-pressed="${i === level}" ${this.canSetLevel(i) ? '' : 'disabled'} style="background:${i === level && i > 0 ? 'var(--peach)' : '#262626'};min-width:0;flex:1;height:14px;border-radius:1px;padding:0"></button>`).join('')}</div>
@@ -392,9 +396,24 @@ class HausOps extends HTMLElement {
     }
     const flows = [...main.querySelectorAll('[data-energy-flow]')];
     const slats = [...main.querySelectorAll('[data-slats]')];
+    if (this.layout !== layout && energy && this.engineeringMode && main.querySelector('.engineering')) {
+      const template = document.createElement('template');
+      template.innerHTML = layout;
+      for (const selector of ['.eng-data', '.eng-details', '.eng-bottom']) {
+        main.querySelector(selector).replaceWith(template.content.querySelector(selector));
+      }
+      for (const node of main.querySelectorAll('[data-eng-motion]')) {
+        const next = template.content.querySelector(`[data-eng-motion="${node.dataset.engMotion}"]`);
+        node.setAttribute('class', next.getAttribute('class'));
+        if (node.matches('svg')) node.style.setProperty('--period', next.style.getPropertyValue('--period'));
+        else node.querySelector('span').textContent = next.querySelector('span').textContent;
+      }
+      this.layout = layout;
+    }
     if (this.layout !== layout) {
       const focused = this.shadowRoot.activeElement;
       const action = main.contains(focused) && focused.dataset.action;
+      const modeFocused = main.contains(focused) && focused.hasAttribute('data-energy-mode');
       main.innerHTML = layout;
       flows.forEach(node => {
         const next = main.querySelector(`[data-energy-flow="${node.dataset.energyFlow}"]`);
@@ -405,6 +424,7 @@ class HausOps extends HTMLElement {
         next.replaceWith(node);
       });
       slats.forEach(node => main.querySelector(`[data-slats="${node.dataset.slats}"]`)?.replaceWith(node));
+      if (modeFocused) main.querySelector('[data-energy-mode]')?.focus({ preventScroll: true });
       if (action) [...main.querySelectorAll('[data-action]')].find(node => node.dataset.action === action)?.focus({ preventScroll: true });
       this.layout = layout;
     }
@@ -430,6 +450,12 @@ class HausOps extends HTMLElement {
     const button = event.target.closest('button');
     if (!button || button.disabled) return;
     if (button.hasAttribute('data-settings')) { this.settings.open(); return; }
+    if (button.hasAttribute('data-energy-mode')) {
+      this.engineeringMode = !this.engineeringMode;
+      this.render();
+      this.shadowRoot.querySelector('[data-energy-mode]')?.focus({ preventScroll: true });
+      return;
+    }
     if (button.dataset.page !== undefined) {
       this.page = Number(button.dataset.page);
       this.render();

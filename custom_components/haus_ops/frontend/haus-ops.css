@@ -216,3 +216,61 @@ footer .rail.blind-error{background:#3a1713;color:var(--red)}
 nav [data-frequency]{background:var(--pink)}
 nav [data-frequency][hidden]{display:none}
 nav [data-page="6"][aria-current=true]{background:var(--peach)!important;color:#000}
+
+.eng-heading{display:flex;align-items:center;gap:8px;min-width:0}
+.eng-heading h2{flex:1;min-width:0}
+.eng-heading button{flex:none;min-height:32px;border-radius:16px;padding:0 12px;background:var(--purple);color:#000;font-size:13px}
+.engineering{gap:6px;min-height:0;user-select:none;letter-spacing:.03em;color:var(--peach)}
+.eng-rail{display:flex;align-items:center;gap:6px;margin:0;line-height:22px;font-size:17px;white-space:nowrap}
+.eng-rail::before,.eng-rail::after{content:"";height:16px;background:var(--purple)}
+.eng-rail::before{width:15px;border-radius:12px 0 0 12px}
+.eng-rail::after{flex:1;border-radius:0 12px 12px 0;background:linear-gradient(to left,var(--purple) 14px,#000 14px 18px,var(--peach) 18px)}
+.eng-body{display:grid;grid-template-columns:minmax(0,1fr) 170px minmax(0,1.15fr);gap:8px;flex:1;min-height:0}
+.eng-data,.eng-details{display:flex;flex-direction:column;gap:3px;min-width:0}
+.eng-data h3{font-size:14px;color:var(--blue);margin:0}
+.eng-data h3:not(:first-child){margin-top:5px}
+.eng-row{display:grid;grid-template-columns:82px minmax(0,1fr);align-items:center;gap:5px;min-height:20px;font-size:14px;white-space:nowrap}
+.eng-row b{text-align:right;background:var(--sand);color:#000;padding:2px 5px;font-size:11px}
+.eng-row:nth-child(3n) b{background:var(--blue)}
+.eng-row:nth-child(3n + 1) b{background:var(--purple)}
+.engineering .eng-missing{background:var(--red)}
+.eng-diagram{position:relative;min-height:0}
+.eng-core{position:absolute;top:0;left:50%;height:100%;width:112px;transform:translateX(-50%)}
+.eng-cap{fill:var(--peach)}
+.eng-tracks{stroke:#3a516e;stroke-width:4}
+.eng-bridges{stroke:var(--blue);stroke-width:5}
+.eng-segment,.eng-ring{animation:eng-wave var(--period) linear infinite}
+.eng-segment{animation-delay:calc(var(--period) * var(--segment) / 9 - var(--period))}
+.eng-core.charging .lower{animation-delay:calc(var(--period) * (6 - var(--segment)) / 9 - var(--period))}
+.eng-core.standby .eng-segment{opacity:.55}
+.eng-ring{fill:#000;stroke:var(--blue);stroke-width:5;animation-name:eng-ring}
+.eng-core text{fill:var(--peach);font-size:14px;text-anchor:middle;dominant-baseline:central}
+@keyframes eng-wave{0%,100%{fill:#dff2ff}35%{fill:var(--blue)}75%{fill:#283953}}
+@keyframes eng-ring{50%{stroke:#f3f9ff}}
+.eng-line{position:absolute;display:grid;width:calc(50% - 33px);gap:3px;color:var(--blue);font-size:12px}
+.eng-line i{height:9px;background:#2a2a2a}
+.eng-line.flowing i{background:repeating-linear-gradient(90deg,var(--blue) 0 14px,#1d3347 14px 20px);animation:eng-flow .5s linear infinite}
+.eng-line.reverse i{animation-direction:reverse}
+.eng-solar,.eng-house{top:22%}
+.eng-battery,.eng-grid{top:69%}
+.eng-line.eng-house,.eng-line.eng-grid{right:0}
+@keyframes eng-flow{to{background-position:20px 0}}
+.eng-details{justify-content:space-between;padding:4px 0}
+.eng-details article header{gap:3px;align-items:stretch;white-space:nowrap;color:#000;font-size:11px}
+.eng-details article header>*{background:var(--source);padding:2px 7px}
+.eng-details article header>b:first-child{border-radius:12px 0 0 12px}
+.eng-details article header>b:last-child{border-radius:0 12px 12px 0}
+.eng-details article header i{flex:1;padding:0}
+.eng-details .eng-house{--source:var(--sand)}
+.eng-details .eng-grid{--source:var(--blue)}
+.eng-details article>strong{font-size:38px;line-height:1.12;color:var(--sand)}
+.eng-details article small,.eng-ratios span{font-size:19px;color:var(--peach)}
+.eng-details article div{font-size:12px}
+.eng-ratios b{border-radius:12px}
+.eng-bottom{flex-direction:row-reverse}
+.eng-bottom::after{border-radius:0;background:var(--peach)}
+.eng-bottom::before{border-radius:0 12px 12px 0}
+@media(prefers-reduced-motion:reduce){
+  .eng-segment,.eng-ring,.eng-line.flowing i{animation:none}
+  .eng-segment{fill:var(--blue)}
+}
