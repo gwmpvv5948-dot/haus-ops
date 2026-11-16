@@ -2,19 +2,19 @@ const groups = {
   solar: ['pv_ost_power', 'pv_west_power', 'pv_garage_power', 'pv_schuppen_power'],
   battery: ['battery_power', 'battery_soc', 'battery_energy', 'battery_temperature'],
   grid: ['grid_power', 'grid_frequency', 'grid_voltage_l1', 'grid_voltage_l2', 'grid_voltage_l3'],
-  house: ['house_power_l1', 'house_power_l2', 'house_power_l3'],
+  house: ['house_power'],
   daily: ['solar_energy_today', 'house_energy_today', 'grid_import_today', 'grid_export_today', 'battery_charge_today', 'battery_discharge_today'],
   engineering: ['battery_voltage', 'inverter_status'],
   loads: ['wama_power', 'spueli_power', 'hvac_power', 'ev_power'],
 };
-export const energyFields = Object.values(groups).flat().map(key => ['energy.' + key, key, ['sensor']]);
+export const energyFields = Object.values(groups).flat().map(key => ['energy.' + key, key === 'house_power' ? 'Hausverbrauch gesamt' : key, ['sensor']]);
 const known = Number.isFinite;
 const fmt = (value, digits = 0) => known(value) ? value.toLocaleString('de-DE', {minimumFractionDigits:digits, maximumFractionDigits:digits}) : '—';
 const power = value => Math.abs(value) >= 1000 ? fmt(Math.abs(value)/1000, 2) + ' kW' : fmt(Math.abs(value)) + ' W';
 const sum = values => values.every(known) ? values.reduce((a,b) => a+b,0) : NaN;
 const ratio = (part, total) => known(part) && total > 0 ? Math.max(0, Math.min(100, 100*(1-part/total))) : NaN;
 const band = (label, color) => `<h2 class="band" style="--band:var(--${color})">${label}</h2>`;
-const demo = {solar:[0,0,0,0],battery:[0,24,1.2,39.6],grid:[-280,49.97,237,235,238],house:[22,112,146],daily:[10.3,22.9,13.4,.1,4.2,3.2],engineering:[748.7,NaN],loads:[0,1,2,0]};
+const demo = {solar:[0,0,0,0],battery:[0,24,1.2,39.6],grid:[-280,49.97,237,235,238],house:[280],daily:[10.3,22.9,13.4,.1,4.2,3.2],engineering:[748.7,NaN],loads:[0,1,2,0]};
 
 export function energyView(panel, engineering = false) {
   const read = key => {
@@ -24,17 +24,16 @@ export function energyView(panel, engineering = false) {
     return /_power(?:_l[123])?$/.test(key) && unit === 'kW' ? value*1000
       : (key.endsWith('_today') || key === 'battery_energy') && unit === 'Wh' ? value/1000 : value;
   };
-  const [pv,[battery,soc,stored,temp],[rawGrid,hz,...volts], phases,[yieldToday,use,imp,exp,charge,discharge],[batteryVoltage],loads] =
+  const [pv,[battery,soc,stored,temp],[rawGrid,hz,...volts], [house],[yieldToday,use,imp,exp,charge,discharge],[batteryVoltage],loads] =
     Object.entries(groups).map(([group, keys]) => panel.demo ? (engineering ? engineeringDemo[group] ?? demo[group] : demo[group]) : keys.map(read));
   const solar = sum(pv.map(value => Math.max(0,value)));
   const grid = -rawGrid;
-  const house = sum(phases);
   if (engineering) {
     const inverter = panel.demo ? 'running' : panel.state(
       panel.config?.energy?.inverter_status || 'sensor.inverter_status'
     )?.state?.trim().toLowerCase();
     return engineeringView({
-      pv, solar, battery, batteryVoltage, soc, temp, grid, hz, volts, phases, house,
+      pv, solar, battery, batteryVoltage, soc, temp, grid, hz, volts, house,
       yieldToday, use, imp, exp, charge, discharge, inverter,
     }, panel.demo);
   }
@@ -61,7 +60,7 @@ export function energyView(panel, engineering = false) {
     ${source('Solar','solar',solar,solar>0?'Erzeugt':panel.state('sun.sun')?.state==='above_horizon'?'Inaktiv':'Nacht',`Ost ${fmt(pv[0])} · West ${fmt(pv[1])}<br>Garage ${fmt(pv[2])} · Schuppen ${fmt(pv[3])} W`)}
     ${source('Akku','battery',battery,battery>0?'Entlädt':battery<0?'Lädt':'Ruht',`<div class="energy-soc" style="--soc:${soc<20?'var(--red)':'var(--battery)'}">${Array.from({length:10},(_,i)=>`<i class="${soc >= (i+1)*10?'filled':''}"></i>`).join('')}</div>${fmt(soc)} % · ${fmt(stored,2)} kWh · ${fmt(temp,1)}°`)}
     ${source('Netz','purple',grid,grid>0?'Bezug':grid<0?'Einspeisung':'Ruht',`DREWAG<br>${volts.map(v=>fmt(v)).join(' · ')} V`)}
-    ${source('Haus','peach',house,'Verbrauch',phases.map((v,i)=>`L${i+1} ${fmt(v)}`).join(' · ')+' W')}</div>
+    ${source('Haus','peach',house,'Verbrauch',`Heute ${fmt(use,1)} kWh`)}</div>
     ${band('Hausversorgung','purple')}<div class="energy-flow">${segments}${supplied > 0 ? '' : known(supplied) ? 'Keine Last' : 'Keine Daten'}</div>
     ${band('Bilanz heute','pink')}<div class="energy-balance">${balance.map(([name,color,primary,secondary])=>`<article style="--source:var(--${color})"><small>${name}</small><div>${primary} <span>${secondary}</span></div></article>`).join('')}</div>
     <div class="energy-loads">${['Wama','Spüli','HVAC','EV'].map((name,i)=>`<span class="${loads[i]>5?'active':''}">${name}<strong>${power(loads[i])}</strong></span>`).join('')}</div></section>`};
@@ -69,11 +68,11 @@ export function energyView(panel, engineering = false) {
 
 const engineeringDemo = {
   solar:[1800,1500,600,400], battery:[-1800,63,1.2,39.6],
-  grid:[1600,49.97,237.1,234.5,237.6], house:[310,420,170],
+  grid:[1600,49.97,237.1,234.5,237.6], house:[900],
 };
 
 function engineeringView(data, demoMode) {
-  const {pv, solar, battery, batteryVoltage, soc, temp, grid, hz, volts, phases, house,
+  const {pv, solar, battery, batteryVoltage, soc, temp, grid, hz, volts, house,
     yieldToday, use, imp, exp, charge, discharge, inverter} = data;
   const validInverter = Boolean(inverter && !['unavailable', 'unknown'].includes(inverter));
   const throughput = known(solar) && known(battery) ? solar + Math.abs(battery) : NaN;
@@ -134,7 +133,6 @@ function engineeringView(data, demoMode) {
         <div class="eng-details">
           <article class="eng-house"><header><b class="${known(house) ? '' : 'eng-missing'}">Haus</b><i></i><b>Verbrauch</b></header>
             <strong>${watts(house).replace(/ (k?W)$/, ' <small>$1</small>')}</strong>
-            <div>${phases.map((phase,index)=>`L${index+1} ${fmt(phase)}`).join(' · ')} W</div>
             <div>Heute ${value(use,' kWh',1)}</div>
           </article>
           <article class="eng-grid"><header><b class="${known(grid) ? '' : 'eng-missing'}">Netz · Drewag</b><i></i><b>${known(grid) ? direction : 'Keine Daten'}</b></header>
