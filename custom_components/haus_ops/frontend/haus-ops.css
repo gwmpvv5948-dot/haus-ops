@@ -512,3 +512,40 @@ main:has(.ops-alarm-test){position:relative;padding-bottom:30px}
 .ops-alarm-test button:nth-child(2){background:#fc3}
 .ops-alarm-test button:nth-child(3){background:var(--red)}
 .ops-alarm-test button[aria-pressed=true]{box-shadow:inset 0 0 0 2px #000}
+
+.frame[data-alert=gelb] > header strong {
+  color:#000;background:#fc3;border-radius:12px;padding:2px 8px;
+}
+.frame[data-security-alert] .nav-scroll button[data-page="1"]{background:#fc3!important}
+.frame[data-security-alert] .ops-safety .ops-heading{--card-color:#fc3!important;animation:ops-alert 2s infinite alternate}
+.frame[data-alert=rot] .nav-scroll button{background:#e4685c!important}
+.frame[data-alert=rot] .nav-scroll button:nth-child(even){background:#c64b42!important}
+.frame[data-alert=rot] :is([data-settings],[data-nav-spacer]){background:#e4685c}
+.frame[data-alert=rot] :is(header,footer) .rail{border-color:#e4685c}
+.frame[data-alert=rot] .brand,.frame[data-alert=rot] .heel,.frame[data-alert=rot] nav{animation:ops-alert 1.6s infinite alternate}
+main:has(.ops-alarm-overlay) .ops-overview{opacity:.2;pointer-events:none}
+.ops-alarm-overlay{z-index:2;background:#0008;gap:4px;grid-template-columns:auto auto;justify-content:center}
+.ops-alarm-overlay :is(strong,p,.ops-red-bars){grid-column:1/-1}
+.ops-alarm-overlay strong{animation:ops-alert 1.6s infinite alternate}
+.ops-alarm-overlay button:first-of-type{background:#fc3}
+.ops-alarm-overlay button:active{filter:brightness(1.4)}
+.ops-red-bars{display:grid;justify-items:center;gap:3px;width:min(100%,330px)}
+.ops-red-bars i{display:block;width:var(--bar-width);height:5px;background:var(--red);border-radius:8px;animation:ops-alert 1s infinite alternate}
+.ops-red-bars i:nth-child(1){--bar-width:55%;animation-delay:-.4s}
+.ops-red-bars i:nth-child(2){--bar-width:65%;animation-delay:-.3s}
+.ops-red-bars i:nth-child(3){--bar-width:75%;animation-delay:-.2s}
+.ops-red-bars i:nth-child(4){--bar-width:87%;animation-delay:-.1s}
+.ops-red-bars i:nth-child(5){--bar-width:100%}
+.ops-red-bars.reverse{transform:rotate(180deg)}
+.ops-leak .ops-heading,.ops-water.bad b{animation:ops-alert 1s infinite alternate}
+.ops-water.bad :is(strong,b){color:var(--red)}
+.frame[data-boot] > header .rail,.frame[data-boot] > footer .rail{transform-origin:left;animation:ops-boot-rail .8s ease-out both}
+.frame[data-boot] .nav-scroll button,.frame[data-boot] .ops-overview>section{animation:ops-boot-card .7s ease-out both}
+.frame[data-boot] .ops-overview>section:nth-child(2n){animation-delay:.18s}
+.frame[data-boot] .ops-overview>section:nth-child(3n){animation-delay:.32s}
+@keyframes ops-boot-rail{from{transform:scaleX(0)}}
+@keyframes ops-boot-card{from{opacity:0;transform:translateX(-7px)}}
+@media(prefers-reduced-motion:reduce){
+  .frame[data-alert] :is(.brand,.heel,nav,.ops-heading),.ops-red-bars i,.ops-alarm-overlay strong,.ops-water.bad b,
+  .frame[data-boot] :is(.rail,.nav-scroll button,.ops-overview>section){animation:none!important}
+}

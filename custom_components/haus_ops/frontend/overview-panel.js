@@ -42,7 +42,9 @@ export class OverviewPanel {
     const state = this.panel.state(this.id('alarm'));
     const level = ['gelb','rot'].includes(state?.state?.toLowerCase()) ? state.state.toLowerCase() : 'normal';
     if (level !== 'rot') this.localAck = false;
-    return {level, reasons:Array.isArray(state?.attributes?.ursachen) ? state.attributes.ursachen.join(' · ') : '',
+    const causes = Array.isArray(state?.attributes?.ursachen) ? state.attributes.ursachen : [];
+    return {level, reasons:causes.join(' · '), count:causes.length,
+      leak:this.panel.state(this.panel.water.entity('leak'))?.state === 'on' || causes.some(cause=>/wasserleck/i.test(String(cause))),
       acknowledged: this.localAck || this.panel.state(this.id('acknowledged'))?.state==='on'};
   }
 
@@ -78,12 +80,13 @@ export class OverviewPanel {
       <button data-action="ops-evening" ${this.panel.demo || enabled(this.panel.state(this.id('evening')))?'':'disabled'}>Abendlicht</button></div></div>`;
   }
 
-  supply(energy) {
+  supply(energy, alarm) {
     const water = this.panel.water;
     const today = this.panel.state(water.entity('today'));
     const average = this.panel.state(water.entity('average'));
     const rate = this.panel.state(water.entity('flow'));
-    const leak = this.panel.state(water.entity('leak'))?.state === 'on';
+    const leak = alarm.leak;
+    const valveClosed = alarm.sample && alarm.acknowledged;
     const read = sensor => enabled(sensor) && sensor.state.trim()
       ? Number(sensor.state)*(sensor.attributes.unit_of_measurement==='m³'?1000:1) : NaN;
     const watts = value => format(Math.abs(value))+' W';
@@ -93,12 +96,14 @@ export class OverviewPanel {
     ].map(([label,value,color])=>`<div style="--source:${color}"><small>${label}</small><strong>${value}</strong></div>`).join('')}</div>
     <div class="energy-flow ops-flow">${energy.segments}</div>
     <button class="ops-water ${leak?'bad':''}" data-page="7"><span>Wasser heute<strong>${this.panel.demo?107:format(read(today))} L</strong></span>
-      <small>Ø ${this.panel.demo?180:format(read(average))} L</small><b>${leak?'Leck':read(rate)>0?'Fließt':read(rate)===0 || this.panel.demo?'Ruhe':'—'}</b></button>`;
+      <small>Ø ${this.panel.demo?180:format(read(average))} L</small><b>${valveClosed?'Leck · Ventil zu':leak?'Leck':read(rate)>0?'Fließt':read(rate)===0 || this.panel.demo?'Ruhe':'—'}</b></button>`;
   }
 
   render(data) {
-    const {accesses,open,complete,alarm,accessLabel,rooms,level,levels,coverButtons,devices,deviceLabel,escape,energy} = data;
+    const {accesses,open,complete,alarm,accessLabel,rooms,level,levels,coverButtons,devices,deviceLabel,escape,energy,overviewAlarm} = data;
     const panel = this.panel;
+    const highlighted = item => item.open ||
+      overviewAlarm.sample && overviewAlarm.level === 'gelb' && /^(Türschloss|KU Fenster)$/i.test(item.name);
     const safetyText = open.length ? open.map(item=>escape(item.name)+' '+accessLabel(item)).join(' · ')
       : complete ? 'Alle Türen und Fenster zu' : 'Zustand einzelner Kontakte fehlt';
     const temperatures = panel.demo ? rooms : ['Wohnzimmer','Carla','Alwin','Schlafzimmer','Flur','Bad']
@@ -110,7 +115,7 @@ export class OverviewPanel {
       <section class="ops-safety">${heading('Sicherheit',open.length?'yellow':'purple',alarm,1)}
         <strong class="ops-sec-status ${open.length?'alarm':''}">${alarm}</strong>
         <small class="ops-safety-note" title="${safetyText}">${safetyText}</small>
-        <div class="ops-contacts">${accesses.map(item=>`<span class="${item.open?'open':''} ${item.open===undefined?'missing':''}">${escape(item.name)}</span>`).join('')}</div>
+        <div class="ops-contacts">${accesses.map(item=>`<span class="${highlighted(item)?'open':''} ${item.open===undefined&&!highlighted(item)?'missing':''}">${escape(item.name)}</span>`).join('')}</div>
         <small class="ops-caption">Sensor-Scan · ${accesses.filter(item=>item.open!==undefined).length} / ${accesses.length} online</small>
       </section>
       <section class="ops-vent">${heading('Hauslüftung','pink',level===4?'Boost':level>0?'Aktiv':level===0?'Aus':'—',2)}
@@ -137,7 +142,7 @@ export class OverviewPanel {
           <b>${blind.position===100?'Offen':blind.position===0?'Zu':Number.isFinite(blind.position)?format(100-blind.position)+' %':'—'}</b></div>`).join('')}</div>
         <div class="ops-devices">${devices.map(device=>`<span class="${device.on?'on':''}">${escape(device.name)} · ${deviceLabel(device)}</span>`).join('')}</div>
       </section>
-      <section class="ops-utilities">${heading('Versorgung','peach','Strom · Wasser',6)}${this.supply(energy)}</section>
+      <section class="ops-utilities ${overviewAlarm.leak?'ops-leak':''}">${heading('Versorgung',overviewAlarm.leak?'red':'peach','Strom · Wasser',6)}${this.supply(energy,overviewAlarm)}</section>
       <section>${heading('Licht','sand',this.lights().filter(light=>light.on).length+' an',9)}${this.lightControls()}</section>
     </div>`;
   }
