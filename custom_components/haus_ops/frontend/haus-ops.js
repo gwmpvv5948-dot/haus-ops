@@ -1,7 +1,7 @@
-import { OverviewPanel, overviewFields } from './overview-panel.js?v=1.6.3';
-import { MusicPanel, musicFields } from './music-panel.js?v=1.6.3';
-import { WaterPanel, waterFields } from './water-panel.js?v=1.6.3';
-import { energyFields, energyView } from './energy-panel.js?v=1.6.3';
+import { OverviewPanel, overviewFields } from './overview-panel.js?v=1.6.4';
+import { MusicPanel, musicFields } from './music-panel.js?v=1.6.4';
+import { WaterPanel, waterFields } from './water-panel.js?v=1.6.4';
+import { energyFields, energyView } from './energy-panel.js?v=1.6.4';
 import { ClimatePanel, roomNames } from './climate-panel.js';
 const energyPageIndex = 6;
 const waterPageIndex = 7;
@@ -68,7 +68,7 @@ class HausOps extends HTMLElement {
     if (!this.shadowRoot) {
       this.attachShadow({ mode: 'open' });
       this.shadowRoot.innerHTML = `
-        <link rel="stylesheet" href="${new URL('./haus-ops.css?v=1.6.3', import.meta.url)}">
+        <link rel="stylesheet" href="${new URL('./haus-ops.css?v=1.6.4', import.meta.url)}">
         <div class="stage"><div class="frame">
           <div class="brand">LCARS 77</div>
           <header><span class="rail"></span><strong>HAUS-OPS</strong><time></time><span class="cap"></span></header>
@@ -363,30 +363,12 @@ class HausOps extends HTMLElement {
     const deviceLabel = device => device.ready ? (device.on ? 'An' : 'Aus') : 'Keine Daten';
     const coverButtons = `<div class="actions">${['ab', 'auf'].map((action, index) =>
       `<button data-action="cover:${index}" ${this.canMoveCover(index) ? '' : 'disabled'}><span aria-hidden="true">${index ? '↑' : '↓'}</span> Alle ${action}</button>`).join('')}</div>`;
-    const actualAlarm = this.overview.alarm();
-    if (this.lastAlarmLevel !== actualAlarm.level && this.ha) {
-      this.lastAlarmLevel = actualAlarm.level;
-      if (actualAlarm.level === 'rot') this.playTouchSound('red');
-      if (actualAlarm.level === 'gelb') this.playTouchSound('yellow');
+    const overviewAlarm = this.overview.alarm();
+    if (this.lastAlarmLevel !== overviewAlarm.level && this.ha) {
+      this.lastAlarmLevel = overviewAlarm.level;
+      if (overviewAlarm.level === 'rot') this.playTouchSound('red');
+      if (overviewAlarm.level === 'gelb') this.playTouchSound('yellow');
     }
-    if (this.page !== 0 || actualAlarm.level !== 'normal' || Date.now() >= this.alarmTest?.until) {
-      this.alarmTest = undefined;
-    }
-    const test = this.alarmTest;
-    const previewTime = test?.start ? (Date.now() - test.start) / 1000 : null;
-    const previewLevel = previewTime === null ? test?.level
-      : previewTime < 4 || previewTime >= 22 ? 'normal' : previewTime < 11 ? 'gelb' : 'rot';
-    if (test && test.lastLevel !== previewLevel) {
-      test.lastLevel = previewLevel;
-      if (previewLevel === 'rot') this.playTouchSound('red');
-      if (previewLevel === 'gelb') this.playTouchSound('yellow');
-    }
-    const overviewAlarm = test && previewLevel !== 'normal'
-      ? {level:previewLevel, count:previewLevel === 'gelb' ? 2 : 1,
-          reasons:previewLevel === 'gelb' ? 'Türschloss entriegelt · KU Fenster offen' : 'Wasserleck · Hauswirtschaftsraum',
-          acknowledged:Boolean(test.acknowledged || previewTime >= 18),
-          leak:previewLevel === 'rot', sample:true}
-      : actualAlarm;
     let layout;
     switch (this.page) {
       case 0:
@@ -431,11 +413,6 @@ class HausOps extends HTMLElement {
         layout = `<section class="detail">${band('Garten', '--pink')}<p>Gartenansicht noch ohne Inhalte</p></section>`;
         break;
     }
-    if (this.page === 0 && actualAlarm.level === 'normal') {
-      layout += `<div class="ops-alarm-test" role="group" aria-label="Alarmstufe testen">
-        ${['normal','gelb','rot','ablauf'].map(level => `<button data-action="ops-test:${level}"
-          aria-pressed="${level === 'ablauf' ? Boolean(test?.start) : level === overviewAlarm.level}">${level}</button>`).join('')}</div>`;
-    }
     const alert = this.page === 0 ? overviewAlarm.level : 'normal';
     if (alert === 'rot' && !overviewAlarm.acknowledged) {
       layout += `<section class="ops-alarm-overlay"><div class="ops-red-bars" aria-hidden="true">${'<i></i>'.repeat(5)}</div>
@@ -448,7 +425,6 @@ class HausOps extends HTMLElement {
     frame.dataset.alert = alert;
     frame.toggleAttribute('data-security-alert', alert === 'gelb' &&
       (open.length > 0 || /tür|tor|fenster|schloss/i.test(overviewAlarm.reasons)));
-    frame.toggleAttribute('data-boot', this.page === 0 && (Date.now() - this.demoStart < 2600 || previewTime !== null && previewTime < 4));
     const climatePage = this.page === 4;
     this.shadowRoot.querySelector('.frame').classList.toggle('climate-page', climatePage);
     this.shadowRoot.querySelector('header strong').textContent = alert === 'rot' ? (overviewAlarm.acknowledged ? 'Alarmstufe Rot · quittiert' : 'Alarmstufe Rot')
@@ -519,6 +495,30 @@ class HausOps extends HTMLElement {
       button.setAttribute('aria-current', Number(button.dataset.page) === this.page));
     this.tick();
     if (music) this.music.tick(main);
+    if (this.animatedPage !== this.page) {
+      this.animatedPage = this.page;
+      this.animatePage(main);
+    }
+  }
+
+  animatePage(main) {
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const frame = this.shadowRoot.querySelector('.frame');
+    frame.getAnimations({ subtree: true }).filter(animation => animation.id === 'haus-ops-page-entry')
+      .forEach(animation => animation.cancel());
+    const animate = (element, keyframes, duration, delay = 0) => {
+      const animation = element.animate(keyframes, {duration, delay, easing:'ease-out', fill:'backwards'});
+      animation.id = 'haus-ops-page-entry';
+    };
+    frame.querySelectorAll(':scope > header .rail, :scope > footer .rail').forEach(rail => {
+      animate(rail, [{transform:'scaleX(0)', transformOrigin:'left'},
+        {transform:'scaleX(1)', transformOrigin:'left'}], 800);
+    });
+    const cards = main.querySelector('.ops-overview')?.children ?? main.firstElementChild?.children ?? [];
+    Array.from(cards).forEach((card, index) => {
+      animate(card, [{opacity:0, transform:'translateX(-7px)'}, {opacity:1, transform:'none'}],
+        650, Math.min(index, 5) * 65);
+    });
   }
 
   notify(text) {
@@ -583,20 +583,6 @@ class HausOps extends HTMLElement {
   async click(event) {
     const button = event.target.closest('button');
     if (!button || button.disabled || !button.matches('[data-page], [data-action], [data-settings], [data-energy-mode]')) return;
-    if (button.dataset.action?.startsWith('ops-test:')) {
-      if (this.overview.alarm().level !== 'normal') return;
-      const level = button.dataset.action.split(':')[1];
-      const now = Date.now();
-      this.alarmTest = level === 'normal' ? undefined : level === 'ablauf'
-        ? {start:now, until:now+26000} : {level, until:now+15000};
-      this.render();
-      return;
-    }
-    if (button.dataset.action === 'ops-ack' && this.alarmTest && this.overview.alarm().level === 'normal') {
-      this.alarmTest.acknowledged = true;
-      this.render();
-      return;
-    }
     const beeps = ['beep1', 'beep2', 'beep3', 'beep4'].filter(kind => this.soundUrl(kind));
     if (beeps.length) this.playTouchSound(beeps[Math.floor(Math.random() * beeps.length)]);
     if (button.hasAttribute('data-settings')) { this.settings.open(); return; }

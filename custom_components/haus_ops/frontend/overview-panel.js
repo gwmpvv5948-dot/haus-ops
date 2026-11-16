@@ -86,7 +86,6 @@ export class OverviewPanel {
     const average = this.panel.state(water.entity('average'));
     const rate = this.panel.state(water.entity('flow'));
     const leak = alarm.leak;
-    const valveClosed = alarm.sample && alarm.acknowledged;
     const read = sensor => enabled(sensor) && sensor.state.trim()
       ? Number(sensor.state)*(sensor.attributes.unit_of_measurement==='m³'?1000:1) : NaN;
     const watts = value => format(Math.abs(value))+' W';
@@ -96,14 +95,12 @@ export class OverviewPanel {
     ].map(([label,value,color])=>`<div style="--source:${color}"><small>${label}</small><strong>${value}</strong></div>`).join('')}</div>
     <div class="energy-flow ops-flow">${energy.segments}</div>
     <button class="ops-water ${leak?'bad':''}" data-page="7"><span>Wasser heute<strong>${this.panel.demo?107:format(read(today))} L</strong></span>
-      <small>Ø ${this.panel.demo?180:format(read(average))} L</small><b>${valveClosed?'Leck · Ventil zu':leak?'Leck':read(rate)>0?'Fließt':read(rate)===0 || this.panel.demo?'Ruhe':'—'}</b></button>`;
+      <small>Ø ${this.panel.demo?180:format(read(average))} L</small><b>${leak?'Leck':read(rate)>0?'Fließt':read(rate)===0 || this.panel.demo?'Ruhe':'—'}</b></button>`;
   }
 
   render(data) {
     const {accesses,open,complete,alarm,accessLabel,rooms,level,levels,coverButtons,devices,deviceLabel,escape,energy,overviewAlarm} = data;
     const panel = this.panel;
-    const highlighted = item => item.open ||
-      overviewAlarm.sample && overviewAlarm.level === 'gelb' && /^(Türschloss|KU Fenster)$/i.test(item.name);
     const safetyText = open.length ? open.map(item=>escape(item.name)+' '+accessLabel(item)).join(' · ')
       : complete ? 'Alle Türen und Fenster zu' : 'Zustand einzelner Kontakte fehlt';
     const temperatures = panel.demo ? rooms : ['Wohnzimmer','Carla','Alwin','Schlafzimmer','Flur','Bad']
@@ -115,7 +112,7 @@ export class OverviewPanel {
       <section class="ops-safety">${heading('Sicherheit',open.length?'yellow':'purple',alarm,1)}
         <strong class="ops-sec-status ${open.length?'alarm':''}">${alarm}</strong>
         <small class="ops-safety-note" title="${safetyText}">${safetyText}</small>
-        <div class="ops-contacts">${accesses.map(item=>`<span class="${highlighted(item)?'open':''} ${item.open===undefined&&!highlighted(item)?'missing':''}">${escape(item.name)}</span>`).join('')}</div>
+        <div class="ops-contacts">${accesses.map(item=>`<span class="${item.open?'open':''} ${item.open===undefined&&!item.open?'missing':''}">${escape(item.name)}</span>`).join('')}</div>
         <small class="ops-caption">Sensor-Scan · ${accesses.filter(item=>item.open!==undefined).length} / ${accesses.length} online</small>
       </section>
       <section class="ops-vent">${heading('Hauslüftung','pink',level===4?'Boost':level>0?'Aktiv':level===0?'Aus':'—',2)}

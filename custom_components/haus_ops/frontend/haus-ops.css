@@ -506,12 +506,6 @@ main:has(.ops-alarm-overlay){position:relative}.ops-alarm-overlay{position:absol
   .ops-contacts::after,.ops-contacts .open,.ops-rotor,.frame[data-alert] header,.frame[data-alert] footer{animation:none!important}
 }
 
-main:has(.ops-alarm-test){position:relative;padding-bottom:30px}
-.ops-alarm-test{position:absolute;bottom:0;left:0;z-index:1;display:flex;gap:4px}
-.ops-alarm-test button{min-width:48px;min-height:26px;padding:0 6px;border-radius:5px;font-size:11px;background:var(--sand)}
-.ops-alarm-test button:nth-child(2){background:#fc3}
-.ops-alarm-test button:nth-child(3){background:var(--red)}
-.ops-alarm-test button[aria-pressed=true]{box-shadow:inset 0 0 0 2px #000}
 
 .frame[data-alert=gelb] > header strong {
   color:#000;background:#fc3;border-radius:12px;padding:2px 8px;
@@ -539,13 +533,6 @@ main:has(.ops-alarm-overlay) .ops-overview{opacity:.2;pointer-events:none}
 .ops-red-bars.reverse{transform:rotate(180deg)}
 .ops-leak .ops-heading,.ops-water.bad b{animation:ops-alert 1s infinite alternate}
 .ops-water.bad :is(strong,b){color:var(--red)}
-.frame[data-boot] > header .rail,.frame[data-boot] > footer .rail{transform-origin:left;animation:ops-boot-rail .8s ease-out both}
-.frame[data-boot] .nav-scroll button,.frame[data-boot] .ops-overview>section{animation:ops-boot-card .7s ease-out both}
-.frame[data-boot] .ops-overview>section:nth-child(2n){animation-delay:.18s}
-.frame[data-boot] .ops-overview>section:nth-child(3n){animation-delay:.32s}
-@keyframes ops-boot-rail{from{transform:scaleX(0)}}
-@keyframes ops-boot-card{from{opacity:0;transform:translateX(-7px)}}
 @media(prefers-reduced-motion:reduce){
-  .frame[data-alert] :is(.brand,.heel,nav,.ops-heading),.ops-red-bars i,.ops-alarm-overlay strong,.ops-water.bad b,
-  .frame[data-boot] :is(.rail,.nav-scroll button,.ops-overview>section){animation:none!important}
+  .frame[data-alert] :is(.brand,.heel,nav,.ops-heading),.ops-red-bars i,.ops-alarm-overlay strong,.ops-water.bad b{animation:none!important}
 }
