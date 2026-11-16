@@ -1,9 +1,9 @@
-import { LightPanel } from './light-panel.js?v=1.6.15';
-import { CircuitsPanel } from './circuits-panel.js?v=1.6.15';
-import { OverviewPanel, overviewFields } from './overview-panel.js?v=1.6.15';
-import { MusicPanel, musicFields } from './music-panel.js?v=1.6.15';
-import { WaterPanel, waterFields } from './water-panel.js?v=1.6.15';
-import { energyFields, energyView } from './energy-panel.js?v=1.6.15';
+import { LightPanel } from './light-panel.js?v=1.6.16';
+import { CircuitsPanel } from './circuits-panel.js?v=1.6.16';
+import { OverviewPanel, overviewFields } from './overview-panel.js?v=1.6.16';
+import { MusicPanel, musicFields } from './music-panel.js?v=1.6.16';
+import { WaterPanel, waterFields } from './water-panel.js?v=1.6.16';
+import { energyFields, energyView } from './energy-panel.js?v=1.6.16';
 import { ClimatePanel, roomNames } from './climate-panel.js';
 const antonio = new FontFace('Antonio', `url("${new URL('./Antonio.ttf', import.meta.url).href}")`, {
   weight: '400 700',
@@ -82,7 +82,7 @@ class HausOps extends HTMLElement {
     if (!this.shadowRoot) {
       this.attachShadow({ mode: 'open' });
       this.shadowRoot.innerHTML = `
-        <link rel="stylesheet" href="${new URL('./haus-ops.css?v=1.6.15', import.meta.url)}">
+        <link rel="stylesheet" href="${new URL('./haus-ops.css?v=1.6.16', import.meta.url)}">
         <div class="stage"><div class="frame">
           <div class="brand">LCARS 77</div>
           <header><span class="rail"></span><strong>HAUS-OPS</strong><time></time><span class="cap"></span></header>
@@ -706,7 +706,7 @@ class HausOps extends HTMLElement {
       return new URL('./sounds/yellow_alert.mp3', import.meta.url).href;
     }
     if (kind === 'warp' && ['warp_core_loop.wav', 'warp_core.mp3'].includes(filename)) {
-      return new URL('./sounds/warp_core_loop.wav?v=1.6.15', import.meta.url).href;
+      return new URL('./sounds/warp_core_loop.wav?v=1.6.16', import.meta.url).href;
     }
     return filename && validSoundName(filename)
       ? '/local/haus-ops/sounds/' + encodeURIComponent(filename)
