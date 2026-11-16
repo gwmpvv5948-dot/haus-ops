@@ -87,7 +87,7 @@ export class MusicPanel {
             <button class="music-room-play" data-action="music-room-play:${i}" aria-label="${names[i]} ${item?.state==='playing'?'pausieren':'abspielen'}"
               ${supported(item,item?.state==='playing'?1:16384)?'':'disabled'}>${item?.state==='playing'?'❚❚':'▶'}</button></div>`).join('')}
           ${band('Shortcut','--pink')}
-          <button class="music-radio ${flash?.radio?'flashing':''}" data-action="music-radio" ${this.panel.demo || available(this.panel.state(radio))?'':'disabled'}>Radio<small>${escape(radio)}</small></button>
+          <button class="music-radio ${flash?.radio?'flashing':''}" data-action="music-radio" ${this.panel.demo || available(this.panel.state(radio))?'':'disabled'}>Radio</button>
           <button class="music-group" data-action="music-group" aria-pressed="${grouped}"
             ${available(players[1]) && (grouped ? supported(players[1],524288) : supported(players[0],524288))?'':'disabled'}>${grouped?'Gruppe lösen':players.some(item=>!available(item))?'Verbinden · Raum offline':'Räume verbinden'}</button>
         </section>

@@ -1,6 +1,6 @@
-import { MusicPanel, musicFields } from './music-panel.js?v=1.5.3';
-import { WaterPanel, waterFields } from './water-panel.js?v=1.5.3';
-import { energyFields, energyView } from './energy-panel.js?v=1.5.3';
+import { MusicPanel, musicFields } from './music-panel.js?v=1.5.4';
+import { WaterPanel, waterFields } from './water-panel.js?v=1.5.4';
+import { energyFields, energyView } from './energy-panel.js?v=1.5.4';
 import { ClimatePanel, roomNames } from './climate-panel.js';
 const energyPageIndex = 6;
 const waterPageIndex = 7;
@@ -54,7 +54,7 @@ class HausOps extends HTMLElement {
     if (!this.shadowRoot) {
       this.attachShadow({ mode: 'open' });
       this.shadowRoot.innerHTML = `
-        <link rel="stylesheet" href="${new URL('./haus-ops.css?v=1.5.3', import.meta.url)}">
+        <link rel="stylesheet" href="${new URL('./haus-ops.css?v=1.5.4', import.meta.url)}">
         <div class="stage"><div class="frame">
           <div class="brand">LCARS 77</div>
           <header><span class="rail"></span><strong>HAUS-OPS</strong><time></time><span class="cap"></span></header>
@@ -208,8 +208,7 @@ class HausOps extends HTMLElement {
     if (!clock) return;
     const offline = this.page === 4 && !this.demo && this.ha?.connection?.connected === false;
     clock.classList.toggle('offline', offline);
-    clock.textContent = offline ? 'Offline' : new Date().toLocaleTimeString('de-DE', this.page === 4
-      ? {hour:'2-digit', minute:'2-digit'} : undefined);
+    clock.textContent = offline ? 'Offline' : new Date().toLocaleTimeString('de-DE');
     const seconds = this.remaining;
     const formatted = `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`;
     this.shadowRoot.querySelectorAll('[data-countdown]').forEach(node => { node.textContent = formatted; });

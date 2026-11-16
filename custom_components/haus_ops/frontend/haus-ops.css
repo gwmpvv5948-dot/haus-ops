@@ -57,7 +57,7 @@ footer .rail{border-left:49px solid var(--peach);border-right:58px solid var(--p
 .security-status{border-radius:20px;padding:5px 14px;background:var(--purple);color:#000;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .security-status.alarm{background:#ffad13;color:#000}
 .tiles button{min-height:122px;align-items:end;text-align:right;padding:10px}.tiles button small{display:block}.tiles button:nth-child(4n+1){border-radius:24px 0 0 24px}.tiles button:nth-child(4n){border-radius:0 24px 24px 0}
-button svg{width:26px;height:26px}.levels button{background:var(--purple);height:118px;border-radius:8px;display:flex;flex-direction:column;justify-content:space-between;align-items:end;padding:10px;font-size:25px}
+button svg{width:26px;height:26px}.levels button{background:var(--purple);height:118px;border-radius:0;display:flex;flex-direction:column;justify-content:space-between;align-items:end;padding:10px;font-size:25px}
 .timer-row{display:grid;grid-template-columns:110px 1fr 174px;align-items:center;gap:12px}.timer-row .actions button:first-child{background:var(--sand)}.timer-row .actions button+button{background:var(--red)}.timer-row .segments{height:21px}
 .cover-grid{grid-template-columns:minmax(0,1fr) 147px;gap:16px}.cover-grid .actions{flex:0 0 163px}.cover-grid .actions button{display:flex;flex-direction:column;justify-content:space-between;align-items:end;padding:10px;font-size:24px}.cover-grid .actions button span{font-size:28px}.cover-grid .devices{flex-basis:69px}.cover-grid .devices button{justify-content:end;font-size:16px}.devices button[aria-pressed=false]{background:#363636;color:var(--sand)}
 .window{height:284px;background:repeating-linear-gradient(#1d1d1d 0 24px,#000 24px 28px);border-width:10px 4px 0}.slats{background:repeating-linear-gradient(var(--purple) 0 24px,#554985 24px 28px)}
@@ -92,11 +92,7 @@ nav [data-page]{font-size:14px}
 button,nav [data-page],nav [data-settings],nav [data-nav-spacer]{letter-spacing:inherit}
 
 .climate-page{user-select:none}
-.climate-page header .cap,.climate-page footer .cap{display:none}
-.climate-page header{align-items:stretch;gap:6px}
-.climate-page header strong{order:-1;align-self:center;padding:0 6px}
-.climate-page header .rail{background:#ff9966;height:auto}
-.climate-page time{display:grid;place-items:center;min-width:78px;height:auto;background:#cc99cc;border-radius:0 24px 24px 0;font-size:20px}
+.climate-page footer .cap{display:none}
 .climate-page time.offline{background:#e4685c}
 .climate-page footer .rail{height:14px;font-size:0;border:0;background:linear-gradient(to right,var(--peach) 24px,#cc99cc 24px 30%,#000 30% 31%,#ffcc99 31% 39%,#000 39% 40%,#9999ff 40% 84%,#000 84% 85%,#cc99cc 85%)}
 .room-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));grid-template-rows:repeat(2,minmax(0,1fr));gap:10px;min-height:0}
@@ -358,7 +354,6 @@ footer .rail.water-alarm{background:#ffcc33;animation:water-alarm 1s steps(1) in
 .music-eq.playing i{height:var(--height);animation:music-bounce var(--length) ease-in-out infinite alternate}
 @keyframes music-bounce{from{transform:scaleY(.18)}to{transform:scaleY(1)}}
 .music-radio{height:67px;border-radius:32px;background:var(--pink);font-size:25px;text-align:right;padding-inline:16px}
-.music-radio small{display:block;font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .music-radio.flashing{animation:music-flash .22s alternate 8}
 @keyframes music-flash{to{background:var(--sand)}}
 .music-group{border-radius:23px;background:#2a2a2a;color:var(--purple);font-size:14px}
@@ -378,8 +373,8 @@ footer .rail.water-alarm{background:#ffcc33;animation:water-alarm 1s steps(1) in
 .music-live{align-self:start;background:var(--red)}
 .music-live.playing{animation:music-live 1s ease-in-out infinite alternate}
 @keyframes music-live{to{opacity:.55}}
-.music-progress{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:6px;font-size:12px}
-.music-progress progress{width:100%;height:8px;accent-color:var(--peach)}
+.music-progress{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:6px;font-size:12px}
+.music-progress progress{min-width:0;width:100%;height:8px;accent-color:var(--peach)}
 .music-controls{display:grid;grid-template-columns:1fr 1fr 1.6fr 1fr 1fr;gap:4px}
 .music-controls button{height:58px;border-radius:6px;background:var(--purple);font-size:14px}
 .music-controls button:first-child{border-radius:26px 6px 6px 26px}
@@ -388,13 +383,13 @@ footer .rail.water-alarm{background:#ffcc33;animation:water-alarm 1s steps(1) in
 .music-controls button[aria-pressed=true]{background:var(--pink);color:#000}
 .music-controls button:nth-child(3){background:var(--peach);font-size:23px}
 .music-controls button:disabled{opacity:.25}
-.music-volume{display:grid;grid-template-columns:46px minmax(0,1fr) 44px 46px 56px;gap:4px;align-items:center}
+.music-volume{display:grid;min-width:0;width:100%;grid-template-columns:46px minmax(0,1fr) 44px 46px 56px;gap:4px;align-items:center}
 .music-volume>button{border-radius:9px;background:var(--blue)}
 .music-volume>button:last-child{background:#2a2a2a;color:var(--blue)}
 .music-volume>button[aria-pressed=true]{background:var(--red);color:#000}
 .music-volume strong{color:var(--blue);font-size:20px;text-align:center}
-.music-volume-segments{display:grid;grid-template-columns:repeat(20,minmax(0,1fr));gap:2px;height:46px}
-.music-volume-segments button{display:flex;align-items:end;justify-content:stretch;background:none;padding:0}
+.music-volume-segments{display:grid;min-width:0;grid-template-columns:repeat(20,minmax(0,1fr));gap:2px;height:46px}
+.music-volume-segments button{display:flex;min-width:0;align-items:end;justify-content:stretch;background:none;padding:0}
 .music-volume-segments i{width:100%;height:var(--segment-height);background:#222;border-radius:2px}
 .music-volume-segments .active i{background:var(--blue)}
 .music-volume.muted .active i{background:#777}
@@ -415,8 +410,8 @@ footer .rail[data-music-tone=error]{background:var(--red)}
 .nav-scroll > button[aria-current=true]::after{
   content:"";
   position:absolute;
-  inset:4px 3px 4px auto;
-  width:3px;
+  inset:0 5px 0 auto;
+  width:2px;
   background:#000;
   pointer-events:none;
 }
@@ -445,3 +440,7 @@ footer .rail[data-music-tone=error]{background:var(--red)}
 .music-play .band:last-of-type{color:var(--sand)}
 .music-page section{gap:5px}
 .music-now{height:120px;grid-template-columns:120px minmax(0,1fr)}
+
+.tiles button:is(:nth-child(4n + 2), :nth-child(4n + 3)) {
+  border-radius: 0;
+}
