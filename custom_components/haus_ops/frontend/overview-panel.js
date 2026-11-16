@@ -87,12 +87,15 @@ export class OverviewPanel {
   lightControls(all = false) {
     const lights = this.lights();
     const visible = all ? lights : lights.slice(0,4);
+    const tv = lights.find(light => light.id === this.id('tv'));
     return `<div class="ops-lights"><div class="ops-light-list">${visible.map(({id,name,on,percent,dim,ready})=>`<div class="ops-light ${on?'on':''}">
       <button data-action="ops-toggle:${escapeHtml(id)}" aria-pressed="${on}" ${ready?'':'disabled'}>${escapeHtml(name)}</button>
       ${dim?`<div class="ops-dimmer">${Array.from({length:10},(_,j)=>`<button data-action="ops-brightness:${escapeHtml(id)}:${(j+1)*10}" class="${percent>j*10?'filled':''}" style="--height:${25+j*8}%"
         aria-label="${escapeHtml(name)} ${(j+1)*10} Prozent" ${ready?'':'disabled'}><i></i></button>`).join('')}</div>`:''}
       <b>${!ready?'—':on?(dim?percent+' %':'An'):'Aus'}</b></div>`).join('') || '<small>Keine Leuchten verfügbar</small>'}</div>
-      <div class="ops-pair"><button data-action="ops-off" ${lights.some(light=>light.on)?'':'disabled'}>Alle aus</button>
+      <div class="ops-pair">${all
+        ? `<button data-action="ops-off" ${lights.some(light=>light.on)?'':'disabled'}>Alle aus</button>`
+        : `<button data-action="ops-toggle:${escapeHtml(this.id('tv'))}" aria-pressed="${Boolean(tv?.on)}" ${tv?.ready?'':'disabled'}>TV Licht</button>`}
       <button data-action="ops-evening" ${this.panel.demo || enabled(this.panel.state(this.id('evening')))?'':'disabled'}>Abendlicht</button></div></div>`;
   }
 
@@ -115,7 +118,7 @@ export class OverviewPanel {
   }
 
   render(data) {
-    const {accesses,complete,alarm,rooms,level,levels,coverButtons,devices,deviceLabel,escape,energy,overviewAlarm} = data;
+    const {accesses,complete,alarm,rooms,level,levels,coverButtons,escape,energy,overviewAlarm} = data;
     const panel = this.panel;
     const alert = overviewAlarm.level;
     const safetyText = alert !== 'normal' ? escape(overviewAlarm.reasons || alarm)
@@ -154,7 +157,6 @@ export class OverviewPanel {
         ${coverButtons}
         <div class="ops-blind-rows">${blinds.map(blind=>`<div><span>${escape(blind.name)}</span>${bars(10,Number.isFinite(blind.position)?1-blind.position/100:0)}
           <b>${blind.position===100?'Offen':blind.position===0?'Zu':Number.isFinite(blind.position)?format(100-blind.position)+' %':'—'}</b></div>`).join('')}</div>
-        <div class="ops-devices">${devices.map(device=>`<span class="${device.on?'on':''}">${escape(device.name)} · ${deviceLabel(device)}</span>`).join('')}</div>
       </section>
       <section class="ops-utilities ${overviewAlarm.leak?'ops-leak':''}">${heading('Versorgung',overviewAlarm.leak?'red':'peach','Strom · Wasser',6)}${this.supply(energy,overviewAlarm)}</section>
       <section>${heading('Licht','sand',this.lights().filter(light=>light.on).length+' an',9)}${this.lightControls()}</section>
