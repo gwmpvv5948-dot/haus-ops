@@ -43,7 +43,7 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
         [StaticPathConfig(ASSET_URL, str(Path(__file__).parent / "frontend"), False)]
     )
     frontend.add_extra_js_url(hass, f"{ASSET_URL}/enterprise-icon.js?v=1")
-    version = "1.6.6"
+    version = "1.6.7"
     await panel_custom.async_register_panel(
         hass,
         frontend_url_path="haus-ops",

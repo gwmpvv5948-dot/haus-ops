@@ -153,7 +153,7 @@ export class OverviewPanel {
       <section class="ops-blinds" data-card-page="3">${heading('Rollos','purple',blinds.some(blind=>blind.movement)?'Fährt':blinds.length+' Fenster',3)}
         ${coverButtons}
         <div class="ops-blind-rows">${blinds.map(blind=>`<div><span>${escape(blind.name)}</span>${bars(10,Number.isFinite(blind.position)?1-blind.position/100:0)}
-          <b>${blind.position===100?'Offen':blind.position===0?'Zu':Number.isFinite(blind.position)?format(100-blind.position)+' %':'—'}</b></div>`).join('') || '<small>Keine Leuchten verfügbar</small>'}</div></div>
+          <b>${blind.position===100?'Offen':blind.position===0?'Zu':Number.isFinite(blind.position)?format(100-blind.position)+' %':'—'}</b></div>`).join('')}</div>
         <div class="ops-devices">${devices.map(device=>`<span class="${device.on?'on':''}">${escape(device.name)} · ${deviceLabel(device)}</span>`).join('')}</div>
       </section>
       <section class="ops-utilities ${overviewAlarm.leak?'ops-leak':''}">${heading('Versorgung',overviewAlarm.leak?'red':'peach','Strom · Wasser',6)}${this.supply(energy,overviewAlarm)}</section>
