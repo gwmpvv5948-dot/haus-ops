@@ -505,3 +505,10 @@ main:has(.ops-alarm-overlay){position:relative}.ops-alarm-overlay{position:absol
 @media(prefers-reduced-motion:reduce){
   .ops-contacts::after,.ops-contacts .open,.ops-rotor,.frame[data-alert] header,.frame[data-alert] footer{animation:none!important}
 }
+
+main:has(.ops-alarm-test){position:relative;padding-bottom:30px}
+.ops-alarm-test{position:absolute;bottom:0;left:0;z-index:1;display:flex;gap:4px}
+.ops-alarm-test button{min-width:48px;min-height:26px;padding:0 6px;border-radius:5px;font-size:11px;background:var(--sand)}
+.ops-alarm-test button:nth-child(2){background:#fc3}
+.ops-alarm-test button:nth-child(3){background:var(--red)}
+.ops-alarm-test button[aria-pressed=true]{box-shadow:inset 0 0 0 2px #000}

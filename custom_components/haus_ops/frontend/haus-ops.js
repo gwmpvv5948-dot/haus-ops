@@ -1,7 +1,7 @@
-import { OverviewPanel, overviewFields } from './overview-panel.js?v=1.6.1';
-import { MusicPanel, musicFields } from './music-panel.js?v=1.6.1';
-import { WaterPanel, waterFields } from './water-panel.js?v=1.6.1';
-import { energyFields, energyView } from './energy-panel.js?v=1.6.1';
+import { OverviewPanel, overviewFields } from './overview-panel.js?v=1.6.2';
+import { MusicPanel, musicFields } from './music-panel.js?v=1.6.2';
+import { WaterPanel, waterFields } from './water-panel.js?v=1.6.2';
+import { energyFields, energyView } from './energy-panel.js?v=1.6.2';
 import { ClimatePanel, roomNames } from './climate-panel.js';
 const energyPageIndex = 6;
 const waterPageIndex = 7;
@@ -68,7 +68,7 @@ class HausOps extends HTMLElement {
     if (!this.shadowRoot) {
       this.attachShadow({ mode: 'open' });
       this.shadowRoot.innerHTML = `
-        <link rel="stylesheet" href="${new URL('./haus-ops.css?v=1.6.1', import.meta.url)}">
+        <link rel="stylesheet" href="${new URL('./haus-ops.css?v=1.6.2', import.meta.url)}">
         <div class="stage"><div class="frame">
           <div class="brand">LCARS 77</div>
           <header><span class="rail"></span><strong>HAUS-OPS</strong><time></time><span class="cap"></span></header>
@@ -407,11 +407,22 @@ class HausOps extends HTMLElement {
         layout = `<section class="detail">${band('Garten', '--pink')}<p>Gartenansicht noch ohne Inhalte</p></section>`;
         break;
     }
-    const overviewAlarm = this.overview.alarm();
-    if (this.lastAlarmLevel !== overviewAlarm.level && this.ha) {
-      this.lastAlarmLevel = overviewAlarm.level;
-      if (overviewAlarm.level === 'rot') this.playTouchSound('red');
-      if (overviewAlarm.level === 'gelb') this.playTouchSound('yellow');
+    const actualAlarm = this.overview.alarm();
+    if (this.lastAlarmLevel !== actualAlarm.level && this.ha) {
+      this.lastAlarmLevel = actualAlarm.level;
+      if (actualAlarm.level === 'rot') this.playTouchSound('red');
+      if (actualAlarm.level === 'gelb') this.playTouchSound('yellow');
+    }
+    if (this.page !== 0 || actualAlarm.level !== 'normal' || Date.now() >= this.alarmTest?.until) {
+      this.alarmTest = undefined;
+    }
+    const overviewAlarm = this.alarmTest
+      ? {level:this.alarmTest.level, reasons:'Alarmtest · ' + this.alarmTest.level, acknowledged:false}
+      : actualAlarm;
+    if (this.page === 0 && actualAlarm.level === 'normal') {
+      layout += `<div class="ops-alarm-test" role="group" aria-label="Alarmstufe testen">
+        ${['normal','gelb','rot'].map(level => `<button data-action="ops-test:${level}"
+          aria-pressed="${level === overviewAlarm.level}">${level}</button>`).join('')}</div>`;
     }
     const alert = this.page === 0 ? overviewAlarm.level : 'normal';
     if (alert === 'rot' && !overviewAlarm.acknowledged) {
@@ -554,6 +565,19 @@ class HausOps extends HTMLElement {
   async click(event) {
     const button = event.target.closest('button');
     if (!button || button.disabled || !button.matches('[data-page], [data-action], [data-settings], [data-energy-mode]')) return;
+    if (button.dataset.action?.startsWith('ops-test:')) {
+      if (this.overview.alarm().level !== 'normal') return;
+      const level = button.dataset.action.split(':')[1];
+      this.alarmTest = level === 'normal' ? undefined : {level, until:Date.now()+15000};
+      if (level !== 'normal') this.playTouchSound(level === 'rot' ? 'red' : 'yellow');
+      this.render();
+      return;
+    }
+    if (button.dataset.action === 'ops-ack' && this.alarmTest && this.overview.alarm().level === 'normal') {
+      this.alarmTest = undefined;
+      this.render();
+      return;
+    }
     const beeps = ['beep1', 'beep2', 'beep3', 'beep4'].filter(kind => this.soundUrl(kind));
     if (beeps.length) this.playTouchSound(beeps[Math.floor(Math.random() * beeps.length)]);
     if (button.hasAttribute('data-settings')) { this.settings.open(); return; }
