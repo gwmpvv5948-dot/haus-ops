@@ -2,7 +2,6 @@ const html = value => String(value ?? '').replace(/[&<>"']/g, c =>
   ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
 const scenes = [['off','Alle aus'],['evening','Abendlicht'],['film','Film'],['hell','Hell']];
 const heading = (title,color) => `<div class="ops-heading" style="--card-color:var(--${color})"><h2>${title}</h2><i></i></div>`;
-const wait = ms => new Promise(resolve => setTimeout(resolve,ms));
 const display = value => Number.isFinite(value) ? Math.round(value) : '—';
 
 export class LightPanel {
@@ -33,7 +32,9 @@ export class LightPanel {
         lights.set(id,{id,name:states[id].attributes.friendly_name ?? id,on:states[id].state==='on',ready:['on','off'].includes(states[id].state)});
       }
     }
+    const excluded = new Set(panel.config?.light_exclude ?? []);
     return [...lights.values()].flatMap(light=>{
+      if (excluded.has(light.id)) return [];
       const entry = entries.get(light.id);
       const device = deviceMap.get(entry?.device_id);
       if ([...(entry?.labels ?? []),...(device?.labels ?? [])].some(label=>(labelMap.get(label) ?? label)==='nicht_im_dashboard')) return [];
@@ -104,7 +105,7 @@ export class LightPanel {
             <div class="light-detail-controls">${!selected.ready?'<div class="light-offline"><b>Offline</b></div>':selected.dim?this.range(selected,'large'):this.instrument(selected)}
               <div>${[['toggle',selected.on?'Ausschalten':'Einschalten'],['plus','+ 10 %'],['minus','− 10 %'],['room-off','Raum aus']].map(([action,label],i)=>`<button data-action="light-${action}:${html(selected.id)}" ${i===3?!currentRoom.some(light=>light.on&&light.ready)?'disabled':'':!selected.ready || i>0&&!selected.dim?'disabled':''}>${label}</button>`).join('')}</div>
             </div><small>${currentRoom.filter(light=>light.on).length} von ${currentRoom.length} an · ${html(currentRoom.map(light=>light.name).join(', '))}</small>`:''}</section></div>
-        <div class="light-scenes"><b>Szenen</b>${scenes.map(([key,label])=>`<button data-action="light-scene:${key}" aria-pressed="${this.scene===key}" ${key==='off'||this.panel.demo||['scene','script'].includes(this.sceneId(key).split('.')[0])&&this.panel.state(this.sceneId(key))?'':'disabled'}>${label}</button>`).join('')}</div>
+        <div class="light-scenes"><b>Szenen</b>${scenes.map(([key,label])=>`<button data-action="light-scene:${key}" aria-pressed="${this.scene===key}" ${key!=='off' && (this.panel.demo || ['scene','script'].includes(this.sceneId(key).split('.')[0]) && this.panel.state(this.sceneId(key))) ? '' : 'disabled'}>${label}</button>`).join('')}</div>
         <div class="light-data" aria-hidden="true">${Array.from({length:9},(_,i)=>`<span style="--order:${i}">${[0,1,2].map(j=>`<i>${100000+(104729*(i+1)+7919*(j+1))%900000}</i>`).join('')}</span>`).join('')}</div>
       </div>`};
   }
@@ -144,14 +145,9 @@ export class LightPanel {
       return;
     }
     if (action === 'scene') {
-      if (!scenes.some(([key])=>key===id)) return;
+      if (id==='off' || !scenes.some(([key])=>key===id)) return;
       const scene = this.sceneId(id);
-      if (id==='off' && !this.panel.state(scene)) {
-        for (const item of lights.filter(item=>item.ready&&item.on)) {
-          await this.set(item,'turn_off');
-          await wait(130);
-        }
-      } else if (!this.panel.demo) {
+      if (!this.panel.demo) {
         await this.panel.call(scene,'turn_on');
       } else {
         this.panel.overview.demoVolumes = id==='evening'?[40,20,0,0]:id==='film'?[20,0,0,0]:[100,100,100,100];

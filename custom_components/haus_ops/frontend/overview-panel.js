@@ -35,8 +35,9 @@ export class OverviewPanel {
       ...(this.panel.config?.lights ?? []),
       ...this.discoveredLights(),
     ])];
+    const excluded = new Set(this.panel.config?.light_exclude ?? []);
     const names = new Map(featured);
-    return ids.map((id,i)=>{
+    return ids.filter(id=>this.panel.demo || !excluded.has(id)).map((id,i)=>{
       const state = this.panel.state(id);
       const name = names.get(id) ?? state?.attributes?.friendly_name ?? id;
       if (this.panel.demo) {
@@ -95,6 +96,7 @@ export class OverviewPanel {
       <b>${!ready?'—':on?(dim?percent+' %':'An'):'Aus'}</b></div>`).join('') || '<small>Keine Leuchten verfügbar</small>'}</div>
       <div class="ops-pair">${all
         ? `<button data-action="ops-off" ${lights.some(light=>light.on)?'':'disabled'}>Alle aus</button>`
+        : this.panel.config?.light_exclude?.includes(this.id('tv')) ? ''
         : `<button data-action="ops-toggle:${escapeHtml(this.id('tv'))}" aria-pressed="${Boolean(tv?.on)}" ${tv?.ready?'':'disabled'}>TV Licht</button>`}
       <button data-action="ops-evening" ${this.panel.demo || enabled(this.panel.state(this.id('evening')))?'':'disabled'}>Abendlicht</button></div></div>`;
   }

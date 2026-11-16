@@ -26,7 +26,7 @@ export class WaterPanel {
     const panel = this.panel;
     const entity = this.entity('today');
     const source = panel.state(entity);
-    if (panel.demo || !panel.ha?.callApi || !source || source.attributes.daily_liters) return;
+    if (panel.demo || !panel.ha?.callApi || !source) return;
     const key = entity + '/' + dayKey(today);
     if (this.historyKey === key && Date.now() < this.nextFetch) return;
     if (this.historyKey !== key) this.history = [];
@@ -34,6 +34,13 @@ export class WaterPanel {
     this.nextFetch = Date.now() + 600000;
     const start = new Date(today);
     start.setDate(start.getDate() - 13);
+    const published = source.attributes.daily_liters ?? {};
+    const complete = Array.from({length:13}, (_, index) => {
+      const date = new Date(start);
+      date.setDate(date.getDate() + index);
+      return Number.isFinite(published[dayKey(date)]);
+    }).every(Boolean);
+    if (complete && Array.isArray(source.attributes.today_points) && source.attributes.today_points.length) return;
     const query = new URLSearchParams({
       filter_entity_id: entity, end_time: new Date().toISOString(),
       minimal_response: '1', no_attributes: '1', significant_changes_only: '0',
@@ -146,7 +153,7 @@ export class WaterPanel {
       : available.length ? available.reduce((sum, value) => sum + value, 0) / available.length : NaN;
     const maximum = Math.max(260, Number.isFinite(used) ? used : 0, ...available);
     const trend = demo ? [[60,54],[330,62],[415,96],[430,100],[500,107]] :
-      [...(published?.today_points ?? points), ...this.live].sort((a,b) => a[0]-b[0]);
+      [...(published?.today_points?.length ? published.today_points : points), ...this.live].sort((a,b) => a[0]-b[0]);
     const status = alarm ? 'Warnung · Dauerfluss erkannt · Leck prüfen' : stale ? (Number.isFinite(shownMeter) ? 'Zähler · letzter gültiger Stand' : 'Zähler keine Daten')
       : flowing ? `Wasser fließt · ${format(flow,1)} L/min` : `Wasser OK · heute ${format(used)} L · Ø ${format(average)} L`;
     return {

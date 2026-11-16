@@ -1,9 +1,9 @@
-import { LightPanel } from './light-panel.js?v=1.6.11';
-import { CircuitsPanel } from './circuits-panel.js?v=1.6.11';
-import { OverviewPanel, overviewFields } from './overview-panel.js?v=1.6.11';
-import { MusicPanel, musicFields } from './music-panel.js?v=1.6.11';
-import { WaterPanel, waterFields } from './water-panel.js?v=1.6.11';
-import { energyFields, energyView } from './energy-panel.js?v=1.6.11';
+import { LightPanel } from './light-panel.js?v=1.6.12';
+import { CircuitsPanel } from './circuits-panel.js?v=1.6.12';
+import { OverviewPanel, overviewFields } from './overview-panel.js?v=1.6.12';
+import { MusicPanel, musicFields } from './music-panel.js?v=1.6.12';
+import { WaterPanel, waterFields } from './water-panel.js?v=1.6.12';
+import { energyFields, energyView } from './energy-panel.js?v=1.6.12';
 import { ClimatePanel, roomNames } from './climate-panel.js';
 const antonio = new FontFace('Antonio', `url("${new URL('./Antonio.ttf', import.meta.url).href}")`, {
   weight: '400 700',
@@ -82,7 +82,7 @@ class HausOps extends HTMLElement {
     if (!this.shadowRoot) {
       this.attachShadow({ mode: 'open' });
       this.shadowRoot.innerHTML = `
-        <link rel="stylesheet" href="${new URL('./haus-ops.css?v=1.6.11', import.meta.url)}">
+        <link rel="stylesheet" href="${new URL('./haus-ops.css?v=1.6.12', import.meta.url)}">
         <div class="stage"><div class="frame">
           <div class="brand">LCARS 77</div>
           <header><span class="rail"></span><strong>HAUS-OPS</strong><time></time><span class="cap"></span></header>
@@ -986,7 +986,10 @@ class HausOpsSettings {
         ${[['off','Alle aus'],['evening','Abendlicht'],['film','Film'],['hell','Hell']].map(([key,label])=>
           `<label>${label}<input name="light-scene-${key}" value="${escape(config.light_scenes?.[key])}" placeholder="${escape(panel.lightsPanel.sceneId(key))}" spellcheck="false"></label>`).join('')}
       </fieldset>
-      <fieldset><legend>Importierte Leuchten</legend>
+      <fieldset><legend>Leuchten filtern</legend>
+        <label>Ausblenden (Entitäts-IDs, kommagetrennt)
+          <input name="light-exclude" value="${escape(config.light_exclude?.join(', '))}" placeholder="light.beispiel, switch.beispiel" spellcheck="false">
+        </label>
         <label>Beim Speichern werden alle erkannten HA-Leuchten übernommen.
           <textarea readonly rows="5">${escape(panel.overview.discoveredLights().join('\n'))}</textarea>
         </label>
@@ -1068,6 +1071,11 @@ class HausOpsSettings {
         return;
       }
       next.circuits.power[id] = sensor;
+    }
+    next.light_exclude = list('light-exclude');
+    if (next.light_exclude.some(id => !circuit(id))) {
+      status.textContent = 'Leuchtenfilter · Bitte IDs mit light. oder switch. eingeben.';
+      return;
     }
     next.light_scenes = {};
     next.light_rated = this.panel.config?.light_rated;
