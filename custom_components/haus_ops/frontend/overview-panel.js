@@ -30,7 +30,7 @@ export class OverviewPanel {
 
   lights() {
     const featured = lamps.map(([key,name]) => [this.id(key),name]);
-    const ids = this.panel.demo ? featured.map(([id]) => id) : [...new Set([
+    const ids = this.panel.demo ? featured.map(([id]) => id) : this.panel.config?.light_selection_saved ? this.panel.config.lights : [...new Set([
       ...featured.filter(([id]) => this.panel.state(id)).map(([id]) => id),
       ...(this.panel.config?.lights ?? []),
       ...this.discoveredLights(),
@@ -96,7 +96,7 @@ export class OverviewPanel {
       <b>${!ready?'—':on?(dim?percent+' %':'An'):'Aus'}</b></div>`).join('') || '<small>Keine Leuchten verfügbar</small>'}</div>
       <div class="ops-pair">${all
         ? `<button data-action="ops-off" ${lights.some(light=>light.on)?'':'disabled'}>Alle aus</button>`
-        : this.panel.config?.light_exclude?.includes(this.id('tv')) ? ''
+        : (this.panel.config?.light_exclude?.includes(this.id('tv')) || this.panel.config?.light_selection_saved && !tv) ? ''
         : `<button data-action="ops-toggle:${escapeHtml(this.id('tv'))}" aria-pressed="${Boolean(tv?.on)}" ${tv?.ready?'':'disabled'}>TV Licht</button>`}
       <button data-action="ops-evening" ${this.panel.demo || enabled(this.panel.state(this.id('evening')))?'':'disabled'}>Abendlicht</button></div></div>`;
   }

@@ -1,9 +1,9 @@
-import { LightPanel } from './light-panel.js?v=1.6.12';
-import { CircuitsPanel } from './circuits-panel.js?v=1.6.12';
-import { OverviewPanel, overviewFields } from './overview-panel.js?v=1.6.12';
-import { MusicPanel, musicFields } from './music-panel.js?v=1.6.12';
-import { WaterPanel, waterFields } from './water-panel.js?v=1.6.12';
-import { energyFields, energyView } from './energy-panel.js?v=1.6.12';
+import { LightPanel } from './light-panel.js?v=1.6.13';
+import { CircuitsPanel } from './circuits-panel.js?v=1.6.13';
+import { OverviewPanel, overviewFields } from './overview-panel.js?v=1.6.13';
+import { MusicPanel, musicFields } from './music-panel.js?v=1.6.13';
+import { WaterPanel, waterFields } from './water-panel.js?v=1.6.13';
+import { energyFields, energyView } from './energy-panel.js?v=1.6.13';
 import { ClimatePanel, roomNames } from './climate-panel.js';
 const antonio = new FontFace('Antonio', `url("${new URL('./Antonio.ttf', import.meta.url).href}")`, {
   weight: '400 700',
@@ -82,7 +82,7 @@ class HausOps extends HTMLElement {
     if (!this.shadowRoot) {
       this.attachShadow({ mode: 'open' });
       this.shadowRoot.innerHTML = `
-        <link rel="stylesheet" href="${new URL('./haus-ops.css?v=1.6.12', import.meta.url)}">
+        <link rel="stylesheet" href="${new URL('./haus-ops.css?v=1.6.13', import.meta.url)}">
         <div class="stage"><div class="frame">
           <div class="brand">LCARS 77</div>
           <header><span class="rail"></span><strong>HAUS-OPS</strong><time></time><span class="cap"></span></header>
@@ -960,6 +960,10 @@ class HausOpsSettings {
     const panel = this.panel;
     if (!panel.ha?.user?.is_admin || this.dialog?.open) return;
     const config = panel.config ?? {};
+    const circuitSelection = config.circuits?.selectionSaved
+      ? config.circuits.include ?? []
+      : panel.circuits.structure().flatMap(floor => floor.rooms.flatMap(room => room.items.map(item => item.id)));
+    const circuitSelectionPending = !config.circuits?.selectionSaved && config.circuits?.labelOnly && !panel.circuits.registry;
     const existing = key => {
       const [group, index] = key.split('.');
       const field = config[group];
@@ -977,7 +981,7 @@ class HausOpsSettings {
     this.dialog.innerHTML = `<style>
       .settings{box-sizing:border-box;width:min(680px,96vw);height:min(680px,94dvh);max-height:94dvh;padding:0;overflow:hidden;border:2px solid #ff995f;border-radius:16px;background:#121014;color:#ffe3cd;font:16px system-ui;text-transform:none}
       .settings form{height:100%;display:grid;grid-template-rows:auto minmax(0,1fr) auto auto}.settings .fields{overflow:auto;padding:0 18px}.settings::backdrop{background:#000b}.settings h2{margin:0;padding:14px 18px;color:#ff995f}.settings fieldset{margin:12px 0;border:1px solid #77617a;border-radius:10px;padding:10px}
-      .settings legend{color:#cd9bd0;font-weight:700}.settings label{display:grid;gap:4px;margin-bottom:8px}.settings input:not([type=checkbox]){min-height:44px;width:100%;max-width:100%;background:#26212b;color:#fff;border:1px solid #a19aff;border-radius:6px;padding:6px;font:inherit}
+      .settings legend{color:#cd9bd0;font-weight:700}.settings label{display:grid;gap:4px;margin-bottom:8px}.settings :is(input:not([type=checkbox]), textarea){min-height:44px;width:100%;max-width:100%;background:#26212b;color:#fff;border:1px solid #a19aff;border-radius:6px;padding:6px;font:inherit}
       .settings .controls{background:#121014;padding:9px 18px;border-top:1px solid #77617a;display:flex;gap:8px;justify-content:flex-end}.settings button{min-height:48px;padding:0 14px;border-radius:8px}.settings [role=status]{color:#ffcc99;margin:0;padding:4px 18px}.settings [role=status]:empty{display:none}.settings [type=submit]{background:#ff995f;font-weight:800}
     </style><form><h2>HAUS-OPS konfigurieren</h2><div class="fields">
       <fieldset><legend>Display</legend><label><span><input type="checkbox" name="touch-sounds" ${panel.touchSoundsEnabled ? 'checked' : ''}> Star-Trek-Töne auf diesem Display</span></label>
@@ -986,20 +990,18 @@ class HausOpsSettings {
         ${[['off','Alle aus'],['evening','Abendlicht'],['film','Film'],['hell','Hell']].map(([key,label])=>
           `<label>${label}<input name="light-scene-${key}" value="${escape(config.light_scenes?.[key])}" placeholder="${escape(panel.lightsPanel.sceneId(key))}" spellcheck="false"></label>`).join('')}
       </fieldset>
-      <fieldset><legend>Leuchten filtern</legend>
-        <label>Ausblenden (Entitäts-IDs, kommagetrennt)
-          <input name="light-exclude" value="${escape(config.light_exclude?.join(', '))}" placeholder="light.beispiel, switch.beispiel" spellcheck="false">
-        </label>
-        <label>Beim Speichern werden alle erkannten HA-Leuchten übernommen.
-          <textarea readonly rows="5">${escape(panel.overview.discoveredLights().join('\n'))}</textarea>
+      <fieldset><legend>Leuchten im Dashboard</legend>
+        <label>Eine Entitäts-ID pro Zeile. Ergänze oder entferne Leuchten direkt in der Liste.
+          <textarea name="light-selection" rows="8" spellcheck="false" autocapitalize="none">${escape((config.light_selection_saved ? config.lights : panel.lightsPanel.lights().map(light=>light.id)).join('\n'))}</textarea>
         </label>
       </fieldset>
       <fieldset><legend>Stromkreise</legend>
-        <label>Schalter (kommagetrennt, leer für alle)<input name="circuit-include" value="${escape(config.circuits?.include?.join(', '))}" spellcheck="false"></label>
+        <label>Eine Schalter- oder Leuchten-ID pro Zeile. Ergänze oder entferne Entitäten direkt in der Liste.
+          <textarea name="circuit-include" rows="8" spellcheck="false" autocapitalize="none" ${circuitSelectionPending ? 'disabled' : ''}>${escape(circuitSelection.join('\n'))}</textarea>
+        </label>
+        ${circuitSelectionPending ? '<p>Für die bisherige Label-Auswahl muss die HA-Registry geladen sein. Öffne die Einstellungen danach erneut.</p>' : ''}
         <label>Geschützte Entitäten (kommagetrennt)<input name="circuit-protected" value="${escape(config.circuits?.protected?.join(', '))}" spellcheck="false"></label>
         <label>Leistungssensoren (Schalter = Sensor, kommagetrennt)<input name="circuit-power" value="${escape(Object.entries(config.circuits?.power ?? {}).map(pair => pair.join(' = ')).join(', '))}" spellcheck="false"></label>
-        <label><span><input type="checkbox" name="circuit-lights" ${config.circuits?.includeLights !== false ? 'checked' : ''}> Auch Leuchten anzeigen</span></label>
-        <label><span><input type="checkbox" name="circuit-label" ${config.circuits?.labelOnly ? 'checked' : ''}> Nur mit Label „Stromkreis“</span></label>
       </fieldset>
       ${entityFields.map(([title, fields]) => `<fieldset><legend>${title}</legend>${fields.map(([key, label, , caption]) =>
         `<label>${caption ?? label}<input name="${key}" value="${escape(existing(key))}" placeholder="Entitäts-ID" spellcheck="false" autocapitalize="none"></label>`).join('')}
@@ -1053,14 +1055,16 @@ class HausOpsSettings {
     }
     const list = name => [...new Set(data.get(name).split(',').map(id => id.trim()).filter(Boolean))];
     next.circuits = {
-      include: list('circuit-include'),
+      ...this.panel.config?.circuits,
+      ...(data.has('circuit-include') ? {
+        selectionSaved: true,
+        include: [...new Set(data.get('circuit-include').split(/[\s,]+/).filter(Boolean))],
+      } : {}),
       protected: list('circuit-protected'),
-      includeLights: data.has('circuit-lights'),
-      labelOnly: data.has('circuit-label'),
       power: {},
     };
     const circuit = id => /^(switch|light)\.[a-z0-9_]+$/.test(id);
-    if ([...next.circuits.include, ...next.circuits.protected].some(id => !circuit(id))) {
+    if ([...(next.circuits.include ?? []), ...next.circuits.protected].some(id => !circuit(id))) {
       status.textContent = 'Stromkreise · Bitte IDs mit switch. oder light. eingeben.';
       return;
     }
@@ -1072,8 +1076,9 @@ class HausOpsSettings {
       }
       next.circuits.power[id] = sensor;
     }
-    next.light_exclude = list('light-exclude');
-    if (next.light_exclude.some(id => !circuit(id))) {
+    next.lights = [...new Set(data.get('light-selection').split(/[\s,]+/).filter(Boolean))];
+    next.light_selection_saved = true;
+    if (next.lights.some(id => !circuit(id))) {
       status.textContent = 'Leuchtenfilter · Bitte IDs mit light. oder switch. eingeben.';
       return;
     }
@@ -1088,7 +1093,6 @@ class HausOpsSettings {
       }
       next.light_scenes[key] = id;
     }
-    next.lights = this.panel.overview.discoveredLights();
     next.sounds = {};
     for (const [key, label] of soundSlots) {
       const filename = data.get('sound-' + key)?.trim();

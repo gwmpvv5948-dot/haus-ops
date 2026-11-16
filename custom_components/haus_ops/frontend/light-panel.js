@@ -26,9 +26,9 @@ export class LightPanel {
       }
     }
     const lights = new Map(panel.overview.lights().map(light=>[light.id,light]));
-    for (const id of Object.keys(states).filter(id=>id.startsWith('switch.'))) {
+    for (const id of Object.keys(states).filter(id=>!panel.config?.light_selection_saved && id.startsWith('switch.'))) {
       const entry = entries.get(id);
-      if ([...(entry?.labels ?? []),...(deviceMap.get(entry?.device_id)?.labels ?? [])].some(label=>(labelMap.get(label) ?? label)==='licht')) {
+      if (!panel.config?.light_selection_saved && [...(entry?.labels ?? []),...(deviceMap.get(entry?.device_id)?.labels ?? [])].some(label=>(labelMap.get(label) ?? label)==='licht')) {
         lights.set(id,{id,name:states[id].attributes.friendly_name ?? id,on:states[id].state==='on',ready:['on','off'].includes(states[id].state)});
       }
     }
@@ -37,7 +37,7 @@ export class LightPanel {
       if (excluded.has(light.id)) return [];
       const entry = entries.get(light.id);
       const device = deviceMap.get(entry?.device_id);
-      if ([...(entry?.labels ?? []),...(device?.labels ?? [])].some(label=>(labelMap.get(label) ?? label)==='nicht_im_dashboard')) return [];
+      if (!panel.config?.light_selection_saved && [...(entry?.labels ?? []),...(device?.labels ?? [])].some(label=>(labelMap.get(label) ?? label)==='nicht_im_dashboard')) return [];
       const area = areaMap.get(entry?.area_id ?? device?.area_id);
       const floor = floorMap.get(area?.floor_id);
       const candidates = powerSensors.get(entry?.device_id);

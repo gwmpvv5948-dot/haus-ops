@@ -56,13 +56,13 @@ export class CircuitsPanel {
       sensorsByDevice.get(entry.device_id).push(entry.entity_id);
     }
     const configured = Object.keys(states).filter(id=>/^switch\./.test(id) || config.includeLights !== false && /^light\./.test(id));
-    const ids = config.include?.length ? config.include : configured;
+    const ids = config.selectionSaved || config.include?.length ? config.include ?? [] : configured;
     const groups = new Map();
     for (const id of ids) {
       const state = states[id];
       const entry = entries.get(id);
       const device = devicesById.get(entry?.device_id);
-      if (config.labelOnly && !hasLabel(entry,device,'stromkreis')) continue;
+      if (!config.selectionSaved && config.labelOnly && !hasLabel(entry,device,'stromkreis')) continue;
       const area = areasById.get(entry?.area_id ?? device?.area_id);
       const floor = floorsById.get(area?.floor_id);
       const floorName = floor?.name ?? 'Ohne Etage';
