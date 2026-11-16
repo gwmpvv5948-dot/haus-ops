@@ -603,3 +603,8 @@ footer .rail[data-music-tone=error]{background:var(--red)}
 @keyframes circuit-spin{to{transform:rotate(360deg)}}
 @keyframes circuit-pulse{to{opacity:.75}}
 @media(prefers-reduced-motion:reduce){.circuits-page *{animation:none!important}}
+
+.ops-light-list{display:grid;gap:3px;align-content:start}
+.ops-light-detail{min-height:0}
+.ops-light-detail .ops-lights{min-height:0;grid-template-rows:minmax(0,1fr) auto}
+.ops-light-detail .ops-light-list{overflow-y:auto;scrollbar-width:none;overscroll-behavior:contain}

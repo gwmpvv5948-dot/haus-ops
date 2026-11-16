@@ -11,6 +11,8 @@ const bars = (count,value) => `<span class="ops-bars" aria-hidden="true">${Array
   `<i class="${i/count<value?'filled':''}"></i>`).join('')}</span>`;
 const heading = (title,color,info,page) => `<div class="ops-heading" style="--card-color:var(--${color})">
   ${page===undefined?`<h2>${title}</h2>`:`<button data-page="${page}">${title}</button>`}<i></i>${info?`<b>${info}</b>`:''}</div>`;
+const escapeHtml = value => String(value).replace(/[&<>"']/g, c =>
+  ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
 const enabled = state => state && !['unknown','unavailable'].includes(state.state);
 
 export class OverviewPanel {
@@ -22,10 +24,21 @@ export class OverviewPanel {
     })[key] || (lamps.some(([id])=>id===key) ? 'light.'+key : 'sensor.kwl_'+key);
   }
 
+  discoveredLights() {
+    return Object.keys(this.panel.ha?.states ?? {}).filter(id => id.startsWith('light.')).sort();
+  }
+
   lights() {
-    return lamps.map(([key,name],i)=>{
-      const id = this.id(key);
+    const featured = lamps.map(([key,name]) => [this.id(key),name]);
+    const ids = this.panel.demo ? featured.map(([id]) => id) : [...new Set([
+      ...featured.filter(([id]) => this.panel.state(id)).map(([id]) => id),
+      ...(this.panel.config?.lights ?? []),
+      ...this.discoveredLights(),
+    ])];
+    const names = new Map(featured);
+    return ids.map((id,i)=>{
       const state = this.panel.state(id);
+      const name = names.get(id) ?? state?.attributes?.friendly_name ?? id;
       if (this.panel.demo) {
         const percent = (this.demoVolumes ?? [40,0,80,0])[i];
         return {id,name,on:percent>0,percent,dim:true,ready:true};
@@ -48,7 +61,7 @@ export class OverviewPanel {
       acknowledged: this.localAck || this.panel.state(this.id('acknowledged'))?.state==='on'};
   }
 
-  async act(action, index, value) {
+  async act(action, id, value) {
     const lights = this.lights();
     const panel = this.panel;
     if (action === 'ack') {
@@ -61,7 +74,9 @@ export class OverviewPanel {
       if (panel.demo) this.demoVolumes = [0,0,0,0];
       else await Promise.all(lights.filter(light=>light.on && light.ready).map(light=>panel.call(light.id,'turn_off')));
     } else {
+      const index = lights.findIndex(light => light.id === id);
       const light = lights[index];
+      if (!light?.ready || (value !== undefined && !light.dim)) return;
       if (panel.demo) {
         this.demoVolumes ??= [40,0,80,0];
         this.demoVolumes[index] = value ?? (light.on ? 0 : 100);
@@ -69,13 +84,14 @@ export class OverviewPanel {
     }
   }
 
-  lightControls() {
+  lightControls(all = false) {
     const lights = this.lights();
-    return `<div class="ops-lights">${lights.map(({name,on,percent,dim,ready},i)=>`<div class="ops-light ${on?'on':''}">
-      <button data-action="ops-toggle:${i}" aria-pressed="${on}" ${ready?'':'disabled'}>${name}</button>
-      ${dim?`<div class="ops-dimmer">${Array.from({length:10},(_,j)=>`<button data-action="ops-brightness:${i}:${(j+1)*10}" class="${percent>j*10?'filled':''}" style="--height:${25+j*8}%"
-        aria-label="${name} ${(j+1)*10} Prozent" ${ready?'':'disabled'}><i></i></button>`).join('')}</div>`:''}
-      <b>${!ready?'—':on?(dim?percent+' %':'An'):'Aus'}</b></div>`).join('')}
+    const visible = all ? lights : lights.slice(0,4);
+    return `<div class="ops-lights"><div class="ops-light-list">${visible.map(({id,name,on,percent,dim,ready})=>`<div class="ops-light ${on?'on':''}">
+      <button data-action="ops-toggle:${escapeHtml(id)}" aria-pressed="${on}" ${ready?'':'disabled'}>${escapeHtml(name)}</button>
+      ${dim?`<div class="ops-dimmer">${Array.from({length:10},(_,j)=>`<button data-action="ops-brightness:${escapeHtml(id)}:${(j+1)*10}" class="${percent>j*10?'filled':''}" style="--height:${25+j*8}%"
+        aria-label="${escapeHtml(name)} ${(j+1)*10} Prozent" ${ready?'':'disabled'}><i></i></button>`).join('')}</div>`:''}
+      <b>${!ready?'—':on?(dim?percent+' %':'An'):'Aus'}</b></div>`).join('') || '<small>Keine Leuchten verfügbar</small>'}</div>
       <div class="ops-pair"><button data-action="ops-off" ${lights.some(light=>light.on)?'':'disabled'}>Alle aus</button>
       <button data-action="ops-evening" ${this.panel.demo || enabled(this.panel.state(this.id('evening')))?'':'disabled'}>Abendlicht</button></div></div>`;
   }
@@ -125,7 +141,7 @@ export class OverviewPanel {
             </g><circle cx="60" cy="60" r="14" fill="#000" stroke="#ff995f"/>
             <text x="60" y="61">${levels[level] ?? '—'}</text></svg>
         </div>
-        <div class="ops-stages">${levels.map((name,i)=>`<button data-action="vent:${i}" aria-pressed="${i===level}" ${panel.canSetLevel(i)?'':'disabled'}>${name}</button>`).join('')}</div>
+        <div class="ops-stages">${levels.map((name,i)=>`<button data-action="vent:${i}" aria-pressed="${i===level}" ${panel.canSetLevel(i)?'':'disabled'}>${escapeHtml(name)}</button>`).join('')}</div>
         <div class="ops-timer">Timer <span data-timer-bar>${bars(12,0)}</span><strong>${panel.remaining>0?'<span data-countdown></span>':'Auto'}</strong>
           <button data-action="ops-timer:0" ${panel.demo || enabled(panel.timer)?'':'disabled'}>+15</button>
           <button data-action="ops-timer:1" ${panel.demo || enabled(panel.timer)?'':'disabled'}>Stop</button></div>
@@ -137,7 +153,7 @@ export class OverviewPanel {
       <section class="ops-blinds" data-card-page="3">${heading('Rollos','purple',blinds.some(blind=>blind.movement)?'Fährt':blinds.length+' Fenster',3)}
         ${coverButtons}
         <div class="ops-blind-rows">${blinds.map(blind=>`<div><span>${escape(blind.name)}</span>${bars(10,Number.isFinite(blind.position)?1-blind.position/100:0)}
-          <b>${blind.position===100?'Offen':blind.position===0?'Zu':Number.isFinite(blind.position)?format(100-blind.position)+' %':'—'}</b></div>`).join('')}</div>
+          <b>${blind.position===100?'Offen':blind.position===0?'Zu':Number.isFinite(blind.position)?format(100-blind.position)+' %':'—'}</b></div>`).join('') || '<small>Keine Leuchten verfügbar</small>'}</div></div>
         <div class="ops-devices">${devices.map(device=>`<span class="${device.on?'on':''}">${escape(device.name)} · ${deviceLabel(device)}</span>`).join('')}</div>
       </section>
       <section class="ops-utilities ${overviewAlarm.leak?'ops-leak':''}">${heading('Versorgung',overviewAlarm.leak?'red':'peach','Strom · Wasser',6)}${this.supply(energy,overviewAlarm)}</section>

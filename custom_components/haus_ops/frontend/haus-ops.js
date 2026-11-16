@@ -21,12 +21,14 @@ const navigation = [
   [4, 'Klima', '08-517', '--sand'],
   [5, 'Garten', '09-642', '--pink'],
 ];
+const redAlarmLabel = 'Roter Alarm';
+const redAlarmFile = 'red_alert.mp3';
 const soundSlots = [
   ['beep1', 'Beep 1', 'computerbeep_1.mp3'],
   ['beep2', 'Beep 2', 'computer_work_beep.mp3'],
   ['beep3', 'Beep 3', ''],
   ['beep4', 'Beep 4', ''],
-  ['red', 'Red Alert', ''],
+  ['red', redAlarmLabel, redAlarmFile],
   ['yellow', 'Yellow Alert', ''],
   ['warp', 'Warp Sound · Energiekern', ''],
 ];
@@ -424,7 +426,8 @@ class HausOps extends HTMLElement {
       if (overviewAlarm.level === 'gelb') this.playTouchSound('yellow');
     }
     const hasAlarm = overviewAlarm.level !== 'normal';
-    const alarm = hasAlarm ? 'Alarmstufe ' + overviewAlarm.level
+    const alarm = overviewAlarm.level === 'rot' ? redAlarmLabel
+      : overviewAlarm.level === 'gelb' ? 'Alarmstufe Gelb'
       : complete && !open.length ? 'Gesichert' : 'Kein aktiver Alarm';
     let layout;
     switch (this.page) {
@@ -433,7 +436,7 @@ class HausOps extends HTMLElement {
           coverButtons, devices, deviceLabel, escape, overviewAlarm, energy:energyView(this,false,true)});
         break;
       case 9:
-        layout = `<section class="ops-light-detail">${band('Licht','--sand')}${this.overview.lightControls()}</section>`;
+        layout = `<section class="ops-light-detail">${band('Licht','--sand')}${this.overview.lightControls(true)}</section>`;
         break;
       case 1:
         layout = `<section class="detail">${band('Sicherheit · Zugänge', '--red')}
@@ -476,7 +479,7 @@ class HausOps extends HTMLElement {
     const showAlarm = alert === 'rot' && !overviewAlarm.acknowledged;
     const alarmLayer = this.shadowRoot.querySelector('.alarm-layer');
     const alarmMarkup = showAlarm ? `<section class="ops-alarm-overlay"><div class="ops-red-bars" aria-hidden="true">${'<i></i>'.repeat(5)}</div>
-        <strong>Alarmstufe Rot</strong>
+        <strong>${redAlarmLabel}</strong>
         <p>${escape(overviewAlarm.reasons)}</p><button data-action="ops-ack">Quittieren</button>
         <button data-page="${overviewAlarm.leak ? 7 : 1}">Details</button>
         <div class="ops-red-bars reverse" aria-hidden="true">${'<i></i>'.repeat(5)}</div></section>` : '';
@@ -492,7 +495,7 @@ class HausOps extends HTMLElement {
       (open.length > 0 || /tür|tor|fenster|schloss/i.test(overviewAlarm.reasons)));
     const climatePage = this.page === 4;
     this.shadowRoot.querySelector('.frame').classList.toggle('climate-page', climatePage);
-    this.shadowRoot.querySelector('header strong').textContent = alert === 'rot' ? (overviewAlarm.acknowledged ? 'Alarmstufe Rot · quittiert' : 'Alarmstufe Rot')
+    this.shadowRoot.querySelector('header strong').textContent = alert === 'rot' ? (overviewAlarm.acknowledged ? redAlarmLabel + ' · quittiert' : redAlarmLabel)
       : alert === 'gelb' ? `Alarmstufe Gelb · ${overviewAlarm.count} ${overviewAlarm.count === 1 ? 'Meldung' : 'Meldungen'}` : this.page === 9 ? 'Licht' : circuits ? 'Stromkreise' : music ? 'Musik' : water ? 'Wasser' : energy ? 'Energie' : climatePage ? 'Klima' : this.page === 3 ? 'Rollos' : 'HAUS-OPS';
     this.shadowRoot.querySelector('footer .rail').textContent = [
       this.demo ? 'Demo' : '', level >= 0 ? 'Lüftung Stufe ' + levels[level] : 'Haus-Ops'
@@ -505,7 +508,7 @@ class HausOps extends HTMLElement {
     footer.classList.toggle('water-stale', Boolean(water?.stale && !water?.alarm));
     footer.dataset.musicTone = music?.tone ?? '';
     if (this.page === 0) footer.textContent = alert !== 'normal'
-      ? overviewAlarm.reasons || 'Alarmstufe ' + alert
+      ? overviewAlarm.reasons || alarm
       : `Übersicht · ${this.overview.lights().filter(light=>light.on).length} Lichter an · Lüftung ${levels[level] ?? '—'}`;
     if (music) footer.textContent = music.status;
     if (water) footer.textContent = water.status;
@@ -543,7 +546,10 @@ class HausOps extends HTMLElement {
       const action = main.contains(focused) && focused.dataset.action;
       const focusedBlind = main.contains(focused) && focused.dataset.blindPosition;
       const modeFocused = main.contains(focused) && focused.hasAttribute('data-energy-mode');
+      const lightScroll = main.querySelector('.ops-light-detail .ops-light-list')?.scrollTop;
       main.innerHTML = layout;
+      const lightList = main.querySelector('.ops-light-detail .ops-light-list');
+      if (lightList && lightScroll !== undefined) lightList.scrollTop = lightScroll;
       flows.forEach(node => {
         const next = main.querySelector(`[data-energy-flow="${node.dataset.energyFlow}"]`);
         if (!next) return;
@@ -591,6 +597,14 @@ class HausOps extends HTMLElement {
       animate(rail, [{transform:'scaleX(0)', transformOrigin:'left'},
         {transform:'scaleX(1)', transformOrigin:'left'}], 800);
     });
+    const wheel = main.querySelector('.circuits-wheel');
+    if (wheel) {
+      const radius = Math.min(wheel.clientWidth, wheel.clientHeight) / 2;
+      animate(wheel, [
+        {clipPath:'circle(0px at center)'},
+        {clipPath:`circle(${radius}px at center)`},
+      ], 900, 100);
+    }
     const cards = main.querySelector('.ops-overview')?.children ?? main.firstElementChild?.children ?? [];
     Array.from(cards).forEach((card, index) => {
       animate(card, [{opacity:0, transform:'translateX(-7px)'}, {opacity:1, transform:'none'}],
@@ -616,6 +630,9 @@ class HausOps extends HTMLElement {
 
   soundUrl(kind) {
     const filename = this.config?.sounds?.[kind] || soundSlots.find(([key]) => key === kind)?.[2];
+    if (kind === 'red' && filename === redAlarmFile) {
+      return new URL('./sounds/' + redAlarmFile, import.meta.url).href;
+    }
     return filename && validSoundName(filename)
       ? '/local/haus-ops/sounds/' + encodeURIComponent(filename)
       : '';
@@ -715,7 +732,7 @@ class HausOps extends HTMLElement {
         case 'ops-off':
         case 'ops-evening':
         case 'ops-ack':
-          await this.overview.act(kind.slice(4), i, value === undefined ? undefined : Number(value));
+          await this.overview.act(kind.slice(4), index, value === undefined ? undefined : Number(value));
           break;
         case 'ops-timer':
         case 'timer': {
@@ -860,6 +877,11 @@ class HausOpsSettings {
     </style><form><h2>HAUS-OPS konfigurieren</h2><div class="fields">
       <fieldset><legend>Display</legend><label><span><input type="checkbox" name="touch-sounds" ${panel.touchSoundsEnabled ? 'checked' : ''}> Star-Trek-Töne auf diesem Display</span></label>
         ${soundSlots.map(([key,label,defaultFile]) => `<label>${label}<input name="sound-${key}" value="${escape(config.sounds?.[key] ?? defaultFile)}" placeholder="Dateiname, z. B. beep.mp3" spellcheck="false"></label>`).join('')}</fieldset>
+      <fieldset><legend>Importierte Leuchten</legend>
+        <label>Beim Speichern werden alle erkannten HA-Leuchten übernommen.
+          <textarea readonly rows="5">${escape(panel.overview.discoveredLights().join('\n'))}</textarea>
+        </label>
+      </fieldset>
       <fieldset><legend>Stromkreise</legend>
         <label>Schalter (kommagetrennt, leer für alle)<input name="circuit-include" value="${escape(config.circuits?.include?.join(', '))}" spellcheck="false"></label>
         <label>Geschützte Entitäten (kommagetrennt)<input name="circuit-protected" value="${escape(config.circuits?.protected?.join(', '))}" spellcheck="false"></label>
@@ -938,6 +960,7 @@ class HausOpsSettings {
       }
       next.circuits.power[id] = sensor;
     }
+    next.lights = this.panel.overview.discoveredLights();
     next.sounds = {};
     for (const [key, label] of soundSlots) {
       const filename = data.get('sound-' + key)?.trim();
