@@ -1,9 +1,11 @@
-import { WaterPanel, waterFields } from './water-panel.js?v=1.4.0';
-import { energyFields, energyView } from './energy-panel.js?v=1.4.0';
+import { MusicPanel, musicFields } from './music-panel.js?v=1.5.0';
+import { WaterPanel, waterFields } from './water-panel.js?v=1.5.0';
+import { energyFields, energyView } from './energy-panel.js?v=1.5.0';
 import { ClimatePanel, roomNames } from './climate-panel.js';
 const energyPageIndex = 6;
 const pages = ['Übersicht', 'Sicherheit', 'Lüftung', 'Rollos', 'Klima', 'Garten'];
 const waterPageIndex = 7;
+const musicPageIndex = 8;
 const colors = ['--sand', '--red', '--pink', '--purple', '--sand'];
 const levels = ['Aus', 'Low', '1', '2', 'Max'];
 const climate = new Intl.NumberFormat('de-DE', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
@@ -31,6 +33,7 @@ class HausOps extends HTMLElement {
 
   settings = new HausOpsSettings(this);
   water = new WaterPanel(this);
+  music = new MusicPanel(this);
   climatePanel = new ClimatePanel(this);
 
   set hass(value) { this.ha = value; this.settings.load(value); this.render(); }
@@ -42,12 +45,12 @@ class HausOps extends HTMLElement {
     if (!this.shadowRoot) {
       this.attachShadow({ mode: 'open' });
       this.shadowRoot.innerHTML = `
-        <link rel="stylesheet" href="${new URL('./haus-ops.css?v=1.4.0', import.meta.url)}">
+        <link rel="stylesheet" href="${new URL('./haus-ops.css?v=1.5.0', import.meta.url)}">
         <div class="stage"><div class="frame">
           <div class="brand">LCARS 77</div>
           <header><span class="rail"></span><strong>HAUS-OPS</strong><time></time><span class="cap"></span></header>
           <nav aria-label="Ansichten"><div class="nav-scroll">
-            ${pages.slice(0,5).map((page, i) => `<button data-page="${i}" style="background:var(${colors[i]})">${page}</button>`).flatMap((button, i) => i === 0 ? [button, '<button data-page="6" style="background:var(--sand)">Energie</button>', '<button data-page="7" style="background:var(--blue)">Wasser</button>'] : [button]).join('')}
+            ${pages.slice(0,5).map((page, i) => `<button data-page="${i}" style="background:var(${colors[i]})">${page}</button>`).flatMap((button, i) => i === 0 ? [button, '<button data-page="6" style="background:var(--sand)">Energie</button>', '<button data-page="7" style="background:var(--blue)">Wasser</button>', '<button data-page="8" style="background:var(--pink)">Musik</button>'] : [button]).join('')}
             <button data-page="5" style="background:var(--pink)">Garten</button>
           </div><button data-settings aria-label="82873.4 – Konfiguration" hidden>82873.4</button><p data-nav-spacer>82873.4</p><p data-frequency hidden></p></nav>
           <main></main><div class="heel"></div>
@@ -303,6 +306,7 @@ class HausOps extends HTMLElement {
   render() {
     const main = this.shadowRoot?.querySelector('main');
     if (!main) return;
+    const music = this.page === musicPageIndex ? this.music.view() : null;
     const water = this.page === waterPageIndex ? this.water.view() : null;
     const energy = this.page === energyPageIndex ? energyView(this, this.engineeringMode) : null;
     const canConfigure = Boolean(this.ha?.user?.is_admin);
@@ -382,6 +386,9 @@ class HausOps extends HTMLElement {
       case energyPageIndex:
         layout = energy.layout;
         break;
+      case musicPageIndex:
+        layout = music.layout;
+        break;
       case waterPageIndex:
         layout = water.layout;
         break;
@@ -391,7 +398,7 @@ class HausOps extends HTMLElement {
     }
     const climatePage = this.page === 4;
     this.shadowRoot.querySelector('.frame').classList.toggle('climate-page', climatePage);
-    this.shadowRoot.querySelector('header strong').textContent = water ? 'Wasser' : energy ? 'Energie' : climatePage ? 'Klima' : this.page === 3 ? 'Rollos' : 'HAUS-OPS';
+    this.shadowRoot.querySelector('header strong').textContent = music ? 'Musik' : water ? 'Wasser' : energy ? 'Energie' : climatePage ? 'Klima' : this.page === 3 ? 'Rollos' : 'HAUS-OPS';
     this.shadowRoot.querySelector('footer .rail').textContent = [
       this.demo ? 'Demo' : '', level >= 0 ? 'Lüftung Stufe ' + levels[level] : 'Haus-Ops'
     ].filter(Boolean).join(' · ');
@@ -400,6 +407,8 @@ class HausOps extends HTMLElement {
     footer.classList.toggle('blind-error', Boolean(energy?.warning) || blinds.some(blind => !blind.available));
     footer.classList.toggle('water-alarm', Boolean(water?.alarm));
     footer.classList.toggle('water-stale', Boolean(water?.stale && !water?.alarm));
+    footer.dataset.musicTone = music?.tone ?? '';
+    if (music) footer.textContent = music.status;
     if (water) footer.textContent = water.status;
     if (energy) footer.textContent = energy.status;
     if (blinds.length) {
@@ -452,6 +461,7 @@ class HausOps extends HTMLElement {
     this.shadowRoot.querySelectorAll('nav [data-page]').forEach(button =>
       button.setAttribute('aria-current', Number(button.dataset.page) === this.page));
     this.tick();
+    if (music) this.music.tick(main);
   }
 
   notify(text) {
@@ -482,6 +492,11 @@ class HausOps extends HTMLElement {
       return;
     }
     if (!button.dataset.action) return;
+    if (button.dataset.action.startsWith('music-')) {
+      const [action, value] = button.dataset.action.slice(6).split(':');
+      await this.music.act(action, Number(value));
+      return;
+    }
     const step = /^climate-(plus|minus|cancel):(\d+)$/.exec(button.dataset.action);
     if (step) {
       this.climatePanel.change(Number(step[2]), {plus:1,minus:-1,cancel:0}[step[1]]);
@@ -567,6 +582,7 @@ const blindFields = [
 const entityFields = [
   ['Energie', energyFields],
   ['Wasser', waterFields],
+  ['Musik', musicFields],
   ['Sicherheit', [
     ['access.0', 'Garagentor', ['binary_sensor', 'cover']],
     ['access.1', 'Garagentür', ['binary_sensor']],
@@ -627,7 +643,7 @@ class HausOpsSettings {
     const existing = key => {
       const [group, index] = key.split('.');
       const field = config[group];
-      if (group === 'energy' || group === 'water') return field?.[index];
+      if (['energy', 'water', 'music'].includes(group)) return field?.[index];
       if (group === 'blinds') return field?.find(item => item.key === index)?.entity;
       if (group === 'valves') return field?.[roomNames[index]]?.join(', ');
       if (index !== undefined) {
@@ -669,7 +685,7 @@ class HausOpsSettings {
     const data = new FormData(form);
     const submit = form.querySelector('[type=submit]');
     const status = form.querySelector('[role=status]');
-    const next = { energy: {}, water: {
+    const next = { energy: {}, music: {}, water: {
       leak_minutes: Number(data.get('water-leak-minutes')) || 30,
       leak_liters: Number(data.get('water-leak-liters')) || 300,
     }, ventilation: this.panel.config?.ventilation, blinds: blindFields.map(([key, label]) => ({ key, name: data.get(`blind-name.${key}`)?.trim() || label })),
@@ -688,7 +704,7 @@ class HausOpsSettings {
           return;
         }
         if (group === 'valves') next.valves[name] = ids;
-        else if (group === 'energy' || group === 'water') next[group][index] = entity;
+        else if (['energy', 'water', 'music'].includes(group)) next[group][index] = entity;
         else if (group === 'blinds') next.blinds.find(blind => blind.key === index).entity = entity;
         else if (index !== undefined) next[group].push({ name, entity });
         else next[group] = entity;
