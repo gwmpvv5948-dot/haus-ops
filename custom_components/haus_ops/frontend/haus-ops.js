@@ -1,8 +1,9 @@
-import { energyFields, energyView } from './energy-panel.js?v=1.3.2';
+import { WaterPanel, waterFields } from './water-panel.js?v=1.4.0';
+import { energyFields, energyView } from './energy-panel.js?v=1.4.0';
 import { ClimatePanel, roomNames } from './climate-panel.js';
 const energyPageIndex = 6;
 const pages = ['Übersicht', 'Sicherheit', 'Lüftung', 'Rollos', 'Klima', 'Garten'];
-const managerLinks = [['Wasser', '/wassermanager', '--blue']];
+const waterPageIndex = 7;
 const colors = ['--sand', '--red', '--pink', '--purple', '--sand'];
 const levels = ['Aus', 'Low', '1', '2', 'Max'];
 const climate = new Intl.NumberFormat('de-DE', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
@@ -29,6 +30,7 @@ class HausOps extends HTMLElement {
   busy = false;
 
   settings = new HausOpsSettings(this);
+  water = new WaterPanel(this);
   climatePanel = new ClimatePanel(this);
 
   set hass(value) { this.ha = value; this.settings.load(value); this.render(); }
@@ -40,13 +42,12 @@ class HausOps extends HTMLElement {
     if (!this.shadowRoot) {
       this.attachShadow({ mode: 'open' });
       this.shadowRoot.innerHTML = `
-        <link rel="stylesheet" href="${new URL('./haus-ops.css?v=1.3.2', import.meta.url)}">
+        <link rel="stylesheet" href="${new URL('./haus-ops.css?v=1.4.0', import.meta.url)}">
         <div class="stage"><div class="frame">
           <div class="brand">LCARS 77</div>
           <header><span class="rail"></span><strong>HAUS-OPS</strong><time></time><span class="cap"></span></header>
           <nav aria-label="Ansichten"><div class="nav-scroll">
-            ${pages.slice(0,5).map((page, i) => `<button data-page="${i}" style="background:var(${colors[i]})">${page}</button>`).flatMap((button, i) => i === 0 ? [button, '<button data-page="6" style="background:var(--sand)">Energie</button>'] : [button]).join('')}
-            ${managerLinks.map(([name, url, color]) => `<a href="${url}" style="background:var(${color})">${name}</a>`).join('')}
+            ${pages.slice(0,5).map((page, i) => `<button data-page="${i}" style="background:var(${colors[i]})">${page}</button>`).flatMap((button, i) => i === 0 ? [button, '<button data-page="6" style="background:var(--sand)">Energie</button>', '<button data-page="7" style="background:var(--blue)">Wasser</button>'] : [button]).join('')}
             <button data-page="5" style="background:var(--pink)">Garten</button>
           </div><button data-settings aria-label="82873.4 – Konfiguration" hidden>82873.4</button><p data-nav-spacer>82873.4</p><p data-frequency hidden></p></nav>
           <main></main><div class="heel"></div>
@@ -302,6 +303,7 @@ class HausOps extends HTMLElement {
   render() {
     const main = this.shadowRoot?.querySelector('main');
     if (!main) return;
+    const water = this.page === waterPageIndex ? this.water.view() : null;
     const energy = this.page === energyPageIndex ? energyView(this, this.engineeringMode) : null;
     const canConfigure = Boolean(this.ha?.user?.is_admin);
     this.shadowRoot.querySelector('[data-settings]').hidden = !canConfigure || Boolean(energy);
@@ -380,19 +382,25 @@ class HausOps extends HTMLElement {
       case energyPageIndex:
         layout = energy.layout;
         break;
+      case waterPageIndex:
+        layout = water.layout;
+        break;
       case 5:
         layout = `<section class="detail">${band('Garten', '--pink')}<p>Gartenansicht noch ohne Inhalte</p></section>`;
         break;
     }
     const climatePage = this.page === 4;
     this.shadowRoot.querySelector('.frame').classList.toggle('climate-page', climatePage);
-    this.shadowRoot.querySelector('header strong').textContent = energy ? 'Energie' : climatePage ? 'Klima' : this.page === 3 ? 'Rollos' : 'HAUS-OPS';
+    this.shadowRoot.querySelector('header strong').textContent = water ? 'Wasser' : energy ? 'Energie' : climatePage ? 'Klima' : this.page === 3 ? 'Rollos' : 'HAUS-OPS';
     this.shadowRoot.querySelector('footer .rail').textContent = [
       this.demo ? 'Demo' : '', level >= 0 ? 'Lüftung Stufe ' + levels[level] : 'Haus-Ops'
     ].filter(Boolean).join(' · ');
     const footer = this.shadowRoot.querySelector('footer .rail');
     const blinds = this.page === 3 ? this.blinds() : [];
     footer.classList.toggle('blind-error', Boolean(energy?.warning) || blinds.some(blind => !blind.available));
+    footer.classList.toggle('water-alarm', Boolean(water?.alarm));
+    footer.classList.toggle('water-stale', Boolean(water?.stale && !water?.alarm));
+    if (water) footer.textContent = water.status;
     if (energy) footer.textContent = energy.status;
     if (blinds.length) {
       const moving = blinds.filter(blind => blind.available && blind.movement);
@@ -403,6 +411,10 @@ class HausOps extends HTMLElement {
     }
     const flows = [...main.querySelectorAll('[data-energy-flow]')];
     const slats = [...main.querySelectorAll('[data-slats]')];
+    if (this.layout !== layout && water && main.querySelector('.water-page')) {
+      this.water.update(main, layout);
+      this.layout = layout;
+    }
     if (this.layout !== layout && energy && this.engineeringMode && main.querySelector('.engineering')) {
       const template = document.createElement('template');
       template.innerHTML = layout;
@@ -554,6 +566,7 @@ const blindFields = [
 ];
 const entityFields = [
   ['Energie', energyFields],
+  ['Wasser', waterFields],
   ['Sicherheit', [
     ['access.0', 'Garagentor', ['binary_sensor', 'cover']],
     ['access.1', 'Garagentür', ['binary_sensor']],
@@ -614,7 +627,7 @@ class HausOpsSettings {
     const existing = key => {
       const [group, index] = key.split('.');
       const field = config[group];
-      if (group === 'energy') return field?.[index];
+      if (group === 'energy' || group === 'water') return field?.[index];
       if (group === 'blinds') return field?.find(item => item.key === index)?.entity;
       if (group === 'valves') return field?.[roomNames[index]]?.join(', ');
       if (index !== undefined) {
@@ -633,6 +646,8 @@ class HausOpsSettings {
     </style><form><h2>HAUS-OPS konfigurieren</h2><div class="fields">
       ${entityFields.map(([title, fields]) => `<fieldset><legend>${title}</legend>${fields.map(([key, label, , caption]) =>
         `<label>${caption ?? label}<input name="${key}" value="${escape(existing(key))}" placeholder="Entitäts-ID" spellcheck="false" autocapitalize="none"></label>`).join('')}
+        ${title === 'Wasser' ? `<label>Dauerfluss · Minuten<input type="number" min="1" max="1440" name="water-leak-minutes" value="${escape(config.water?.leak_minutes ?? 30)}"></label>
+          <label>Dauerfluss · Liter<input type="number" min="1" max="100000" name="water-leak-liters" value="${escape(config.water?.leak_liters ?? 300)}"></label>` : ''}
         ${title === 'Rollos und Strom' ? blindFields.map(([key, label]) =>
           `<label>Anzeigename · ${label}<input name="blind-name.${key}" maxlength="24" value="${escape(config.blinds?.find(item => item.key === key)?.name || label)}"></label>`).join('') +
           blindCommands.slice(3).map(([label], index) =>
@@ -654,7 +669,10 @@ class HausOpsSettings {
     const data = new FormData(form);
     const submit = form.querySelector('[type=submit]');
     const status = form.querySelector('[role=status]');
-    const next = { energy: {}, ventilation: this.panel.config?.ventilation, blinds: blindFields.map(([key, label]) => ({ key, name: data.get(`blind-name.${key}`)?.trim() || label })),
+    const next = { energy: {}, water: {
+      leak_minutes: Number(data.get('water-leak-minutes')) || 30,
+      leak_liters: Number(data.get('water-leak-liters')) || 300,
+    }, ventilation: this.panel.config?.ventilation, blinds: blindFields.map(([key, label]) => ({ key, name: data.get(`blind-name.${key}`)?.trim() || label })),
       blind_presets: [0, 50, 80].map((fallback, index) => {
         const value = data.get(`blind-preset.${index}`);
         return value ? Number(value) : fallback;
@@ -670,7 +688,7 @@ class HausOpsSettings {
           return;
         }
         if (group === 'valves') next.valves[name] = ids;
-        else if (group === 'energy') next.energy[index] = entity;
+        else if (group === 'energy' || group === 'water') next[group][index] = entity;
         else if (group === 'blinds') next.blinds.find(blind => blind.key === index).entity = entity;
         else if (index !== undefined) next[group].push({ name, entity });
         else next[group] = entity;
