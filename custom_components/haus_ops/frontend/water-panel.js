@@ -105,6 +105,9 @@ export class WaterPanel {
       return value / (sensor?.attributes?.unit_of_measurement?.toLowerCase() === 'l' ? 1000 : 1);
     };
     const meter = demo ? 852.554 : read('meter');
+    const published = this.panel.state(this.entity('today'))?.attributes;
+    const fallbackMeter = published?.meter_entity === this.entity('meter') ? published.last_meter_m3 : null;
+    const shownMeter = Number.isFinite(meter) ? meter : fallbackMeter;
     const used = demo ? 107 : read('today', true);
     const year = demo ? 79.255 : read('year');
     const flow = demo ? 0 : read('flow', true);
@@ -132,7 +135,6 @@ export class WaterPanel {
       this.live = [];
     }
     if (Number.isFinite(used) && this.live.at(-1)?.[1] !== used) this.live.push([minute(now), used]);
-    const published = this.panel.state(this.entity('today'))?.attributes;
     const previous = Array.from({length: 13}, (_, index) => {
       const date = new Date(midnight);
       date.setDate(date.getDate() - 13 + index);
@@ -145,7 +147,7 @@ export class WaterPanel {
     const maximum = Math.max(260, Number.isFinite(used) ? used : 0, ...available);
     const trend = demo ? [[60,54],[330,62],[415,96],[430,100],[500,107]] :
       [...(published?.today_points ?? points), ...this.live].sort((a,b) => a[0]-b[0]);
-    const status = alarm ? 'Warnung · Dauerfluss erkannt · Leck prüfen' : stale ? 'Zähler keine Daten'
+    const status = alarm ? 'Warnung · Dauerfluss erkannt · Leck prüfen' : stale ? (Number.isFinite(shownMeter) ? 'Zähler · letzter gültiger Stand' : 'Zähler keine Daten')
       : flowing ? `Wasser fließt · ${format(flow,1)} L/min` : `Wasser OK · heute ${format(used)} L · Ø ${format(average)} L`;
     return {
       status, alarm, stale,
@@ -159,7 +161,7 @@ export class WaterPanel {
         </section>
         <section class="water-right">
           <div class="water-stats"><article><small>Seit 1. Januar</small><strong class="water-year">${format(year,3)} <small>m³</small></strong></article>
-            <article><small>Zählerstand</small>${odometer(stale ? NaN : meter)}</article></div>
+            <article><small>Zählerstand</small>${odometer(shownMeter)}</article></div>
           ${band('Verlauf heute','--peach')}
           <div class="water-chart-reveal">${chart(trend, used, demo ? Math.max(510,minute(now)) : minute(now))}</div>
           ${band('Täglicher Verbrauch · 14 Tage','--pink')}

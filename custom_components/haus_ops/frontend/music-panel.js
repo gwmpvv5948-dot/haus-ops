@@ -3,12 +3,21 @@ const defaults = {
   arbeitszimmer: 'media_player.arbeitszimmer',
   radio: 'script.radio_esszimmer',
   selection: 'input_select.musik_raum',
+  favorite_radioeins: '',
+  favorite_deutschlandfunk: '',
+  favorite_fluxfm: '',
+  favorite_fokus: '',
 };
 const rooms = ['esszimmer', 'arbeitszimmer'];
 const names = ['Esszimmer', 'Arbeitszimmer'];
-export const musicFields = Object.entries(defaults).map(([key, id], index) =>
+const favorites = [
+  ['favorite_radioeins', 'Radioeins'], ['favorite_deutschlandfunk', 'Deutschlandfunk'],
+  ['favorite_fluxfm', 'FluxFM'], ['favorite_fokus', 'Fokus'],
+];
+export const musicFields = Object.entries(defaults).slice(0,4).map(([key, id], index) =>
   ['music.' + key, [...names, 'Radio-Shortcut (Helfer oder Script)', 'Raumauswahl'][index],
-    key === 'radio' ? ['input_button', 'script'] : [id.split('.')[0]]]);
+    key === 'radio' ? ['input_button', 'script'] : [id.split('.')[0]]]).concat(
+    favorites.map(([key,label]) => ['music.' + key, 'Favorit · ' + label, ['script','input_button']]));
 const escape = value => String(value ?? '').replace(/[&<>"']/g, character =>
   ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[character]);
 const band = (title, color) => `<h2 class="band" style="--band:var(--${color})">${escape(title)}</h2>`;
@@ -71,14 +80,16 @@ export class MusicPanel {
       tone: flash ? flash.error ? 'error' : 'ok' : players.some(item=>!available(item)) ? 'offline' : '',
       layout: `<section class="music-page">
         <section class="music-rooms">${band('Räume','--purple')}
-          ${players.map((item,i)=>`<button class="music-room" data-action="music-room:${i}" aria-pressed="${i===index}" ${available(item)?'':'data-offline'}>
+          ${players.map((item,i)=>`<div class="music-room-row"><button class="music-room" data-action="music-room:${i}" aria-pressed="${i===index}" ${available(item)?'':'data-offline'}>
             ${equalizer(4,item?.state==='playing')}<strong>${names[i]}</strong>
             <small>${!available(item)?'Offline':item.state==='playing'?'Spielt':item.state==='paused'?'Pause':'Ruhe'}</small>
-            <span>${escape(item?.attributes?.media_title)}</span></button>`).join('')}
+            <span>${escape(item?.attributes?.media_title || (!available(item) ? 'Keine Verbindung' : ''))}</span></button>
+            <button class="music-room-play" data-action="music-room-play:${i}" aria-label="${names[i]} ${item?.state==='playing'?'pausieren':'abspielen'}"
+              ${supported(item,item?.state==='playing'?1:16384)?'':'disabled'}>${item?.state==='playing'?'❚❚':'▶'}</button></div>`).join('')}
           ${band('Shortcut','--pink')}
           <button class="music-radio ${flash?.radio?'flashing':''}" data-action="music-radio" ${this.panel.demo || available(this.panel.state(radio))?'':'disabled'}>Radio<small>${escape(radio)}</small></button>
           <button class="music-group" data-action="music-group" aria-pressed="${grouped}"
-            ${available(players[1]) && (grouped ? supported(players[1],524288) : supported(players[0],524288))?'':'disabled'}>${grouped?'Gruppe lösen':'Räume verbinden'}</button>
+            ${available(players[1]) && (grouped ? supported(players[1],524288) : supported(players[0],524288))?'':'disabled'}>${grouped?'Gruppe lösen':players.some(item=>!available(item))?'Verbinden · Raum offline':'Räume verbinden'}</button>
         </section>
         <section class="music-play">${band(`Wiedergabe · ${names[index]}${grouped?' · Gruppe':''}`,'--peach')}
           <div class="music-now">
@@ -89,11 +100,11 @@ export class MusicPanel {
               ${live?`<small class="music-live ${playing?'playing':''}">● Live</small>`:duration?`<div class="music-progress" data-duration="${duration}"><span></span><progress max="${duration}"></progress><span>${clock(duration)}</span></div>`:''}
             </div>
           </div>
-          <div class="music-controls">${controls.map(([label,action,bit])=>{
+          <div class="music-controls ${live?'is-live':''}">${(live ? controls.slice(1,4) : controls).map(([label,action,bit])=>{
             const enabled = action==='play' ? ready && supported(leader,playing?1:16384) : !live && supported(leader,bit);
             const pressed = action==='shuffle' ? attrs.shuffle===true : action==='repeat' ? Boolean(attrs.repeat && attrs.repeat!=='off') : null;
             return `<button data-action="music-${action}" ${enabled?'':'disabled'} ${pressed===null?'':`aria-pressed="${pressed}"`}
-              ${action==='play'?`aria-label="${playing?'Pause':'Wiedergabe'}"`:''}>${action==='play'&&playing?'❚❚':label}</button>`;
+              ${action==='play'?`aria-label="${playing?'Pause':'Wiedergabe'}"`:''}>${action==='play'&&playing?'❚❚':live&&action==='previous'?'◀ Sender':live&&action==='next'?'Sender ▶':label}</button>`;
           }).join('')}</div>
           ${band('Lautstärke','--blue')}
           <div class="music-volume ${muted?'muted':''}">
@@ -103,6 +114,11 @@ export class MusicPanel {
             <button data-action="music-step:5" aria-label="Lauter" ${volumeReady?'':'disabled'}>+</button>
             <button data-action="music-mute" aria-pressed="${Boolean(muted)}" ${supported(player,8)?'':'disabled'}>Mute</button>
           </div>
+          ${band('Favoriten','--sand')}
+          <div class="music-favorites">${favorites.map(([key,label],i)=>{
+            const id = this.id(key) || (i===0 ? radio : '');
+            return `<button data-action="music-favorite:${i}" ${this.panel.demo || (id && available(this.panel.state(id)))?'':'disabled'}>${label}</button>`;
+          }).join('')}</div>
         </section></section>`,
     };
   }
@@ -148,13 +164,18 @@ export class MusicPanel {
     const targets = (grouped ? [0,1] : [index]).filter(i=>available(players[i]));
     try {
       if (action === 'room') await this.select(amount);
-      else if (action === 'radio') {
-        const radio = this.id('radio');
+      else if (action === 'radio' || action === 'favorite') {
+        const radio = action === 'radio' ? this.id('radio')
+          : this.id(favorites[amount][0]) || (amount === 0 ? this.id('radio') : '');
+        if (!radio) return;
         if (!panel.demo) await panel.call(radio, radio.startsWith('input_button.') ? 'press' : 'turn_on');
         this.message(radio+' ausgelöst',false,true);
         await this.select(0);
       } else if (!panel.demo) {
-        if (action === 'group') {
+        if (action === 'room-play') {
+          const target = grouped ? 0 : amount;
+          await panel.call(this.id(rooms[target]), 'media_play_pause');
+        } else if (action === 'group') {
           await (grouped ? panel.call(this.id(rooms[1]),'unjoin')
             : panel.call(this.id(rooms[0]),'join',{group_members:[this.id(rooms[1])]}));
           this.message(grouped ? 'Gruppe gelöst' : 'Arbeitszimmer mit Esszimmer verbunden');
