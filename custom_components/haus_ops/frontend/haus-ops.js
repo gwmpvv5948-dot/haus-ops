@@ -1,9 +1,9 @@
-import { LightPanel } from './light-panel.js?v=1.6.17';
-import { CircuitsPanel } from './circuits-panel.js?v=1.6.17';
-import { OverviewPanel, overviewFields } from './overview-panel.js?v=1.6.17';
-import { MusicPanel, musicFields } from './music-panel.js?v=1.6.17';
-import { WaterPanel, waterFields } from './water-panel.js?v=1.6.17';
-import { energyFields, energyView } from './energy-panel.js?v=1.6.17';
+import { LightPanel } from './light-panel.js?v=1.6.18';
+import { CircuitsPanel } from './circuits-panel.js?v=1.6.18';
+import { OverviewPanel, overviewFields } from './overview-panel.js?v=1.6.18';
+import { MusicPanel, musicFields } from './music-panel.js?v=1.6.18';
+import { WaterPanel, waterFields } from './water-panel.js?v=1.6.18';
+import { energyFields, energyView } from './energy-panel.js?v=1.6.18';
 import { ClimatePanel, roomNames } from './climate-panel.js';
 const antonio = new FontFace('Antonio', `url("${new URL('./Antonio.ttf', import.meta.url).href}")`, {
   weight: '400 700',
@@ -35,6 +35,8 @@ const soundSlots = [
   ['beep2', 'Beep 2', 'computer_work_beep.mp3'],
   ['beep3', 'Beep 3', ''],
   ['beep4', 'Beep 4', ''],
+  ['beep5', 'Beep 5', 'beep5.mp3'],
+  ['beep6', 'Beep 6', 'beep6.mp3'],
   ['red', redAlarmLabel, redAlarmFile],
   ['yellow', 'Yellow Alert', 'yellow_alert.mp3'],
   ['warp', 'Warp Sound · Energiekern', 'warp_core_loop.wav'],
@@ -82,7 +84,7 @@ class HausOps extends HTMLElement {
     if (!this.shadowRoot) {
       this.attachShadow({ mode: 'open' });
       this.shadowRoot.innerHTML = `
-        <link rel="stylesheet" href="${new URL('./haus-ops.css?v=1.6.17', import.meta.url)}">
+        <link rel="stylesheet" href="${new URL('./haus-ops.css?v=1.6.18', import.meta.url)}">
         <div class="stage"><div class="frame">
           <div class="brand">LCARS 77</div>
           <header><span class="rail"></span><strong>HAUS-OPS</strong><time></time><span class="cap"></span></header>
@@ -747,8 +749,11 @@ class HausOps extends HTMLElement {
     if (kind === 'yellow' && filename === 'yellow_alert.mp3') {
       return new URL('./sounds/yellow_alert.mp3', import.meta.url).href;
     }
-    if (kind === 'warp' && ['warp_core_loop.wav', 'warp_core.mp3'].includes(filename)) {
-      return new URL('./sounds/warp_core_loop.wav?v=1.6.17', import.meta.url).href;
+    if (kind === 'warp' && ['warp_core_loop.wav', 'warp_core.wav', 'warp_core.mp3'].includes(filename)) {
+      return new URL('./sounds/warp_core_loop.wav?v=1.6.18', import.meta.url).href;
+    }
+    if ((kind === 'beep5' || kind === 'beep6') && filename === kind + '.mp3') {
+      return new URL('./sounds/' + filename, import.meta.url).href;
     }
     return filename && validSoundName(filename)
       ? '/local/haus-ops/sounds/' + encodeURIComponent(filename)
@@ -823,7 +828,7 @@ class HausOps extends HTMLElement {
     const button = event.target.closest('button, .circuits-wheel path[data-action^="circuit-room:"]') ??
       event.target.closest('[data-card-page]')?.querySelector('button[data-page]');
     if (!button || button.disabled || !button.matches('[data-page], [data-action], [data-settings], [data-energy-mode]')) return;
-    const beeps = ['beep1', 'beep2', 'beep3', 'beep4'].filter(kind => this.soundUrl(kind));
+    const beeps = soundSlots.map(([kind]) => kind).filter(kind => kind.startsWith('beep') && this.soundUrl(kind));
     if (!playedAlarm && beeps.length && this.alarmAudio?.paused !== false) this.playTouchSound(beeps[Math.floor(Math.random() * beeps.length)]);
     if (button.hasAttribute('data-settings')) { this.settings.open(); return; }
     if (button.hasAttribute('data-energy-mode')) {
