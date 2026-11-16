@@ -81,13 +81,6 @@ nav [hidden]{display:none}
 
 nav [data-page]{font-size:14px}
 
-@font-face {
-  font-family: Antonio;
-  src: url("./Antonio.ttf") format("truetype");
-  font-weight: 400 700;
-  font-style: normal;
-  font-display: swap;
-}
 :host{letter-spacing:.04em}
 button,nav [data-page],nav [data-settings],nav [data-nav-spacer]{letter-spacing:inherit}
 
@@ -132,20 +125,23 @@ nav {
 }
 .nav-scroll {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   grid-auto-rows: var(--nav-block);
   gap: var(--nav-gap);
   overflow: hidden auto;
   margin-inline-end: -7px;
   padding-inline-end: 7px;
   overscroll-behavior: contain;
-  touch-action: none;
+  touch-action: pan-y;
+  user-select: none;
   scrollbar-width: none;
   scroll-snap-type: y mandatory;
 }
 .nav-scroll::-webkit-scrollbar { display: none; }
 .nav-scroll > * { scroll-snap-align: start; }
-.nav-scroll button{touch-action:none}
-.nav-scroll a{display:flex;justify-content:flex-end;align-items:flex-end;padding:0 8px 7px;border-radius:8px;text-decoration:none;touch-action:none}
+.nav-scroll.dragging{scroll-snap-type:none;cursor:grabbing}
+.nav-scroll button{touch-action:pan-y}
+.nav-scroll a{display:flex;justify-content:flex-end;align-items:flex-end;padding:0 8px 7px;border-radius:8px;text-decoration:none;touch-action:pan-y}
 .nav-scroll a:focus-visible{outline:3px solid white;outline-offset:-4px}
 
 nav :is(.nav-scroll > button, .nav-scroll > a, [data-settings], [data-nav-spacer]) {
@@ -413,7 +409,7 @@ footer .rail[data-music-tone=error]{background:var(--red)}
 .nav-scroll > button[aria-current=true]::after{
   content:"";
   position:absolute;
-  inset:0 -7px 0 auto;
+  inset:0 -5px 0 auto;
   width:4px;
   background:inherit;
   pointer-events:none;

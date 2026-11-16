@@ -1,9 +1,15 @@
-import { CircuitsPanel } from './circuits-panel.js?v=1.6.7';
-import { OverviewPanel, overviewFields } from './overview-panel.js?v=1.6.7';
-import { MusicPanel, musicFields } from './music-panel.js?v=1.6.7';
-import { WaterPanel, waterFields } from './water-panel.js?v=1.6.7';
-import { energyFields, energyView } from './energy-panel.js?v=1.6.7';
+import { CircuitsPanel } from './circuits-panel.js?v=1.6.8';
+import { OverviewPanel, overviewFields } from './overview-panel.js?v=1.6.8';
+import { MusicPanel, musicFields } from './music-panel.js?v=1.6.8';
+import { WaterPanel, waterFields } from './water-panel.js?v=1.6.8';
+import { energyFields, energyView } from './energy-panel.js?v=1.6.8';
 import { ClimatePanel, roomNames } from './climate-panel.js';
+const antonio = new FontFace('Antonio', `url("${new URL('./Antonio.ttf', import.meta.url).href}")`, {
+  weight: '400 700',
+  display: 'swap',
+});
+document.fonts.add(antonio);
+
 const energyPageIndex = 6;
 const waterPageIndex = 7;
 const musicPageIndex = 8;
@@ -74,7 +80,7 @@ class HausOps extends HTMLElement {
     if (!this.shadowRoot) {
       this.attachShadow({ mode: 'open' });
       this.shadowRoot.innerHTML = `
-        <link rel="stylesheet" href="${new URL('./haus-ops.css?v=1.6.7', import.meta.url)}">
+        <link rel="stylesheet" href="${new URL('./haus-ops.css?v=1.6.8', import.meta.url)}">
         <div class="stage"><div class="frame">
           <div class="brand">LCARS 77</div>
           <header><span class="rail"></span><strong>HAUS-OPS</strong><time></time><span class="cap"></span></header>
@@ -133,26 +139,35 @@ class HausOps extends HTMLElement {
     let suppressClick = false;
     navigation.addEventListener('pointerdown', event => {
       suppressClick = false;
-      if (event.pointerType === 'touch' && event.isPrimary) {
-        gesture = { id: event.pointerId, y: event.clientY };
-      }
+      if (event.pointerType !== 'mouse' || event.button !== 0) return;
+      gesture = { id: event.pointerId, y: event.clientY, top: navigation.scrollTop };
     });
-    navigation.addEventListener('pointercancel', () => { gesture = undefined; });
-    navigation.addEventListener('pointerup', event => {
+    navigation.addEventListener('pointermove', event => {
       if (gesture?.id !== event.pointerId) return;
-      const delta = gesture.y - event.clientY;
-      gesture = undefined;
+      if (!(event.buttons & 1)) { endDrag(event); return; }
       const scale = navigation.getBoundingClientRect().height / navigation.clientHeight;
-      if (Math.abs(delta) < 24 * scale) return;
-      suppressClick = true;
+      const delta = (gesture.y - event.clientY) / scale;
+      if (!suppressClick && Math.abs(delta) < 6) return;
+      if (!suppressClick) {
+        suppressClick = true;
+        navigation.setPointerCapture(event.pointerId);
+        navigation.classList.add('dragging');
+      }
+      navigation.scrollTop = gesture.top + delta;
+    });
+    const endDrag = event => {
+      if (gesture?.id !== event.pointerId) return;
+      gesture = undefined;
+      if (!navigation.classList.contains('dragging')) return;
       const [first, second] = navigation.children;
       const step = second.offsetTop - first.offsetTop;
-      const blocks = Math.max(1, Math.round(Math.abs(delta) / (step * scale)));
-      navigation.scrollTo({
-        top: (Math.round(navigation.scrollTop / step) + Math.sign(delta) * blocks) * step,
-        behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth',
-      });
-    });
+      const top = Math.round(navigation.scrollTop / step) * step;
+      navigation.classList.remove('dragging');
+      navigation.scrollTo({ top, behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth' });
+    };
+    for (const type of ['pointerup', 'pointercancel', 'lostpointercapture']) {
+      navigation.addEventListener(type, endDrag);
+    }
     navigation.addEventListener('click', event => {
       if (!suppressClick || event.detail === 0) return;
       suppressClick = false;
