@@ -16,7 +16,7 @@ const ratio = (part, total) => known(part) && total > 0 ? Math.max(0, Math.min(1
 const band = (label, color) => `<h2 class="band" style="--band:var(--${color})">${label}</h2>`;
 const demo = {solar:[0,0,0,0],battery:[0,24,1.2,39.6],grid:[-280,49.97,237,235,238],house:[280],daily:[10.3,22.9,13.4,.1,4.2,3.2],engineering:[748.7,NaN],loads:[0,1,2,0]};
 
-export function energyView(panel, engineering = false) {
+export function energyView(panel, engineering = false, summaryOnly = false) {
   const read = key => {
     const sensor = panel.state(panel.config?.energy?.[key] || 'sensor.' + key);
     const value = sensor?.state?.trim() ? Number(sensor.state) : NaN;
@@ -46,6 +46,8 @@ export function energyView(panel, engineering = false) {
     const share = supplied > 0 ? watts/supplied*100 : 0;
     return `<span data-energy-flow="${color}" style="--flow:var(--${color});--share:${share}%" title="${name} ${fmt(share)} % · ${power(watts)}">${share >= 15 ? `${name} ${fmt(share)} % · ${power(watts)}` : ''}</span>`;
   }).join('');
+  const summary = {solar, house, grid, soc, segments};
+  if (summaryOnly) return summary;
   const balance = [
     ['Solar','solar', fmt(yieldToday,1),'kWh'], ['Haus','peach',fmt(use,1),'kWh'],
     ['Netz ↓ / ↑','purple',fmt(imp,1),'/ '+fmt(exp,1)], ['Akku + / −','battery',fmt(charge,1),'/ '+fmt(discharge,1)],

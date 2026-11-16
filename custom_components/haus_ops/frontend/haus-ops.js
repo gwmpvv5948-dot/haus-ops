@@ -1,6 +1,7 @@
-import { MusicPanel, musicFields } from './music-panel.js?v=1.5.5';
-import { WaterPanel, waterFields } from './water-panel.js?v=1.5.5';
-import { energyFields, energyView } from './energy-panel.js?v=1.5.5';
+import { OverviewPanel, overviewFields } from './overview-panel.js?v=1.6.0';
+import { MusicPanel, musicFields } from './music-panel.js?v=1.6.0';
+import { WaterPanel, waterFields } from './water-panel.js?v=1.6.0';
+import { energyFields, energyView } from './energy-panel.js?v=1.6.0';
 import { ClimatePanel, roomNames } from './climate-panel.js';
 const energyPageIndex = 6;
 const waterPageIndex = 7;
@@ -9,6 +10,7 @@ const navigation = [
   [0, 'Übersicht', '01-47', '--sand'],
   [energyPageIndex, 'Energie', '02-112', '--sand'],
   [waterPageIndex, 'Wasser', '03-309', '--blue'],
+  [9, 'Licht', '10-301', '--sand'],
   [musicPageIndex, 'Musik', '04-415', '--pink'],
   [1, 'Sicherheit', '05-88', '--red'],
   [2, 'Lüftung', '06-260', '--pink'],
@@ -16,6 +18,11 @@ const navigation = [
   [4, 'Klima', '08-517', '--sand'],
   [5, 'Garten', '09-642', '--pink'],
 ];
+const touchSoundUrls = {
+  navigation: '/local/haus-ops/sounds/computerbeep_1.mp3',
+  action: '/local/haus-ops/sounds/computer_work_beep.mp3',
+};
+const touchSoundPreference = 'haus-ops.touch-sounds';
 const levels = ['Aus', 'Low', '1', '2', 'Max'];
 const climate = new Intl.NumberFormat('de-DE', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 const escape = value => String(value ?? '').replace(/[&<>"']/g, c => ({
@@ -42,6 +49,7 @@ class HausOps extends HTMLElement {
 
   settings = new HausOpsSettings(this);
   water = new WaterPanel(this);
+  overview = new OverviewPanel(this);
   music = new MusicPanel(this);
   climatePanel = new ClimatePanel(this);
 
@@ -54,7 +62,7 @@ class HausOps extends HTMLElement {
     if (!this.shadowRoot) {
       this.attachShadow({ mode: 'open' });
       this.shadowRoot.innerHTML = `
-        <link rel="stylesheet" href="${new URL('./haus-ops.css?v=1.5.5', import.meta.url)}">
+        <link rel="stylesheet" href="${new URL('./haus-ops.css?v=1.6.0', import.meta.url)}">
         <div class="stage"><div class="frame">
           <div class="brand">LCARS 77</div>
           <header><span class="rail"></span><strong>HAUS-OPS</strong><time></time><span class="cap"></span></header>
@@ -330,17 +338,16 @@ class HausOps extends HTMLElement {
     const alarm = open.length ? `${open.length} offen` : complete ? 'Gesichert' : 'Status unvollständig';
     const accessLabel = item => item.open === undefined ? 'Keine Daten' : item.lock
       ? (item.open ? 'Entriegelt' : 'Verriegelt') : (item.open ? 'Offen' : 'Geschlossen');
-    const rooms = this.temperatures();
+    const roomReadings = this.temperatures();
+    const rooms = [...roomReadings.filter(room=>!roomNames.includes(room.name)),
+      ...roomNames.map((name,index)=>{
+        const room = this.climatePanel.room(index);
+        return Number.isFinite(room.current)
+          ? {name,value:room.current,stale:room.stale,display:climate.format(room.current)+'°'}
+          : roomReadings.find(reading=>reading.name===name) ?? {name,value:NaN,display:'—'};
+      })];
     const level = this.level;
     const voltage = !this.demo && Number.isFinite(this.volts) ? `${this.volts.toLocaleString('de-DE')} V` : '';
-    const ventLabel = level >= 0 ? 'Stufe ' + levels[level] : voltage || 'Keine Daten';
-    const showCountdown = (this.demo || this.timer?.state === 'active') && this.remaining > 0;
-    const ventSummary = showCountdown
-      ? `${levels[level] ?? voltage} <span data-countdown></span>`.trim()
-      : ventLabel;
-    const blind = this.cover;
-    const blindLabel = this.demo ? (this.demoPosition ? 'Geöffnet' : 'Geschlossen')
-      : ({ opening: 'Fährt auf', closing: 'Fährt ab', open: 'Offen', closed: 'Geschlossen' })[blind?.state] ?? 'Keine Daten';
     const devices = this.demo ? ['TV Strom', 'Schreibtisch'].map((name, i) => ({ name, on: this.demoSwitches[i], ready: true }))
       : (this.config?.switches ?? []).map(({ name, entity }) => ({
         name, on: this.state(entity)?.state === 'on', ready: valid(this.state(entity))
@@ -351,24 +358,11 @@ class HausOps extends HTMLElement {
     let layout;
     switch (this.page) {
       case 0:
-        layout = `<div class="overview">
-          <section style="gap:5px">${band('Sicherheit', '--red')}<button class="summary" data-page="1">
-            <strong class="big ${open.length ? 'alarm' : ''}" style="min-height:46px;display:flex;align-items:center;${open.length ? 'color:var(--red)' : ''}">${alarm}</strong>
-            <span style="min-height:20px;line-height:20px">${open.length ? escape(open[0].name) + ' ' + accessLabel(open[0]) : 'Zugänge'}</span>
-            ${segments(accesses.map(item => item.open === undefined ? null : item.open ? '--red' : '--purple'))}
-          </button></section>
-          <section style="gap:5px">${band('Hauslüftung', '--pink')}
-            <button class="summary vent-open" style="flex:0 0 auto;min-height:46px" data-page="2"><span class="row vent-summary"><strong class="big">${ventSummary}</strong></span></button>
-            <span style="min-height:20px;line-height:20px">Aus · Low · 1 · 2 · Max</span>
-            <div class="segments vent-controls" role="group" aria-label="Lüftungsstufen">${levels.map((name, i) =>
-              `<button data-action="vent:${i}" aria-label="${name}" aria-pressed="${i === level}" ${this.canSetLevel(i) ? '' : 'disabled'} style="background:${i === level && i > 0 ? 'var(--peach)' : '#262626'};min-width:0;flex:1;height:14px;border-radius:1px;padding:0"></button>`).join('')}</div>
-          </section>
-          <section class="roll-summary"><button class="band" style="--band:var(--purple)" data-page="3">Rollos</button>
-            ${coverButtons}<span class="small">${blindLabel}${devices.map(device => ' · ' + escape(device.name) + ' ' + deviceLabel(device)).join('')}</span>
-          </section>
-          <section>${band('Klima · Quartiere', '--sand')}<button class="summary" data-page="4">
-            ${rooms.map(room => `<span class="row"><span>${escape(room.name)} ${room.stale ? '<small class="warn">· Still</small>' : ''}</span><strong style="color:var(${room.value < 19 ? '--blue' : room.value < 21 ? '--purple' : '--peach'})">${room.display}</strong></span>`).join('') || 'Keine Daten'}
-          </button></section></div>`;
+        layout = this.overview.render({accesses, open, complete, alarm, accessLabel, rooms, level, levels,
+          coverButtons, devices, deviceLabel, escape, energy:energyView(this,false,true)});
+        break;
+      case 9:
+        layout = `<section class="ops-light-detail">${band('Licht','--sand')}${this.overview.lightControls()}</section>`;
         break;
       case 1:
         layout = `<section class="detail">${band('Sicherheit · Zugänge', '--red')}
@@ -405,9 +399,18 @@ class HausOps extends HTMLElement {
         layout = `<section class="detail">${band('Garten', '--pink')}<p>Gartenansicht noch ohne Inhalte</p></section>`;
         break;
     }
+    const overviewAlarm = this.overview.alarm();
+    const alert = this.page === 0 ? overviewAlarm.level : 'normal';
+    if (alert === 'rot' && !overviewAlarm.acknowledged) {
+      layout += `<section class="ops-alarm-overlay"><strong>Alarmstufe Rot</strong>
+        <p>${escape(overviewAlarm.reasons)}</p><button data-action="ops-ack">Quittieren</button>
+        <button data-page="1">Details</button></section>`;
+    }
+    this.shadowRoot.querySelector('.frame').dataset.alert = alert;
     const climatePage = this.page === 4;
     this.shadowRoot.querySelector('.frame').classList.toggle('climate-page', climatePage);
-    this.shadowRoot.querySelector('header strong').textContent = music ? 'Musik' : water ? 'Wasser' : energy ? 'Energie' : climatePage ? 'Klima' : this.page === 3 ? 'Rollos' : 'HAUS-OPS';
+    this.shadowRoot.querySelector('header strong').textContent = alert === 'rot' ? (overviewAlarm.acknowledged ? 'Alarmstufe Rot · quittiert' : 'Alarmstufe Rot')
+      : alert === 'gelb' ? 'Alarmstufe Gelb' : this.page === 9 ? 'Licht' : music ? 'Musik' : water ? 'Wasser' : energy ? 'Energie' : climatePage ? 'Klima' : this.page === 3 ? 'Rollos' : 'HAUS-OPS';
     this.shadowRoot.querySelector('footer .rail').textContent = [
       this.demo ? 'Demo' : '', level >= 0 ? 'Lüftung Stufe ' + levels[level] : 'Haus-Ops'
     ].filter(Boolean).join(' · ');
@@ -417,6 +420,9 @@ class HausOps extends HTMLElement {
     footer.classList.toggle('water-alarm', Boolean(water?.alarm));
     footer.classList.toggle('water-stale', Boolean(water?.stale && !water?.alarm));
     footer.dataset.musicTone = music?.tone ?? '';
+    if (this.page === 0) footer.textContent = alert !== 'normal'
+      ? overviewAlarm.reasons || 'Alarmstufe ' + alert
+      : `Übersicht · ${this.overview.lights().filter(light=>light.on).length} Lichter an · Lüftung ${levels[level] ?? '—'}`;
     if (music) footer.textContent = music.status;
     if (water) footer.textContent = water.status;
     if (energy) footer.textContent = energy.status;
@@ -484,9 +490,24 @@ class HausOps extends HTMLElement {
     return this.ha.callService(entity_id.split('.')[0], service, { entity_id, ...data });
   }
 
+  get touchSoundsEnabled() {
+    try { return localStorage.getItem(touchSoundPreference) !== 'off'; }
+    catch { return true; }
+  }
+
+  playTouchSound(kind) {
+    if (!this.touchSoundsEnabled) return;
+    this.touchAudio ??= {};
+    const audio = this.touchAudio[kind] ??= new Audio(touchSoundUrls[kind]);
+    audio.volume = 0.22;
+    audio.currentTime = 0;
+    audio.play().catch(() => {});
+  }
+
   async click(event) {
     const button = event.target.closest('button');
-    if (!button || button.disabled) return;
+    if (!button || button.disabled || !button.matches('[data-page], [data-action], [data-settings], [data-energy-mode]')) return;
+    this.playTouchSound(button.hasAttribute('data-page') ? 'navigation' : 'action');
     if (button.hasAttribute('data-settings')) { this.settings.open(); return; }
     if (button.hasAttribute('data-energy-mode')) {
       this.engineeringMode = !this.engineeringMode;
@@ -512,7 +533,7 @@ class HausOps extends HTMLElement {
       return;
     }
     if (this.busy) return;
-    const [kind, index] = button.dataset.action.split(':');
+    const [kind, index, value] = button.dataset.action.split(':');
     const i = Number(index);
     this.busy = true;
     try {
@@ -530,8 +551,16 @@ class HausOps extends HTMLElement {
           else if (this.canSetLevel(i)) await this.call(this.legacyVent.entity, 'select_option',
             { option: this.legacyVent.options[i] });
           break;
+        case 'ops-toggle':
+        case 'ops-brightness':
+        case 'ops-off':
+        case 'ops-evening':
+        case 'ops-ack':
+          await this.overview.act(kind.slice(4), i, value === undefined ? undefined : Number(value));
+          break;
+        case 'ops-timer':
         case 'timer': {
-          const seconds = this.remaining + 600;
+          const seconds = kind === 'ops-timer' ? Math.min(3600,this.remaining+900) : this.remaining+600;
           if (this.demo) {
             this.demoDuration = seconds;
             this.demoEnd = i ? 0 : Date.now() + seconds * 1000;
@@ -591,6 +620,7 @@ const blindFields = [
 const entityFields = [
   ['Energie', energyFields],
   ['Wasser', waterFields],
+  ['Übersicht und Licht', overviewFields],
   ['Musik', musicFields],
   ['Sicherheit', [
     ['access.0', 'Garagentor', ['binary_sensor', 'cover']],
@@ -652,7 +682,7 @@ class HausOpsSettings {
     const existing = key => {
       const [group, index] = key.split('.');
       const field = config[group];
-      if (['energy', 'water', 'music'].includes(group)) return field?.[index];
+      if (['energy', 'water', 'music', 'overview'].includes(group)) return field?.[index];
       if (group === 'blinds') return field?.find(item => item.key === index)?.entity;
       if (group === 'valves') return field?.[roomNames[index]]?.join(', ');
       if (index !== undefined) {
@@ -666,9 +696,10 @@ class HausOpsSettings {
     this.dialog.innerHTML = `<style>
       .settings{box-sizing:border-box;width:min(680px,96vw);height:min(680px,94dvh);max-height:94dvh;padding:0;overflow:hidden;border:2px solid #ff995f;border-radius:16px;background:#121014;color:#ffe3cd;font:16px system-ui;text-transform:none}
       .settings form{height:100%;display:grid;grid-template-rows:auto minmax(0,1fr) auto auto}.settings .fields{overflow:auto;padding:0 18px}.settings::backdrop{background:#000b}.settings h2{margin:0;padding:14px 18px;color:#ff995f}.settings fieldset{margin:12px 0;border:1px solid #77617a;border-radius:10px;padding:10px}
-      .settings legend{color:#cd9bd0;font-weight:700}.settings label{display:grid;gap:4px;margin-bottom:8px}.settings input{min-height:44px;width:100%;max-width:100%;background:#26212b;color:#fff;border:1px solid #a19aff;border-radius:6px;padding:6px;font:inherit}
+      .settings legend{color:#cd9bd0;font-weight:700}.settings label{display:grid;gap:4px;margin-bottom:8px}.settings input:not([type=checkbox]){min-height:44px;width:100%;max-width:100%;background:#26212b;color:#fff;border:1px solid #a19aff;border-radius:6px;padding:6px;font:inherit}
       .settings .controls{background:#121014;padding:9px 18px;border-top:1px solid #77617a;display:flex;gap:8px;justify-content:flex-end}.settings button{min-height:48px;padding:0 14px;border-radius:8px}.settings [role=status]{color:#ffcc99;margin:0;padding:4px 18px}.settings [role=status]:empty{display:none}.settings [type=submit]{background:#ff995f;font-weight:800}
     </style><form><h2>HAUS-OPS konfigurieren</h2><div class="fields">
+      <fieldset><legend>Display</legend><label><span><input type="checkbox" name="touch-sounds" ${panel.touchSoundsEnabled ? 'checked' : ''}> Star-Trek-Töne auf diesem Display</span></label></fieldset>
       ${entityFields.map(([title, fields]) => `<fieldset><legend>${title}</legend>${fields.map(([key, label, , caption]) =>
         `<label>${caption ?? label}<input name="${key}" value="${escape(existing(key))}" placeholder="Entitäts-ID" spellcheck="false" autocapitalize="none"></label>`).join('')}
         ${title === 'Wasser' ? `<label>Dauerfluss · Minuten<input type="number" min="1" max="1440" name="water-leak-minutes" value="${escape(config.water?.leak_minutes ?? 30)}"></label>
@@ -694,7 +725,7 @@ class HausOpsSettings {
     const data = new FormData(form);
     const submit = form.querySelector('[type=submit]');
     const status = form.querySelector('[role=status]');
-    const next = { energy: {}, music: {}, water: {
+    const next = { energy: {}, overview: {}, music: {}, water: {
       leak_minutes: Number(data.get('water-leak-minutes')) || 30,
       leak_liters: Number(data.get('water-leak-liters')) || 300,
     }, ventilation: this.panel.config?.ventilation, blinds: blindFields.map(([key, label]) => ({ key, name: data.get(`blind-name.${key}`)?.trim() || label })),
@@ -713,7 +744,7 @@ class HausOpsSettings {
           return;
         }
         if (group === 'valves') next.valves[name] = ids;
-        else if (['energy', 'water', 'music'].includes(group)) next[group][index] = entity;
+        else if (['energy', 'water', 'music', 'overview'].includes(group)) next[group][index] = entity;
         else if (group === 'blinds') next.blinds.find(blind => blind.key === index).entity = entity;
         else if (index !== undefined) next[group].push({ name, entity });
         else next[group] = entity;
@@ -722,6 +753,7 @@ class HausOpsSettings {
     submit.disabled = true;
     try {
       await this.panel.ha.callWS({ type: 'frontend/set_system_data', key: settingsKey, value: next });
+      try { localStorage.setItem(touchSoundPreference, data.has('touch-sounds') ? 'on' : 'off'); } catch {}
       this.panel.savedConfig = next;
       this.panel.render();
       this.dialog.close();
