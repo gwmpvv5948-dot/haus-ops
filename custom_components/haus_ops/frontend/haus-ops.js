@@ -1,7 +1,7 @@
-import { OverviewPanel, overviewFields } from './overview-panel.js?v=1.6.0';
-import { MusicPanel, musicFields } from './music-panel.js?v=1.6.0';
-import { WaterPanel, waterFields } from './water-panel.js?v=1.6.0';
-import { energyFields, energyView } from './energy-panel.js?v=1.6.0';
+import { OverviewPanel, overviewFields } from './overview-panel.js?v=1.6.1';
+import { MusicPanel, musicFields } from './music-panel.js?v=1.6.1';
+import { WaterPanel, waterFields } from './water-panel.js?v=1.6.1';
+import { energyFields, energyView } from './energy-panel.js?v=1.6.1';
 import { ClimatePanel, roomNames } from './climate-panel.js';
 const energyPageIndex = 6;
 const waterPageIndex = 7;
@@ -18,10 +18,16 @@ const navigation = [
   [4, 'Klima', '08-517', '--sand'],
   [5, 'Garten', '09-642', '--pink'],
 ];
-const touchSoundUrls = {
-  navigation: '/local/haus-ops/sounds/computerbeep_1.mp3',
-  action: '/local/haus-ops/sounds/computer_work_beep.mp3',
-};
+const soundSlots = [
+  ['beep1', 'Beep 1', 'computerbeep_1.mp3'],
+  ['beep2', 'Beep 2', 'computer_work_beep.mp3'],
+  ['beep3', 'Beep 3', ''],
+  ['beep4', 'Beep 4', ''],
+  ['red', 'Red Alert', ''],
+  ['yellow', 'Yellow Alert', ''],
+  ['warp', 'Warp Sound · Energiekern', ''],
+];
+const validSoundName = value => /^[^/\\?#]+\.(mp3|wav|ogg|m4a)$/i.test(value);
 const touchSoundPreference = 'haus-ops.touch-sounds';
 const levels = ['Aus', 'Low', '1', '2', 'Max'];
 const climate = new Intl.NumberFormat('de-DE', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
@@ -62,7 +68,7 @@ class HausOps extends HTMLElement {
     if (!this.shadowRoot) {
       this.attachShadow({ mode: 'open' });
       this.shadowRoot.innerHTML = `
-        <link rel="stylesheet" href="${new URL('./haus-ops.css?v=1.6.0', import.meta.url)}">
+        <link rel="stylesheet" href="${new URL('./haus-ops.css?v=1.6.1', import.meta.url)}">
         <div class="stage"><div class="frame">
           <div class="brand">LCARS 77</div>
           <header><span class="rail"></span><strong>HAUS-OPS</strong><time></time><span class="cap"></span></header>
@@ -129,6 +135,7 @@ class HausOps extends HTMLElement {
   }
 
   disconnectedCallback() {
+    this.stopWarpSound();
     this.resize?.disconnect();
     clearInterval(this.clock);
     clearTimeout(this.noticeTimeout);
@@ -325,6 +332,7 @@ class HausOps extends HTMLElement {
     if (!main) return;
     const music = this.page === musicPageIndex ? this.music.view() : null;
     const water = this.page === waterPageIndex ? this.water.view() : null;
+    this.syncWarpSound(this.page === energyPageIndex && this.engineeringMode);
     const energy = this.page === energyPageIndex ? energyView(this, this.engineeringMode) : null;
     const canConfigure = Boolean(this.ha?.user?.is_admin);
     this.shadowRoot.querySelector('[data-settings]').hidden = !canConfigure || Boolean(energy);
@@ -400,6 +408,11 @@ class HausOps extends HTMLElement {
         break;
     }
     const overviewAlarm = this.overview.alarm();
+    if (this.lastAlarmLevel !== overviewAlarm.level && this.ha) {
+      this.lastAlarmLevel = overviewAlarm.level;
+      if (overviewAlarm.level === 'rot') this.playTouchSound('red');
+      if (overviewAlarm.level === 'gelb') this.playTouchSound('yellow');
+    }
     const alert = this.page === 0 ? overviewAlarm.level : 'normal';
     if (alert === 'rot' && !overviewAlarm.acknowledged) {
       layout += `<section class="ops-alarm-overlay"><strong>Alarmstufe Rot</strong>
@@ -495,19 +508,54 @@ class HausOps extends HTMLElement {
     catch { return true; }
   }
 
+  soundUrl(kind) {
+    const filename = this.config?.sounds?.[kind] || soundSlots.find(([key]) => key === kind)?.[2];
+    return filename && validSoundName(filename)
+      ? '/local/haus-ops/sounds/' + encodeURIComponent(filename)
+      : '';
+  }
+
   playTouchSound(kind) {
-    if (!this.touchSoundsEnabled) return;
-    this.touchAudio ??= {};
-    const audio = this.touchAudio[kind] ??= new Audio(touchSoundUrls[kind]);
+    const url = this.soundUrl(kind);
+    if (!this.touchSoundsEnabled || !url) return;
+    this.touchAudio ??= new Map();
+    if (!this.touchAudio.has(url)) this.touchAudio.set(url, new Audio(url));
+    const audio = this.touchAudio.get(url);
+    if (kind.startsWith('beep')) {
+      this.lastBeep?.pause();
+      this.lastBeep = audio;
+    }
     audio.volume = 0.22;
     audio.currentTime = 0;
     audio.play().catch(() => {});
   }
 
+  stopWarpSound() {
+    this.warpAudio?.pause();
+    this.warpAudio = undefined;
+    this.warpSoundUrl = undefined;
+  }
+
+  syncWarpSound(open) {
+    const url = open && this.touchSoundsEnabled ? this.soundUrl('warp') : '';
+    if (!url) {
+      this.stopWarpSound();
+      return;
+    }
+    if (this.warpSoundUrl === url) return;
+    this.stopWarpSound();
+    this.warpSoundUrl = url;
+    this.warpAudio = new Audio(url);
+    this.warpAudio.loop = true;
+    this.warpAudio.volume = 0.22;
+    this.warpAudio.play().catch(() => {});
+  }
+
   async click(event) {
     const button = event.target.closest('button');
     if (!button || button.disabled || !button.matches('[data-page], [data-action], [data-settings], [data-energy-mode]')) return;
-    this.playTouchSound(button.hasAttribute('data-page') ? 'navigation' : 'action');
+    const beeps = ['beep1', 'beep2', 'beep3', 'beep4'].filter(kind => this.soundUrl(kind));
+    if (beeps.length) this.playTouchSound(beeps[Math.floor(Math.random() * beeps.length)]);
     if (button.hasAttribute('data-settings')) { this.settings.open(); return; }
     if (button.hasAttribute('data-energy-mode')) {
       this.engineeringMode = !this.engineeringMode;
@@ -699,7 +747,8 @@ class HausOpsSettings {
       .settings legend{color:#cd9bd0;font-weight:700}.settings label{display:grid;gap:4px;margin-bottom:8px}.settings input:not([type=checkbox]){min-height:44px;width:100%;max-width:100%;background:#26212b;color:#fff;border:1px solid #a19aff;border-radius:6px;padding:6px;font:inherit}
       .settings .controls{background:#121014;padding:9px 18px;border-top:1px solid #77617a;display:flex;gap:8px;justify-content:flex-end}.settings button{min-height:48px;padding:0 14px;border-radius:8px}.settings [role=status]{color:#ffcc99;margin:0;padding:4px 18px}.settings [role=status]:empty{display:none}.settings [type=submit]{background:#ff995f;font-weight:800}
     </style><form><h2>HAUS-OPS konfigurieren</h2><div class="fields">
-      <fieldset><legend>Display</legend><label><span><input type="checkbox" name="touch-sounds" ${panel.touchSoundsEnabled ? 'checked' : ''}> Star-Trek-Töne auf diesem Display</span></label></fieldset>
+      <fieldset><legend>Display</legend><label><span><input type="checkbox" name="touch-sounds" ${panel.touchSoundsEnabled ? 'checked' : ''}> Star-Trek-Töne auf diesem Display</span></label>
+        ${soundSlots.map(([key,label,defaultFile]) => `<label>${label}<input name="sound-${key}" value="${escape(config.sounds?.[key] ?? defaultFile)}" placeholder="Dateiname, z. B. beep.mp3" spellcheck="false"></label>`).join('')}</fieldset>
       ${entityFields.map(([title, fields]) => `<fieldset><legend>${title}</legend>${fields.map(([key, label, , caption]) =>
         `<label>${caption ?? label}<input name="${key}" value="${escape(existing(key))}" placeholder="Entitäts-ID" spellcheck="false" autocapitalize="none"></label>`).join('')}
         ${title === 'Wasser' ? `<label>Dauerfluss · Minuten<input type="number" min="1" max="1440" name="water-leak-minutes" value="${escape(config.water?.leak_minutes ?? 30)}"></label>
@@ -749,6 +798,16 @@ class HausOpsSettings {
         else if (index !== undefined) next[group].push({ name, entity });
         else next[group] = entity;
       }
+    }
+    next.sounds = {};
+    for (const [key, label] of soundSlots) {
+      const filename = data.get('sound-' + key)?.trim();
+      if (!filename) continue;
+      if (!validSoundName(filename)) {
+        status.textContent = label + ' · Bitte nur einen Audiodateinamen eingeben.';
+        return;
+      }
+      next.sounds[key] = filename;
     }
     submit.disabled = true;
     try {

@@ -1,9 +1,6 @@
 const lamps = [['tv','TV'],['stehlampe','Stehlampe'],['esszimmer','Esszimmer'],['kueche','Küche']];
-const air = [['aussenluft','Außen'],['zuluft','Zuluft'],['fortluft','Fortluft'],['abluft','Abluft']];
 export const overviewFields = [
   ...lamps.map(([key,label])=>['overview.'+key,label,['light','switch']]),
-  ...air.map(([key,label])=>['overview.'+key,label,['sensor']]),
-  ['overview.wrg','Wärmerückgewinnung',['sensor']],
   ['overview.evening','Abendlicht',['scene']],
   ['overview.alarm','Alarmstufe',['sensor']],
   ['overview.acknowledged','Alarm quittiert',['input_boolean']],
@@ -106,8 +103,6 @@ export class OverviewPanel {
       : complete ? 'Alle Türen und Fenster zu' : 'Zustand einzelner Kontakte fehlt';
     const temperatures = panel.demo ? rooms : ['Wohnzimmer','Carla','Alwin','Schlafzimmer','Flur','Bad']
       .map(name=>rooms.find(room=>room.name===name) ?? {name,value:NaN,display:'—'});
-    const airValues = air.map(([key,label])=>[label,Number(panel.state(this.id(key))?.state)]);
-    const recovery = Number(panel.state(this.id('wrg'))?.state);
     const speeds = [0,120,260,430,700];
     const duration = speeds[level] ? 360/speeds[level] : 0;
     const blinds = panel.blinds();
@@ -126,8 +121,6 @@ export class OverviewPanel {
             ${Array.from({length:6},(_,i)=>`<path d="M60 60Q47 18 75 19Q88 29 60 60" transform="rotate(${i*60} 60 60)" fill="#cd9bd0"/>`).join('')}
             </g><circle cx="60" cy="60" r="14" fill="#000" stroke="#ff995f"/>
             <text x="60" y="61">${levels[level] ?? '—'}</text></svg>
-          <div class="ops-air-data">${[airValues.slice(0,2),airValues.slice(2)].map(pair=>pair.every(([,v])=>Number.isFinite(v))?`<div class="ops-airline"><span>${pair.map(([l,v])=>l+' '+format(v,1)+'°').join(' · ')}</span><i style="--flow-time:${duration || 3}s;animation-play-state:${duration?'running':'paused'}"></i></div>`:'').join('')}
-          ${Number.isFinite(recovery)?`<div class="ops-wrg">WRG ${bars(10,recovery/100)} ${format(recovery)} %</div>`:''}</div>
         </div>
         <div class="ops-stages">${levels.map((name,i)=>`<button data-action="vent:${i}" aria-pressed="${i===level}" ${panel.canSetLevel(i)?'':'disabled'}>${name}</button>`).join('')}</div>
         <div class="ops-timer">Timer <span data-timer-bar>${bars(12,0)}</span><strong>${panel.remaining>0?'<span data-countdown></span>':'Auto'}</strong>
