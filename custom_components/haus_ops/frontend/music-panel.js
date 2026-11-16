@@ -25,9 +25,18 @@ const available = state => state && !['unknown','unavailable'].includes(state.st
 const supported = (state, bit) => available(state) && Boolean(state.attributes.supported_features & bit);
 const clock = seconds => `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2,'0')}`;
 const controls = [
-  ['Shuffle','shuffle',32768], ['◀◀','previous',16], ['▶','play',0],
-  ['▶▶','next',32], ['Repeat','repeat',262144],
+  ['Shuffle','shuffle',32768], ['Zurück','previous',16], ['Wiedergabe','play',0],
+  ['Weiter','next',32], ['Repeat','repeat',262144],
 ];
+const transportIcon = action => {
+  const paths = {
+    play: 'M8 3v18l15-9z',
+    pause: 'M7 4h4v16H7zm7 0h4v16h-4z',
+    previous: 'M22 5v14l-9-7zM11 5v14l-9-7z',
+    next: 'M2 5v14l9-7zM13 5v14l9-7z',
+  };
+  return `<svg class="music-transport-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="${paths[action]}"/></svg>`;
+};
 const demoStates = [
   {state:'playing',attributes:{media_title:'Radioeins',media_artist:'Live-Stream · RBB',source:'Radio',volume_level:.07,supported_features:1048588}},
   {state:'paused',attributes:{media_title:'Says',volume_level:.14,media_duration:420,media_position:45,supported_features:1392620}},
@@ -85,7 +94,7 @@ export class MusicPanel {
             <small>${!available(item)?'Offline':item.state==='playing'?'Spielt':item.state==='paused'?'Pause':'Ruhe'}</small>
             <span>${escape(item?.attributes?.media_title || (!available(item) ? 'Keine Verbindung' : ''))}</span></button>
             <button class="music-room-play" data-action="music-room-play:${i}" aria-label="${names[i]} ${item?.state==='playing'?'pausieren':'abspielen'}"
-              ${supported(item,item?.state==='playing'?1:16384)?'':'disabled'}>${item?.state==='playing'?'❚❚':'▶'}</button></div>`).join('')}
+              ${supported(item,item?.state==='playing'?1:16384)?'':'disabled'}>${transportIcon(item?.state==='playing'?'pause':'play')}</button></div>`).join('')}
           ${band('Shortcut','--pink')}
           <button class="music-radio ${flash?.radio?'flashing':''}" data-action="music-radio" ${this.panel.demo || available(this.panel.state(radio))?'':'disabled'}>Radio</button>
           <button class="music-group" data-action="music-group" aria-pressed="${grouped}"
@@ -104,7 +113,7 @@ export class MusicPanel {
             const enabled = action==='play' ? ready && supported(leader,playing?1:16384) : !live && supported(leader,bit);
             const pressed = action==='shuffle' ? attrs.shuffle===true : action==='repeat' ? Boolean(attrs.repeat && attrs.repeat!=='off') : null;
             return `<button data-action="music-${action}" ${enabled?'':'disabled'} ${pressed===null?'':`aria-pressed="${pressed}"`}
-              ${action==='play'?`aria-label="${playing?'Pause':'Wiedergabe'}"`:''}>${action==='play'&&playing?'❚❚':live&&action==='previous'?'◀ Sender':live&&action==='next'?'Sender ▶':label}</button>`;
+              ${['play','previous','next'].includes(action)?`aria-label="${action==='play'&&playing?'Pause':live&&action==='previous'?'Vorheriger Sender':live&&action==='next'?'Nächster Sender':label}"`:''}>${['play','previous','next'].includes(action)?transportIcon(action==='play'&&playing?'pause':action):label}</button>`;
           }).join('')}</div>
           ${band('Lautstärke','--blue')}
           <div class="music-volume ${muted?'muted':''}">

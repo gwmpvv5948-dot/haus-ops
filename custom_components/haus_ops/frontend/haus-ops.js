@@ -1,9 +1,9 @@
-import { LightPanel } from './light-panel.js?v=1.6.10';
-import { CircuitsPanel } from './circuits-panel.js?v=1.6.10';
-import { OverviewPanel, overviewFields } from './overview-panel.js?v=1.6.10';
-import { MusicPanel, musicFields } from './music-panel.js?v=1.6.10';
-import { WaterPanel, waterFields } from './water-panel.js?v=1.6.10';
-import { energyFields, energyView } from './energy-panel.js?v=1.6.10';
+import { LightPanel } from './light-panel.js?v=1.6.11';
+import { CircuitsPanel } from './circuits-panel.js?v=1.6.11';
+import { OverviewPanel, overviewFields } from './overview-panel.js?v=1.6.11';
+import { MusicPanel, musicFields } from './music-panel.js?v=1.6.11';
+import { WaterPanel, waterFields } from './water-panel.js?v=1.6.11';
+import { energyFields, energyView } from './energy-panel.js?v=1.6.11';
 import { ClimatePanel, roomNames } from './climate-panel.js';
 const antonio = new FontFace('Antonio', `url("${new URL('./Antonio.ttf', import.meta.url).href}")`, {
   weight: '400 700',
@@ -82,7 +82,7 @@ class HausOps extends HTMLElement {
     if (!this.shadowRoot) {
       this.attachShadow({ mode: 'open' });
       this.shadowRoot.innerHTML = `
-        <link rel="stylesheet" href="${new URL('./haus-ops.css?v=1.6.10', import.meta.url)}">
+        <link rel="stylesheet" href="${new URL('./haus-ops.css?v=1.6.11', import.meta.url)}">
         <div class="stage"><div class="frame">
           <div class="brand">LCARS 77</div>
           <header><span class="rail"></span><strong>HAUS-OPS</strong><time></time><span class="cap"></span></header>
@@ -101,7 +101,12 @@ class HausOps extends HTMLElement {
     const options = {signal:this.blindInputEvents.signal};
     this.shadowRoot.addEventListener('pointerdown', event => {
       if (event.target.matches('[data-light-range]:enabled')) this.lightDrag = event.pointerId;
-      if (event.target.matches('[data-blind-position]:enabled')) this.draggingBlind = event.pointerId;
+      if (!event.target.matches('[data-blind-position]:enabled') || !event.isPrimary || event.button !== 0) return;
+      event.preventDefault();
+      this.draggingBlind = event.pointerId;
+      event.target.setPointerCapture(event.pointerId);
+      event.target.closest('.blind-window').classList.add('dragging');
+      this.moveBlindDrag(event);
     }, options);
     for (const name of ['pointerup', 'pointercancel']) {
       window.addEventListener(name, event => {
@@ -109,12 +114,20 @@ class HausOps extends HTMLElement {
           this.lightDrag = undefined;
           this.render();
         });
+      }, options);
+    }
+    this.shadowRoot.addEventListener('pointermove', event => {
+      if (this.draggingBlind === event.pointerId) this.moveBlindDrag(event);
+    }, options);
+    for (const name of ['pointerup','pointercancel','lostpointercapture']) {
+      this.shadowRoot.addEventListener(name, event => {
         if (this.draggingBlind !== event.pointerId) return;
-        requestAnimationFrame(() => {
-          if (this.draggingBlind !== event.pointerId) return;
-          this.draggingBlind = undefined;
-          this.render();
-        });
+        delete this.draggingBlind;
+        event.target.closest('.blind-window')?.classList.remove('dragging');
+        if (name === 'pointerup') {
+          this.moveBlindDrag(event);
+          void this.setBlindPosition(event.target);
+        } else this.render();
       }, options);
     }
     this.shadowRoot.addEventListener('input', event => {
@@ -145,6 +158,7 @@ class HausOps extends HTMLElement {
     this.resize.observe(this);
     this.render();
     this.tick();
+    this.lightDataClock = setInterval(() => this.updateLightData(), 160);
     this.clock = setInterval(() => { this.tick(); this.render(); }, 1000);
   }
 
@@ -191,7 +205,16 @@ class HausOps extends HTMLElement {
     }, { capture: true });
   }
 
+  updateLightData() {
+    if (this.page !== 9 || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const cells = this.shadowRoot.querySelectorAll('.light-data i');
+    for (let index = 0; index < 3 && cells.length; index++) {
+      cells[Math.floor(Math.random() * cells.length)].textContent = String(Math.floor(Math.random() * 900000) + 100000);
+    }
+  }
+
   disconnectedCallback() {
+    clearInterval(this.lightDataClock);
     this.blindInputEvents?.abort();
     this.draggingBlind = undefined;
     this.stopWarpSound();
@@ -357,6 +380,13 @@ class HausOps extends HTMLElement {
           </button>
         </div>`).join('')}</div>
     </section></div>`;
+  }
+
+  moveBlindDrag(event) {
+    const input = event.target;
+    const bounds = input.getBoundingClientRect();
+    input.value = String(Math.round(100 * Math.max(0, Math.min(1, (bounds.bottom - event.clientY) / bounds.height))));
+    this.previewBlindPosition(input);
   }
 
   previewBlindPosition(input) {
@@ -577,7 +607,9 @@ class HausOps extends HTMLElement {
       const modeFocused = main.contains(focused) && focused.hasAttribute('data-energy-mode');
       const lightScroll = [...main.querySelectorAll('.light-columns,.light-rooms')].map(node=>node.scrollLeft);
       const previousMetrics = [...main.querySelectorAll('[data-light-metric]')].map(node=>Number(node.textContent));
+      const lightData = main.querySelector('.light-data');
       main.innerHTML = layout;
+      if (lightData && lightView) main.querySelector('.light-data').replaceWith(lightData);
       main.querySelectorAll('.light-columns,.light-rooms').forEach((node,index)=>{ node.scrollLeft = lightScroll[index] ?? 0; });
       if (lightView) {
         this.lightsPanel.animateMetrics(main,previousMetrics);

@@ -70,6 +70,12 @@ export class LightPanel {
     const lights = this.lights();
     const areas = [...new Map(lights.map(light=>[light.area,light.room])).entries()];
     const filtered = lights.filter(light=>this.area===undefined || light.area===this.area);
+    const groups = new Map();
+    for (const light of filtered) {
+      if (!groups.has(light.area)) groups.set(light.area,[]);
+      groups.get(light.area).push(light);
+    }
+    let slotIndex = 0;
     const selected = filtered.find(light=>light.id===this.selected) ?? filtered[0];
     const online = lights.filter(light=>light.ready);
     const active = online.filter(light=>light.on);
@@ -85,11 +91,12 @@ export class LightPanel {
         <div class="light-metrics">${metrics.map(([value,label])=>`<div><strong data-light-metric="${display(value)}">${display(value)}</strong><b>${label}</b></div>`).join('')}</div>
         <div class="light-rooms"><b>Räume</b>${[[undefined,'Alle'],...areas].map(([area,name])=>`<button data-action="light-room:${area===undefined?'*':encodeURIComponent(area)}" aria-pressed="${this.area===area}">${area===undefined?'':lights.filter(light=>light.area===area).length+' '}${html(name)}</button>`).join('')}</div>
         <div class="light-body"><section class="light-bank">${heading('Lichtbank','peach')}
-          <div class="light-columns">${filtered.map((light,index)=>`<div class="light-slot ${light===selected?'selected':''}" style="--order:${Math.min(index,24)}">
+          <div class="light-columns">${[...groups.values()].map((group,index)=>`<div class="light-group" style="--room-color:var(--${['peach','pink','sand','purple','blue'][index%5]})">
+            <div class="light-group-slots">${group.map(light=>`<div class="light-slot ${light===selected?'selected':''}" style="--order:${Math.min(slotIndex++,24)}">
             <small>${amount(light)}</small>
             ${!light.ready ? '<div class="light-offline"><b>Offline</b></div>' : light.dim ? this.range(light) : this.instrument(light)}
             <button class="light-name" data-action="light-${light.ready?'toggle':'select'}:${html(light.id)}" aria-pressed="${light.on}">${html(light.name)}</button>
-            <span>${html(light.room)}</span>
+          </div>`).join('')}</div><span class="light-group-label" title="${html(group[0].room)}">${html(group[0].room)}</span>
           </div>`).join('') || '<p>Keine Leuchten verfügbar</p>'}</div></section>
           <section class="light-detail">${heading('Detail','pink')}${selected?`
             <strong>${html(selected.name)}</strong><small>${html(selected.room)} · ${!selected.ready?'Offline':selected.dim?'Dimmer':'Schalter'}</small>
@@ -98,7 +105,7 @@ export class LightPanel {
               <div>${[['toggle',selected.on?'Ausschalten':'Einschalten'],['plus','+ 10 %'],['minus','− 10 %'],['room-off','Raum aus']].map(([action,label],i)=>`<button data-action="light-${action}:${html(selected.id)}" ${i===3?!currentRoom.some(light=>light.on&&light.ready)?'disabled':'':!selected.ready || i>0&&!selected.dim?'disabled':''}>${label}</button>`).join('')}</div>
             </div><small>${currentRoom.filter(light=>light.on).length} von ${currentRoom.length} an · ${html(currentRoom.map(light=>light.name).join(', '))}</small>`:''}</section></div>
         <div class="light-scenes"><b>Szenen</b>${scenes.map(([key,label])=>`<button data-action="light-scene:${key}" aria-pressed="${this.scene===key}" ${key==='off'||this.panel.demo||['scene','script'].includes(this.sceneId(key).split('.')[0])&&this.panel.state(this.sceneId(key))?'':'disabled'}>${label}</button>`).join('')}</div>
-        <div class="light-data" aria-hidden="true">${Array.from({length:9},(_,i)=>`<span style="--order:${i}">${[0,1,2].map(j=>String(104729*(i+1)+7919*(j+1)).slice(-6)).join('<br>')}</span>`).join('')}</div>
+        <div class="light-data" aria-hidden="true">${Array.from({length:9},(_,i)=>`<span style="--order:${i}">${[0,1,2].map(j=>`<i>${100000+(104729*(i+1)+7919*(j+1))%900000}</i>`).join('')}</span>`).join('')}</div>
       </div>`};
   }
 
