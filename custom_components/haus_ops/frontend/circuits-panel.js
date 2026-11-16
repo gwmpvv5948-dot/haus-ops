@@ -139,7 +139,9 @@ export class CircuitsPanel {
     const ring = floors.map((floor,i)=>{
       const roomWidth = step/floor.rooms.length;
       const start = i*step;
+      const [floorX,floorY] = point(100,start+step/2);
       return `<path data-action="circuit-room:${roomToken(floor.rooms[0])}" fill="${floor.color}" d="${sector(83,117,start+Math.min(.75,step/4),start+step-Math.min(.75,step/4))}"/>
+        <text x="${floorX}" y="${floorY}" class="circuit-sector-load" dominant-baseline="middle">${escape(floor.name)}</text>
         ${floor.rooms.map((room,j)=>{
           const a = start+j*roomWidth;
           const b = a+roomWidth;
