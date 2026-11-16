@@ -1,9 +1,9 @@
-import { LightPanel } from './light-panel.js?v=1.6.16';
-import { CircuitsPanel } from './circuits-panel.js?v=1.6.16';
-import { OverviewPanel, overviewFields } from './overview-panel.js?v=1.6.16';
-import { MusicPanel, musicFields } from './music-panel.js?v=1.6.16';
-import { WaterPanel, waterFields } from './water-panel.js?v=1.6.16';
-import { energyFields, energyView } from './energy-panel.js?v=1.6.16';
+import { LightPanel } from './light-panel.js?v=1.6.17';
+import { CircuitsPanel } from './circuits-panel.js?v=1.6.17';
+import { OverviewPanel, overviewFields } from './overview-panel.js?v=1.6.17';
+import { MusicPanel, musicFields } from './music-panel.js?v=1.6.17';
+import { WaterPanel, waterFields } from './water-panel.js?v=1.6.17';
+import { energyFields, energyView } from './energy-panel.js?v=1.6.17';
 import { ClimatePanel, roomNames } from './climate-panel.js';
 const antonio = new FontFace('Antonio', `url("${new URL('./Antonio.ttf', import.meta.url).href}")`, {
   weight: '400 700',
@@ -82,7 +82,7 @@ class HausOps extends HTMLElement {
     if (!this.shadowRoot) {
       this.attachShadow({ mode: 'open' });
       this.shadowRoot.innerHTML = `
-        <link rel="stylesheet" href="${new URL('./haus-ops.css?v=1.6.16', import.meta.url)}">
+        <link rel="stylesheet" href="${new URL('./haus-ops.css?v=1.6.17', import.meta.url)}">
         <div class="stage"><div class="frame">
           <div class="brand">LCARS 77</div>
           <header><span class="rail"></span><strong>HAUS-OPS</strong><time></time><span class="cap"></span></header>
@@ -99,6 +99,7 @@ class HausOps extends HTMLElement {
     }
     this.blindInputEvents = new AbortController();
     const options = {signal:this.blindInputEvents.signal};
+    this.bindLightMouseScroll(options);
     this.shadowRoot.addEventListener('pointerdown', event => {
       if (event.target.matches('[data-light-range]:enabled')) this.lightDrag = event.pointerId;
       if (!event.target.matches('[data-blind-position]:enabled') || !event.isPrimary || event.button !== 0) return;
@@ -160,6 +161,47 @@ class HausOps extends HTMLElement {
     this.tick();
     this.lightDataClock = setInterval(() => this.updateLightData(), 160);
     this.clock = setInterval(() => { this.tick(); this.render(); }, 1000);
+  }
+
+  bindLightMouseScroll(options) {
+    const main = this.shadowRoot.querySelector('main');
+    let drag;
+    let suppressClick = false;
+    main.addEventListener('wheel', event => {
+      const bank = event.target.closest('.light-columns');
+      if (!bank || event.ctrlKey || !event.deltaY || Math.abs(event.deltaX) >= Math.abs(event.deltaY) || bank.scrollWidth <= bank.clientWidth) return;
+      event.preventDefault();
+      const unit = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? bank.clientWidth : 1;
+      bank.scrollLeft += event.deltaY * unit;
+    }, {...options, passive:false});
+    main.addEventListener('pointerdown', event => {
+      suppressClick = false;
+      const bank = event.target.closest('.light-columns');
+      if (event.pointerType !== 'mouse' || event.button !== 0 || event.target.closest('input') ||
+          !bank || bank.scrollWidth <= bank.clientWidth) return;
+      drag = {bank, id:event.pointerId, x:event.clientX, left:bank.scrollLeft};
+    }, options);
+    main.addEventListener('pointermove', event => {
+      if (drag?.id !== event.pointerId || !(event.buttons & 1)) return;
+      const delta = event.clientX - drag.x;
+      if (!suppressClick && Math.abs(delta) < 6) return;
+      if (!suppressClick) {
+        main.setPointerCapture(event.pointerId);
+        suppressClick = true;
+      }
+      const scale = drag.bank.getBoundingClientRect().width / drag.bank.offsetWidth;
+      if (scale) drag.bank.scrollLeft = drag.left - delta / scale;
+    }, options);
+    for (const name of ['pointerup','pointercancel','lostpointercapture']) {
+      main.addEventListener(name, event => {
+        if (drag?.id === event.pointerId) drag = undefined;
+      }, options);
+    }
+    main.addEventListener('click', event => {
+      if (!suppressClick || event.detail === 0) return;
+      suppressClick = false;
+      event.stopPropagation();
+    }, {...options, capture:true});
   }
 
   bindNavigationSwipe() {
@@ -706,7 +748,7 @@ class HausOps extends HTMLElement {
       return new URL('./sounds/yellow_alert.mp3', import.meta.url).href;
     }
     if (kind === 'warp' && ['warp_core_loop.wav', 'warp_core.mp3'].includes(filename)) {
-      return new URL('./sounds/warp_core_loop.wav?v=1.6.16', import.meta.url).href;
+      return new URL('./sounds/warp_core_loop.wav?v=1.6.17', import.meta.url).href;
     }
     return filename && validSoundName(filename)
       ? '/local/haus-ops/sounds/' + encodeURIComponent(filename)
@@ -778,7 +820,7 @@ class HausOps extends HTMLElement {
 
   async click(event) {
     const playedAlarm = this.playPendingAlarm();
-    const button = event.target.closest('button, .circuits-wheel path[data-action]') ??
+    const button = event.target.closest('button, .circuits-wheel path[data-action^="circuit-room:"]') ??
       event.target.closest('[data-card-page]')?.querySelector('button[data-page]');
     if (!button || button.disabled || !button.matches('[data-page], [data-action], [data-settings], [data-energy-mode]')) return;
     const beeps = ['beep1', 'beep2', 'beep3', 'beep4'].filter(kind => this.soundUrl(kind));
@@ -986,6 +1028,8 @@ class HausOpsSettings {
       .settings form{height:100%;display:grid;grid-template-rows:auto minmax(0,1fr) auto auto}.settings .fields{overflow:auto;padding:0 18px}.settings::backdrop{background:#000b}.settings h2{margin:0;padding:14px 18px;color:#ff995f}.settings fieldset{margin:12px 0;border:1px solid #77617a;border-radius:10px;padding:10px}
       .settings legend{color:#cd9bd0;font-weight:700}.settings label{display:grid;gap:4px;margin-bottom:8px}.settings :is(input:not([type=checkbox]), textarea){min-height:44px;width:100%;max-width:100%;background:#26212b;color:#fff;border:1px solid #a19aff;border-radius:6px;padding:6px;font:inherit}
       .settings .controls{background:#121014;padding:9px 18px;border-top:1px solid #77617a;display:flex;gap:8px;justify-content:flex-end}.settings button{min-height:48px;padding:0 14px;border-radius:8px}.settings [role=status]{color:#ffcc99;margin:0;padding:4px 18px}.settings [role=status]:empty{display:none}.settings [type=submit]{background:#ff995f;font-weight:800}
+      .settings [data-fill-entities]{display:block;width:100%;margin:0 0 10px;border:1px solid #a19aff;background:#a19aff;color:#121014;font:700 15px system-ui;text-align:center}
+      .settings [data-fill-entities]:disabled{opacity:.55}
     </style><form><h2>HAUS-OPS konfigurieren</h2><div class="fields">
       <fieldset><legend>Display</legend><label><span><input type="checkbox" name="touch-sounds" ${panel.touchSoundsEnabled ? 'checked' : ''}> Star-Trek-Töne auf diesem Display</span></label>
         ${soundSlots.map(([key,label,defaultFile]) => `<label>${label}<input name="sound-${key}" value="${escape(config.sounds?.[key] ?? defaultFile)}" placeholder="Dateiname, z. B. beep.mp3" spellcheck="false"></label>`).join('')}</fieldset>
@@ -1005,7 +1049,7 @@ class HausOpsSettings {
         </label>
         <button type="button" data-fill-entities="circuit-include" ${circuitSelectionPending ? 'disabled' : ''}>Fehlende Entitäten hinzufügen</button>
         ${circuitSelectionPending ? '<p>Für die bisherige Label-Auswahl muss die HA-Registry geladen sein. Öffne die Einstellungen danach erneut.</p>' : ''}
-        <label>Geschützte Entitäten (kommagetrennt)<input name="circuit-protected" value="${escape(config.circuits?.protected?.join(', '))}" spellcheck="false"></label>
+        <label>Geschützte Entitäten (eine ID pro Zeile)<textarea name="circuit-protected" rows="5" spellcheck="false" autocapitalize="none">${escape(config.circuits?.protected?.join('\n'))}</textarea></label>
         <label>Leistungssensoren (Schalter = Sensor, kommagetrennt)<input name="circuit-power" value="${escape(Object.entries(config.circuits?.power ?? {}).map(pair => pair.join(' = ')).join(', '))}" spellcheck="false"></label>
       </fieldset>
       ${entityFields.map(([title, fields]) => `<fieldset><legend>${title}</legend>${fields.map(([key, label, , caption]) =>
@@ -1083,7 +1127,7 @@ class HausOpsSettings {
         selectionSaved: true,
         include: [...new Set(data.get('circuit-include').split(/[\s,]+/).filter(Boolean))],
       } : {}),
-      protected: list('circuit-protected'),
+      protected: [...new Set(data.get('circuit-protected').split(/[\s,]+/).filter(Boolean))],
       power: {},
     };
     const circuit = id => /^(switch|light)\.[a-z0-9_]+$/.test(id);

@@ -97,10 +97,8 @@ export class CircuitsPanel {
     const floor = floors.find(entry=>entry.rooms.includes(selected));
     const selectedKey = selected ? roomToken(selected) : '';
     const canSwitch = Boolean(this.registry && this.panel.ha?.connection?.connected !== false);
-    const hasSwitchableOn = all.some(item=>item.on && !item.protected);
     const locked = all.filter(item=>item.protected);
     const top = all.filter(item=>item.power>0).sort((a,b)=>b.power-a.power).slice(0,5);
-    const armed = Date.now() < (this.confirmUntil ?? 0);
     const normalizedPage = Math.min(this.page ?? 0,Math.max(0,Math.ceil((selected?.items.length ?? 0)/pageSize)-1));
     const sequence = this.wheel(floors,selected,all);
     const band = (title,color,info='') => `<div class="ops-heading" style="--card-color:${color}"><h2>${escape(title)}</h2><i></i>${info?`<b>${escape(info)}</b>`:''}</div>`;
@@ -112,13 +110,11 @@ export class CircuitsPanel {
         return `<button data-action="circuit-room:${roomToken(entry.rooms[0])}" style="--floor:${entry.color}">
           <small>${escape(entry.name)} · ${onCount(items)} an</small><strong>${format(total(items))}</strong></button>`;
       }).join('')}</div>
-      <div class="circuits-global"><button data-action="circuit-all-off" ${!hasSwitchableOn || !canSwitch?'disabled':''} class="${armed?'alarm':''}">
-        ${armed?'Alles aus bestätigen':'Alles aus · Standby-Killer'}</button><span>${locked.length?'🔒 '+escape(locked.map(item=>item.name).join(' · ')):'Keine geschützten Stromkreise'}</span></div>
       </section><section class="circuits-detail">
       ${band(selected?'Sektor '+selected.name:'Stromkreise',floor?.color ?? colors[0],floor?.name)}
       ${selected?`<div class="circuits-totals"><strong>${format(total(selected.items))}</strong><span>${selected.items.length} Kreise · ${onCount(selected.items)} an</span></div>
       <div class="circuits-items" style="--floor:${floor.color}">${selected.items.slice(normalizedPage*pageSize,(normalizedPage+1)*pageSize).map(item=>
-        `<div class="circuit-row ${item.on?'on':''} ${item.protected?'protected':''}">
+        `<div class="circuit-row ${item.on?'on':''} ${item.protected?'protected':''} ${item.id===this.selectedCircuit?'selected':''}">
           <button data-action="circuit-toggle:${selectedKey}:${item.id}" ${item.protected || !item.available || !canSwitch?'disabled':''}>${escape(item.name)}</button>
           <span class="circuit-flow"><i style="--load:${Math.min(100,(item.power||0)/Math.max(1,...selected.items.map(value=>value.power || 0))*100)}%;--speed:${Math.max(.25,1.6-(item.power||0)/60)}s"></i></span>
           <strong>${format(item.power)}</strong><b>${item.protected?'🔒 ':''}${item.available?(item.on?'An':'Aus'):'Offline'}</b></div>`).join('')}</div>
@@ -157,7 +153,7 @@ export class CircuitsPanel {
              ${room.items.map((item,k)=>{
                const width=roomWidth/room.items.length;
                const gap=Math.min(.25,width/4);
-               return `<path data-action="circuit-toggle:${roomIndex}:${item.id}" class="${item.on?'circuit-live':''}" fill="${item.on?(item.protected?'#99ccff':'#ffcc99'):'#262626'}"
+               return `<path data-action="circuit-room:${roomIndex}:${item.id}" class="${item.on?'circuit-live':''}" fill="${item.on?(item.protected?'#99ccff':'#ffcc99'):'#262626'}"
                  d="${sector(183,213,a+k*width+gap,a+(k+1)*width-gap)}"/>`;
              }).join('')}
              ${room===selected?`<path fill="#ffcc99" d="${sector(218,222,a+Math.min(.25,roomWidth/4),b-Math.min(.25,roomWidth/4))}"/>
@@ -181,8 +177,9 @@ export class CircuitsPanel {
     const room = rooms.find(entry => roomToken(entry) === args[0]);
     if (action === 'room' && room) {
       this.room = room.key;
-      this.page = 0;
-      this.confirmUntil = 0;
+      const selectedIndex = room.items.findIndex(item => item.id === args[1]);
+      this.selectedCircuit = selectedIndex >= 0 ? args[1] : undefined;
+      this.page = selectedIndex >= 0 ? Math.floor(selectedIndex/pageSize) : 0;
       return;
     }
     if (action === 'paging') { this.page = Math.max(0,Number(args[0])); return; }
@@ -194,13 +191,8 @@ export class CircuitsPanel {
       await this.panel.call(item.id,'toggle');
       return;
     }
-    if (action === 'all-off' && Date.now() >= (this.confirmUntil ?? 0)) {
-      this.confirmUntil = Date.now()+3000;
-      return;
-    }
-    const targets = action === 'all-off' ? rooms : action === 'floor-off'
+    const targets = action === 'floor-off'
       ? floors.find(floor=>floor.rooms.includes(room))?.rooms : action === 'room-off' && room ? [room] : [];
-    this.confirmUntil = 0;
     const ids = (targets ?? []).flatMap(target=>target.items).filter(item=>item.on && !item.protected).map(item=>item.id);
     await Promise.all(['switch','light'].map(domain=>{
       const entity_id = ids.filter(id=>id.startsWith(domain+'.'));
