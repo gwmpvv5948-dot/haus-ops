@@ -1,8 +1,8 @@
-import { CircuitsPanel } from './circuits-panel.js?v=1.6.8';
-import { OverviewPanel, overviewFields } from './overview-panel.js?v=1.6.8';
-import { MusicPanel, musicFields } from './music-panel.js?v=1.6.8';
-import { WaterPanel, waterFields } from './water-panel.js?v=1.6.8';
-import { energyFields, energyView } from './energy-panel.js?v=1.6.8';
+import { CircuitsPanel } from './circuits-panel.js?v=1.6.9';
+import { OverviewPanel, overviewFields } from './overview-panel.js?v=1.6.9';
+import { MusicPanel, musicFields } from './music-panel.js?v=1.6.9';
+import { WaterPanel, waterFields } from './water-panel.js?v=1.6.9';
+import { energyFields, energyView } from './energy-panel.js?v=1.6.9';
 import { ClimatePanel, roomNames } from './climate-panel.js';
 const antonio = new FontFace('Antonio', `url("${new URL('./Antonio.ttf', import.meta.url).href}")`, {
   weight: '400 700',
@@ -80,7 +80,7 @@ class HausOps extends HTMLElement {
     if (!this.shadowRoot) {
       this.attachShadow({ mode: 'open' });
       this.shadowRoot.innerHTML = `
-        <link rel="stylesheet" href="${new URL('./haus-ops.css?v=1.6.8', import.meta.url)}">
+        <link rel="stylesheet" href="${new URL('./haus-ops.css?v=1.6.9', import.meta.url)}">
         <div class="stage"><div class="frame">
           <div class="brand">LCARS 77</div>
           <header><span class="rail"></span><strong>HAUS-OPS</strong><time></time><span class="cap"></span></header>
@@ -490,7 +490,7 @@ class HausOps extends HTMLElement {
         layout = `<section class="detail">${band('Garten', '--pink')}<p>Gartenansicht noch ohne Inhalte</p></section>`;
         break;
     }
-    const alert = this.page === 0 || overviewAlarm.level === 'rot' ? overviewAlarm.level : 'normal';
+    const alert = overviewAlarm.level;
     const showAlarm = alert === 'rot' && !overviewAlarm.acknowledged;
     const alarmLayer = this.shadowRoot.querySelector('.alarm-layer');
     const alarmMarkup = showAlarm ? `<section class="ops-alarm-overlay"><div class="ops-red-bars" aria-hidden="true">${'<i></i>'.repeat(5)}</div>
