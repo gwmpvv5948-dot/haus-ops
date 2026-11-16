@@ -1,6 +1,6 @@
-import { MusicPanel, musicFields } from './music-panel.js?v=1.5.4';
-import { WaterPanel, waterFields } from './water-panel.js?v=1.5.4';
-import { energyFields, energyView } from './energy-panel.js?v=1.5.4';
+import { MusicPanel, musicFields } from './music-panel.js?v=1.5.5';
+import { WaterPanel, waterFields } from './water-panel.js?v=1.5.5';
+import { energyFields, energyView } from './energy-panel.js?v=1.5.5';
 import { ClimatePanel, roomNames } from './climate-panel.js';
 const energyPageIndex = 6;
 const waterPageIndex = 7;
@@ -54,7 +54,7 @@ class HausOps extends HTMLElement {
     if (!this.shadowRoot) {
       this.attachShadow({ mode: 'open' });
       this.shadowRoot.innerHTML = `
-        <link rel="stylesheet" href="${new URL('./haus-ops.css?v=1.5.4', import.meta.url)}">
+        <link rel="stylesheet" href="${new URL('./haus-ops.css?v=1.5.5', import.meta.url)}">
         <div class="stage"><div class="frame">
           <div class="brand">LCARS 77</div>
           <header><span class="rail"></span><strong>HAUS-OPS</strong><time></time><span class="cap"></span></header>

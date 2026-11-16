@@ -134,7 +134,9 @@ nav {
   display: grid;
   grid-auto-rows: var(--nav-block);
   gap: var(--nav-gap);
-  overflow-y: auto;
+  overflow: hidden auto;
+  margin-inline-end: -7px;
+  padding-inline-end: 7px;
   overscroll-behavior: contain;
   touch-action: none;
   scrollbar-width: none;
@@ -410,9 +412,9 @@ footer .rail[data-music-tone=error]{background:var(--red)}
 .nav-scroll > button[aria-current=true]::after{
   content:"";
   position:absolute;
-  inset:0 5px 0 auto;
-  width:2px;
-  background:#000;
+  inset:0 -7px 0 auto;
+  width:4px;
+  background:inherit;
   pointer-events:none;
 }
 .music-page{grid-template-columns:202px minmax(0,1fr);gap:14px}
