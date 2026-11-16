@@ -1,13 +1,16 @@
-import { OverviewPanel, overviewFields } from './overview-panel.js?v=1.6.4';
-import { MusicPanel, musicFields } from './music-panel.js?v=1.6.4';
-import { WaterPanel, waterFields } from './water-panel.js?v=1.6.4';
-import { energyFields, energyView } from './energy-panel.js?v=1.6.4';
+import { CircuitsPanel } from './circuits-panel.js?v=1.6.5';
+import { OverviewPanel, overviewFields } from './overview-panel.js?v=1.6.5';
+import { MusicPanel, musicFields } from './music-panel.js?v=1.6.5';
+import { WaterPanel, waterFields } from './water-panel.js?v=1.6.5';
+import { energyFields, energyView } from './energy-panel.js?v=1.6.5';
 import { ClimatePanel, roomNames } from './climate-panel.js';
 const energyPageIndex = 6;
 const waterPageIndex = 7;
 const musicPageIndex = 8;
+const circuitsPageIndex = 10;
 const navigation = [
   [0, 'Übersicht', '01-47', '--sand'],
+  [circuitsPageIndex, 'Stromkreise', '03-318', '--sand'],
   [energyPageIndex, 'Energie', '02-112', '--sand'],
   [waterPageIndex, 'Wasser', '03-309', '--blue'],
   [9, 'Licht', '10-301', '--sand'],
@@ -54,6 +57,7 @@ class HausOps extends HTMLElement {
   busy = false;
 
   settings = new HausOpsSettings(this);
+  circuits = new CircuitsPanel(this);
   water = new WaterPanel(this);
   overview = new OverviewPanel(this);
   music = new MusicPanel(this);
@@ -68,7 +72,7 @@ class HausOps extends HTMLElement {
     if (!this.shadowRoot) {
       this.attachShadow({ mode: 'open' });
       this.shadowRoot.innerHTML = `
-        <link rel="stylesheet" href="${new URL('./haus-ops.css?v=1.6.4', import.meta.url)}">
+        <link rel="stylesheet" href="${new URL('./haus-ops.css?v=1.6.5', import.meta.url)}">
         <div class="stage"><div class="frame">
           <div class="brand">LCARS 77</div>
           <header><span class="rail"></span><strong>HAUS-OPS</strong><time></time><span class="cap"></span></header>
@@ -77,12 +81,33 @@ class HausOps extends HTMLElement {
               `<button data-page="${page}" style="background:var(${color})"><small aria-hidden="true">${code}</small><span>${name}</span></button>`
             ).join('')}
           </div><button data-settings aria-label="82873.4 – Konfiguration" hidden>82873.4</button><p data-nav-spacer>82873.4</p><p data-frequency hidden></p></nav>
-          <main></main><div class="heel"></div>
+          <main></main><div class="alarm-layer" hidden></div><div class="heel"></div>
           <footer><span class="rail">${this.demo ? 'Demo · System bereit' : 'System bereit'}</span><span class="cap"></span></footer>
         </div><div class="notice" role="status"></div></div>`;
       this.shadowRoot.addEventListener('click', event => this.click(event));
       this.bindNavigationSwipe();
     }
+    this.blindInputEvents = new AbortController();
+    const options = {signal:this.blindInputEvents.signal};
+    this.shadowRoot.addEventListener('pointerdown', event => {
+      if (event.target.matches('[data-blind-position]:enabled')) this.draggingBlind = event.pointerId;
+    }, options);
+    for (const name of ['pointerup', 'pointercancel']) {
+      window.addEventListener(name, event => {
+        if (this.draggingBlind !== event.pointerId) return;
+        requestAnimationFrame(() => {
+          if (this.draggingBlind !== event.pointerId) return;
+          this.draggingBlind = undefined;
+          this.render();
+        });
+      }, options);
+    }
+    this.shadowRoot.addEventListener('input', event => {
+      if (event.target.matches('[data-blind-position]')) this.previewBlindPosition(event.target);
+    }, options);
+    this.shadowRoot.addEventListener('change', event => {
+      if (event.target.matches('[data-blind-position]')) void this.setBlindPosition(event.target);
+    }, options);
     try { this.blindSelection = localStorage.getItem('haus-ops.blind-selection') || 'all'; } catch {}
     this.resize = new ResizeObserver(() => {
       const width = this.clientWidth;
@@ -135,6 +160,8 @@ class HausOps extends HTMLElement {
   }
 
   disconnectedCallback() {
+    this.blindInputEvents?.abort();
+    this.draggingBlind = undefined;
     this.stopWarpSound();
     this.resize?.disconnect();
     clearInterval(this.clock);
@@ -288,11 +315,38 @@ class HausOps extends HTMLElement {
     </section><section>
       ${band('Position', '--purple')}
       <div class="blind-windows">${blinds.map(blind =>
-        `<button data-action="blind-frame:${blind.key}" aria-pressed="${all || blind === selected}" class="${blind.available ? '' : 'unavailable'}">
-          <span class="blind-window"><span data-slats="${blind.key}"></span></span>
-          <strong>${escape(blind.name)}</strong><small>${blind.position === null ? 'Keine Daten' : `${100 - blind.position} %`}</small>
-        </button>`).join('')}</div>
+        `<div class="blind-position ${blind.available ? '' : 'unavailable'}" data-selected="${all || blind === selected}">
+          <div class="blind-window"><span data-slats="${blind.key}"></span>
+            <input type="range" min="0" max="100" value="${blind.position ?? 0}" data-blind-position="${blind.key}"
+              aria-label="${escape(blind.name)} · Öffnung in Prozent"
+              ${blind.available && (blind.features & 4) ? '' : 'disabled'}></div>
+          <button data-action="blind-frame:${blind.key}" aria-pressed="${all || blind === selected}">
+            <strong>${escape(blind.name)}</strong><small>${blind.position === null ? 'Keine Daten' : `${blind.position} % offen`}</small>
+          </button>
+        </div>`).join('')}</div>
     </section></div>`;
+  }
+
+  previewBlindPosition(input) {
+    const position = input.valueAsNumber;
+    const frame = input.closest('.blind-position');
+    frame.querySelector('[data-slats]').style.height = `${100 - position}%`;
+    frame.querySelector('small').textContent = `${position} % offen`;
+  }
+
+  async setBlindPosition(input) {
+    const blind = this.blinds().find(item => item.key === input.dataset.blindPosition);
+    const position = input.valueAsNumber;
+    this.draggingBlind = undefined;
+    try {
+      if (!blind?.available || !(blind.features & 4) || !Number.isFinite(position)) return;
+      if (this.demo) this.demoBlinds[blind.index] = position;
+      else await this.call(blind.entity, 'set_cover_position', {position});
+    } catch {
+      this.notify('Rolloposition konnte nicht gesetzt werden');
+    } finally {
+      this.render();
+    }
   }
 
   async selectBlind(key) {
@@ -330,6 +384,7 @@ class HausOps extends HTMLElement {
   render() {
     const main = this.shadowRoot?.querySelector('main');
     if (!main) return;
+    const circuits = this.page === circuitsPageIndex ? this.circuits.view() : null;
     const music = this.page === musicPageIndex ? this.music.view() : null;
     const water = this.page === waterPageIndex ? this.water.view() : null;
     this.syncWarpSound(this.page === energyPageIndex && this.engineeringMode);
@@ -343,7 +398,6 @@ class HausOps extends HTMLElement {
     const accesses = this.accesses();
     const open = accesses.filter(item => item.open);
     const complete = accesses.length > 0 && accesses.every(item => item.open !== undefined);
-    const alarm = open.length ? `${open.length} offen` : complete ? 'Gesichert' : 'Status unvollständig';
     const accessLabel = item => item.open === undefined ? 'Keine Daten' : item.lock
       ? (item.open ? 'Entriegelt' : 'Verriegelt') : (item.open ? 'Offen' : 'Geschlossen');
     const roomReadings = this.temperatures();
@@ -369,10 +423,13 @@ class HausOps extends HTMLElement {
       if (overviewAlarm.level === 'rot') this.playTouchSound('red');
       if (overviewAlarm.level === 'gelb') this.playTouchSound('yellow');
     }
+    const hasAlarm = overviewAlarm.level !== 'normal';
+    const alarm = hasAlarm ? 'Alarmstufe ' + overviewAlarm.level
+      : complete && !open.length ? 'Gesichert' : 'Kein aktiver Alarm';
     let layout;
     switch (this.page) {
       case 0:
-        layout = this.overview.render({accesses, open, complete, alarm, accessLabel, rooms, level, levels,
+        layout = this.overview.render({accesses, complete, alarm, rooms, level, levels,
           coverButtons, devices, deviceLabel, escape, overviewAlarm, energy:energyView(this,false,true)});
         break;
       case 9:
@@ -380,9 +437,8 @@ class HausOps extends HTMLElement {
         break;
       case 1:
         layout = `<section class="detail">${band('Sicherheit · Zugänge', '--red')}
-          <div class="security-status ${open.length ? 'alarm' : ''}">${open.length
-            ? 'Alarmstufe Gelb · ' + open.map(item => escape(item.name) + ' ' + accessLabel(item)).join(' · ')
-            : alarm}</div>
+          <div class="security-status" data-alert="${overviewAlarm.level}" role="status">${alarm}
+            ${hasAlarm && overviewAlarm.reasons ? ' · ' + escape(overviewAlarm.reasons) : ''}</div>
           <div class="tiles">${accesses.map((item, index) => `<button style="background:${item.open === undefined ? 'var(--pink)' : item.open ? 'var(--red)' : 'var(--pink)'}" data-action="access:${index}" ${item.lock && item.open === undefined ? 'disabled' : ''}>
             ${icon(item.lock ? (item.open ? 'M7 11V7a5 5 0 0 1 9-3m-9 7h10a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-6a2 2 0 0 1 2-2zm5 5h.1' : 'M7 11V7a5 5 0 0 1 10 0v4M5 11h14v10H5zm7 5h.1') : /fenster/i.test(item.name) ? windowIcon : doorIcon)}
             <span><strong>${escape(item.name)}</strong><small>${accessLabel(item)}</small></span></button>`).join('')}</div></section>`;
@@ -403,6 +459,9 @@ class HausOps extends HTMLElement {
       case energyPageIndex:
         layout = energy.layout;
         break;
+      case circuitsPageIndex:
+        layout = circuits.layout;
+        break;
       case musicPageIndex:
         layout = music.layout;
         break;
@@ -413,14 +472,20 @@ class HausOps extends HTMLElement {
         layout = `<section class="detail">${band('Garten', '--pink')}<p>Gartenansicht noch ohne Inhalte</p></section>`;
         break;
     }
-    const alert = this.page === 0 ? overviewAlarm.level : 'normal';
-    if (alert === 'rot' && !overviewAlarm.acknowledged) {
-      layout += `<section class="ops-alarm-overlay"><div class="ops-red-bars" aria-hidden="true">${'<i></i>'.repeat(5)}</div>
+    const alert = this.page === 0 || overviewAlarm.level === 'rot' ? overviewAlarm.level : 'normal';
+    const showAlarm = alert === 'rot' && !overviewAlarm.acknowledged;
+    const alarmLayer = this.shadowRoot.querySelector('.alarm-layer');
+    const alarmMarkup = showAlarm ? `<section class="ops-alarm-overlay"><div class="ops-red-bars" aria-hidden="true">${'<i></i>'.repeat(5)}</div>
         <strong>Alarmstufe Rot</strong>
         <p>${escape(overviewAlarm.reasons)}</p><button data-action="ops-ack">Quittieren</button>
         <button data-page="${overviewAlarm.leak ? 7 : 1}">Details</button>
-        <div class="ops-red-bars reverse" aria-hidden="true">${'<i></i>'.repeat(5)}</div></section>`;
+        <div class="ops-red-bars reverse" aria-hidden="true">${'<i></i>'.repeat(5)}</div></section>` : '';
+    if (this.alarmMarkup !== alarmMarkup) {
+      alarmLayer.innerHTML = alarmMarkup;
+      this.alarmMarkup = alarmMarkup;
     }
+    alarmLayer.hidden = !showAlarm;
+    this.shadowRoot.querySelector('main').inert = showAlarm;
     const frame = this.shadowRoot.querySelector('.frame');
     frame.dataset.alert = alert;
     frame.toggleAttribute('data-security-alert', alert === 'gelb' &&
@@ -428,12 +493,13 @@ class HausOps extends HTMLElement {
     const climatePage = this.page === 4;
     this.shadowRoot.querySelector('.frame').classList.toggle('climate-page', climatePage);
     this.shadowRoot.querySelector('header strong').textContent = alert === 'rot' ? (overviewAlarm.acknowledged ? 'Alarmstufe Rot · quittiert' : 'Alarmstufe Rot')
-      : alert === 'gelb' ? `Alarmstufe Gelb · ${overviewAlarm.count} ${overviewAlarm.count === 1 ? 'Meldung' : 'Meldungen'}` : this.page === 9 ? 'Licht' : music ? 'Musik' : water ? 'Wasser' : energy ? 'Energie' : climatePage ? 'Klima' : this.page === 3 ? 'Rollos' : 'HAUS-OPS';
+      : alert === 'gelb' ? `Alarmstufe Gelb · ${overviewAlarm.count} ${overviewAlarm.count === 1 ? 'Meldung' : 'Meldungen'}` : this.page === 9 ? 'Licht' : circuits ? 'Stromkreise' : music ? 'Musik' : water ? 'Wasser' : energy ? 'Energie' : climatePage ? 'Klima' : this.page === 3 ? 'Rollos' : 'HAUS-OPS';
     this.shadowRoot.querySelector('footer .rail').textContent = [
       this.demo ? 'Demo' : '', level >= 0 ? 'Lüftung Stufe ' + levels[level] : 'Haus-Ops'
     ].filter(Boolean).join(' · ');
     const footer = this.shadowRoot.querySelector('footer .rail');
     const blinds = this.page === 3 ? this.blinds() : [];
+    if (circuits) footer.textContent = circuits.status;
     footer.classList.toggle('blind-error', Boolean(energy?.warning) || blinds.some(blind => !blind.available));
     footer.classList.toggle('water-alarm', Boolean(water?.alarm));
     footer.classList.toggle('water-stale', Boolean(water?.stale && !water?.alarm));
@@ -471,9 +537,11 @@ class HausOps extends HTMLElement {
       }
       this.layout = layout;
     }
-    if (this.layout !== layout) {
+    const dragging = this.page === 3 && this.draggingBlind !== undefined;
+    if (!dragging && this.layout !== layout) {
       const focused = this.shadowRoot.activeElement;
       const action = main.contains(focused) && focused.dataset.action;
+      const focusedBlind = main.contains(focused) && focused.dataset.blindPosition;
       const modeFocused = main.contains(focused) && focused.hasAttribute('data-energy-mode');
       main.innerHTML = layout;
       flows.forEach(node => {
@@ -485,12 +553,21 @@ class HausOps extends HTMLElement {
         next.replaceWith(node);
       });
       slats.forEach(node => main.querySelector(`[data-slats="${node.dataset.slats}"]`)?.replaceWith(node));
+      if (focusedBlind) main.querySelector(`[data-blind-position="${focusedBlind}"]`)?.focus({preventScroll:true});
       if (modeFocused) main.querySelector('[data-energy-mode]')?.focus({ preventScroll: true });
       if (action) [...main.querySelectorAll('[data-action]')].find(node => node.dataset.action === action)?.focus({ preventScroll: true });
       this.layout = layout;
     }
-    blinds.forEach(blind => main.querySelector(`[data-slats="${blind.key}"]`)
-      ?.style.setProperty('height', `${blind.position === null ? 0 : 100 - blind.position}%`));
+    if (!dragging) blinds.forEach(blind => {
+      const input = main.querySelector(`[data-blind-position="${blind.key}"]`);
+      if (input) {
+        input.value = blind.position ?? 0;
+        input.closest('.blind-position').querySelector('small').textContent =
+          blind.position === null ? 'Keine Daten' : `${blind.position} % offen`;
+      }
+      main.querySelector(`[data-slats="${blind.key}"]`)
+      ?.style.setProperty('height', `${blind.position === null ? 0 : 100 - blind.position}%`);
+    });
     this.shadowRoot.querySelectorAll('nav [data-page]').forEach(button =>
       button.setAttribute('aria-current', Number(button.dataset.page) === this.page));
     this.tick();
@@ -581,7 +658,8 @@ class HausOps extends HTMLElement {
   }
 
   async click(event) {
-    const button = event.target.closest('button');
+    const button = event.target.closest('button, .circuits-wheel path[data-action]') ??
+      event.target.closest('[data-card-page]')?.querySelector('button[data-page]');
     if (!button || button.disabled || !button.matches('[data-page], [data-action], [data-settings], [data-energy-mode]')) return;
     const beeps = ['beep1', 'beep2', 'beep3', 'beep4'].filter(kind => this.soundUrl(kind));
     if (beeps.length) this.playTouchSound(beeps[Math.floor(Math.random() * beeps.length)]);
@@ -614,6 +692,10 @@ class HausOps extends HTMLElement {
     const i = Number(index);
     this.busy = true;
     try {
+      if (kind.startsWith('circuit-')) {
+        await this.circuits.act(kind.slice(8), [index, value]);
+        return;
+      }
       switch (kind) {
         case 'access': {
           const item = this.accesses()[i];
@@ -778,6 +860,13 @@ class HausOpsSettings {
     </style><form><h2>HAUS-OPS konfigurieren</h2><div class="fields">
       <fieldset><legend>Display</legend><label><span><input type="checkbox" name="touch-sounds" ${panel.touchSoundsEnabled ? 'checked' : ''}> Star-Trek-Töne auf diesem Display</span></label>
         ${soundSlots.map(([key,label,defaultFile]) => `<label>${label}<input name="sound-${key}" value="${escape(config.sounds?.[key] ?? defaultFile)}" placeholder="Dateiname, z. B. beep.mp3" spellcheck="false"></label>`).join('')}</fieldset>
+      <fieldset><legend>Stromkreise</legend>
+        <label>Schalter (kommagetrennt, leer für alle)<input name="circuit-include" value="${escape(config.circuits?.include?.join(', '))}" spellcheck="false"></label>
+        <label>Geschützte Entitäten (kommagetrennt)<input name="circuit-protected" value="${escape(config.circuits?.protected?.join(', '))}" spellcheck="false"></label>
+        <label>Leistungssensoren (Schalter = Sensor, kommagetrennt)<input name="circuit-power" value="${escape(Object.entries(config.circuits?.power ?? {}).map(pair => pair.join(' = ')).join(', '))}" spellcheck="false"></label>
+        <label><span><input type="checkbox" name="circuit-lights" ${config.circuits?.includeLights !== false ? 'checked' : ''}> Auch Leuchten anzeigen</span></label>
+        <label><span><input type="checkbox" name="circuit-label" ${config.circuits?.labelOnly ? 'checked' : ''}> Nur mit Label „Stromkreis“</span></label>
+      </fieldset>
       ${entityFields.map(([title, fields]) => `<fieldset><legend>${title}</legend>${fields.map(([key, label, , caption]) =>
         `<label>${caption ?? label}<input name="${key}" value="${escape(existing(key))}" placeholder="Entitäts-ID" spellcheck="false" autocapitalize="none"></label>`).join('')}
         ${title === 'Wasser' ? `<label>Dauerfluss · Minuten<input type="number" min="1" max="1440" name="water-leak-minutes" value="${escape(config.water?.leak_minutes ?? 30)}"></label>
@@ -827,6 +916,27 @@ class HausOpsSettings {
         else if (index !== undefined) next[group].push({ name, entity });
         else next[group] = entity;
       }
+    }
+    const list = name => [...new Set(data.get(name).split(',').map(id => id.trim()).filter(Boolean))];
+    next.circuits = {
+      include: list('circuit-include'),
+      protected: list('circuit-protected'),
+      includeLights: data.has('circuit-lights'),
+      labelOnly: data.has('circuit-label'),
+      power: {},
+    };
+    const circuit = id => /^(switch|light)\.[a-z0-9_]+$/.test(id);
+    if ([...next.circuits.include, ...next.circuits.protected].some(id => !circuit(id))) {
+      status.textContent = 'Stromkreise · Bitte IDs mit switch. oder light. eingeben.';
+      return;
+    }
+    for (const assignment of list('circuit-power')) {
+      const [id, sensor, extra] = assignment.split('=').map(part => part.trim());
+      if (!circuit(id) || !/^sensor\.[a-z0-9_]+$/.test(sensor) || extra !== undefined) {
+        status.textContent = 'Stromkreise · Format: switch.schalter = sensor.leistung';
+        return;
+      }
+      next.circuits.power[id] = sensor;
     }
     next.sounds = {};
     for (const [key, label] of soundSlots) {

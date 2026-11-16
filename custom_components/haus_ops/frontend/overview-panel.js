@@ -99,20 +99,21 @@ export class OverviewPanel {
   }
 
   render(data) {
-    const {accesses,open,complete,alarm,accessLabel,rooms,level,levels,coverButtons,devices,deviceLabel,escape,energy,overviewAlarm} = data;
+    const {accesses,complete,alarm,rooms,level,levels,coverButtons,devices,deviceLabel,escape,energy,overviewAlarm} = data;
     const panel = this.panel;
-    const safetyText = open.length ? open.map(item=>escape(item.name)+' '+accessLabel(item)).join(' · ')
-      : complete ? 'Alle Türen und Fenster zu' : 'Zustand einzelner Kontakte fehlt';
+    const alert = overviewAlarm.level;
+    const safetyText = alert !== 'normal' ? escape(overviewAlarm.reasons || alarm)
+      : complete ? 'Status der Zugänge' : 'Zustand einzelner Kontakte fehlt';
     const temperatures = panel.demo ? rooms : ['Wohnzimmer','Carla','Alwin','Schlafzimmer','Flur','Bad']
       .map(name=>rooms.find(room=>room.name===name) ?? {name,value:NaN,display:'—'});
     const speeds = [0,120,260,430,700];
     const duration = speeds[level] ? 360/speeds[level] : 0;
     const blinds = panel.blinds();
     return `<div class="ops-overview">
-      <section class="ops-safety">${heading('Sicherheit',open.length?'yellow':'purple',alarm,1)}
-        <strong class="ops-sec-status ${open.length?'alarm':''}">${alarm}</strong>
+      <section class="ops-safety">${heading('Sicherheit',alert==='rot'?'red':alert==='gelb'?'yellow':'purple',alarm,1)}
+        <strong class="ops-sec-status" data-alert="${alert}">${alarm}</strong>
         <small class="ops-safety-note" title="${safetyText}">${safetyText}</small>
-        <div class="ops-contacts">${accesses.map(item=>`<span class="${item.open?'open':''} ${item.open===undefined&&!item.open?'missing':''}">${escape(item.name)}</span>`).join('')}</div>
+        <div class="ops-contacts">${accesses.map(item=>`<span class="${item.open ? (alert === 'normal' ? 'contact-open' : 'open') : ''} ${item.open===undefined&&!item.open?'missing':''}">${escape(item.name)}</span>`).join('')}</div>
         <small class="ops-caption">Sensor-Scan · ${accesses.filter(item=>item.open!==undefined).length} / ${accesses.length} online</small>
       </section>
       <section class="ops-vent">${heading('Hauslüftung','pink',level===4?'Boost':level>0?'Aktiv':level===0?'Aus':'—',2)}
@@ -129,11 +130,11 @@ export class OverviewPanel {
           <button data-action="ops-timer:0" ${panel.demo || enabled(panel.timer)?'':'disabled'}>+15</button>
           <button data-action="ops-timer:1" ${panel.demo || enabled(panel.timer)?'':'disabled'}>Stop</button></div>
       </section>
-      <section>${heading('Klima · Quartiere','sand',temperatures.length+' Räume',4)}
+      <section data-card-page="4">${heading('Klima · Quartiere','sand',temperatures.length+' Räume',4)}
         <div class="ops-climate">${temperatures.map(room=>`<div style="--reading:var(--${room.value<19?'blue':room.value<20.5?'purple':room.value<21.5?'sand':'peach'})">
           <span>${escape(room.name)} ${room.stale?'<small class="warn">· Still</small>':''}</span>${bars(10,Math.max(0,(room.value-15)/10))}<strong>${room.display}</strong></div>`).join('')}</div>
       </section>
-      <section class="ops-blinds">${heading('Rollos','purple',blinds.some(blind=>blind.movement)?'Fährt':blinds.length+' Fenster',3)}
+      <section class="ops-blinds" data-card-page="3">${heading('Rollos','purple',blinds.some(blind=>blind.movement)?'Fährt':blinds.length+' Fenster',3)}
         ${coverButtons}
         <div class="ops-blind-rows">${blinds.map(blind=>`<div><span>${escape(blind.name)}</span>${bars(10,Number.isFinite(blind.position)?1-blind.position/100:0)}
           <b>${blind.position===100?'Offen':blind.position===0?'Zu':Number.isFinite(blind.position)?format(100-blind.position)+' %':'—'}</b></div>`).join('')}</div>
