@@ -1,9 +1,9 @@
-import { LightPanel } from './light-panel.js?v=1.6.19';
-import { CircuitsPanel } from './circuits-panel.js?v=1.6.19';
-import { OverviewPanel, overviewFields } from './overview-panel.js?v=1.6.19';
-import { MusicPanel, musicFields } from './music-panel.js?v=1.6.19';
-import { WaterPanel, waterFields } from './water-panel.js?v=1.6.19';
-import { energyFields, energyView } from './energy-panel.js?v=1.6.19';
+import { LightPanel } from './light-panel.js?v=1.6.20';
+import { CircuitsPanel } from './circuits-panel.js?v=1.6.20';
+import { OverviewPanel, overviewFields } from './overview-panel.js?v=1.6.20';
+import { MusicPanel, musicFields } from './music-panel.js?v=1.6.20';
+import { WaterPanel, waterFields } from './water-panel.js?v=1.6.20';
+import { energyFields, energyView } from './energy-panel.js?v=1.6.20';
 import { ClimatePanel, roomNames } from './climate-panel.js';
 const antonio = new FontFace('Antonio', `url("${new URL('./Antonio.ttf', import.meta.url).href}")`, {
   weight: '400 700',
@@ -84,7 +84,7 @@ class HausOps extends HTMLElement {
     if (!this.shadowRoot) {
       this.attachShadow({ mode: 'open' });
       this.shadowRoot.innerHTML = `
-        <link rel="stylesheet" href="${new URL('./haus-ops.css?v=1.6.19', import.meta.url)}">
+        <link rel="stylesheet" href="${new URL('./haus-ops.css?v=1.6.20', import.meta.url)}">
         <div class="stage"><div class="frame">
           <div class="brand">LCARS 77</div>
           <header><span class="rail"></span><strong>HAUS-OPS</strong><time></time><span class="cap"></span></header>
@@ -490,6 +490,11 @@ class HausOps extends HTMLElement {
   render() {
     const main = this.shadowRoot?.querySelector('main');
     if (!main) return;
+    const overviewAlarm = this.overview.alarm();
+    if (overviewAlarm.level !== this.previousAlarmLevel) {
+      this.previousAlarmLevel = overviewAlarm.level;
+      if (overviewAlarm.level === 'gelb' || overviewAlarm.level === 'rot') this.page = 1;
+    }
     const lightView = this.page === 9 ? this.lightsPanel.view() : null;
     const circuits = this.page === circuitsPageIndex ? this.circuits.view() : null;
     const music = this.page === musicPageIndex ? this.music.view() : null;
@@ -524,7 +529,6 @@ class HausOps extends HTMLElement {
     const deviceLabel = device => device.ready ? (device.on ? 'An' : 'Aus') : 'Keine Daten';
     const coverButtons = `<div class="actions">${['ab', 'auf'].map((action, index) =>
       `<button data-action="cover:${index}" ${this.canMoveCover(index) ? '' : 'disabled'}><span aria-hidden="true">${index ? '↑' : '↓'}</span> Alle ${action}</button>`).join('')}</div>`;
-    const overviewAlarm = this.overview.alarm();
     if (this.ha) this.syncAlarmSound(overviewAlarm.level);
     if (overviewAlarm.level !== 'rot') this.alarmDetailsPage = undefined;
     const hasAlarm = overviewAlarm.level !== 'normal';
@@ -750,7 +754,7 @@ class HausOps extends HTMLElement {
       return new URL('./sounds/yellow_alert.mp3?v=2', import.meta.url).href;
     }
     if (kind === 'warp' && ['warp_core_loop.wav', 'warp_core.wav', 'warp_core.mp3'].includes(filename)) {
-      return new URL('./sounds/warp_core_loop.wav?v=1.6.19', import.meta.url).href;
+      return new URL('./sounds/warp_core_loop.wav?v=1.6.20', import.meta.url).href;
     }
     if ((kind === 'beep5' || kind === 'beep6') && filename === kind + '.mp3') {
       return new URL('./sounds/' + filename, import.meta.url).href;
