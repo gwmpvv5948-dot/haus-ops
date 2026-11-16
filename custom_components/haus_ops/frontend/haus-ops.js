@@ -1,12 +1,21 @@
-import { MusicPanel, musicFields } from './music-panel.js?v=1.5.2';
-import { WaterPanel, waterFields } from './water-panel.js?v=1.5.2';
-import { energyFields, energyView } from './energy-panel.js?v=1.5.2';
+import { MusicPanel, musicFields } from './music-panel.js?v=1.5.3';
+import { WaterPanel, waterFields } from './water-panel.js?v=1.5.3';
+import { energyFields, energyView } from './energy-panel.js?v=1.5.3';
 import { ClimatePanel, roomNames } from './climate-panel.js';
 const energyPageIndex = 6;
-const pages = ['Übersicht', 'Sicherheit', 'Lüftung', 'Rollos', 'Klima', 'Garten'];
 const waterPageIndex = 7;
 const musicPageIndex = 8;
-const colors = ['--sand', '--red', '--pink', '--purple', '--sand'];
+const navigation = [
+  [0, 'Übersicht', '01-47', '--sand'],
+  [energyPageIndex, 'Energie', '02-112', '--sand'],
+  [waterPageIndex, 'Wasser', '03-309', '--blue'],
+  [musicPageIndex, 'Musik', '04-415', '--pink'],
+  [1, 'Sicherheit', '05-88', '--red'],
+  [2, 'Lüftung', '06-260', '--pink'],
+  [3, 'Rollos', '07-384', '--purple'],
+  [4, 'Klima', '08-517', '--sand'],
+  [5, 'Garten', '09-642', '--pink'],
+];
 const levels = ['Aus', 'Low', '1', '2', 'Max'];
 const climate = new Intl.NumberFormat('de-DE', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 const escape = value => String(value ?? '').replace(/[&<>"']/g, c => ({
@@ -45,13 +54,14 @@ class HausOps extends HTMLElement {
     if (!this.shadowRoot) {
       this.attachShadow({ mode: 'open' });
       this.shadowRoot.innerHTML = `
-        <link rel="stylesheet" href="${new URL('./haus-ops.css?v=1.5.2', import.meta.url)}">
+        <link rel="stylesheet" href="${new URL('./haus-ops.css?v=1.5.3', import.meta.url)}">
         <div class="stage"><div class="frame">
           <div class="brand">LCARS 77</div>
           <header><span class="rail"></span><strong>HAUS-OPS</strong><time></time><span class="cap"></span></header>
           <nav aria-label="Ansichten"><div class="nav-scroll">
-            ${pages.slice(0,5).map((page, i) => `<button data-page="${i}" style="background:var(${colors[i]})">${page}</button>`).flatMap((button, i) => i === 0 ? [button, '<button data-page="6" style="background:var(--sand)">Energie</button>', '<button data-page="7" style="background:var(--blue)">Wasser</button>', '<button data-page="8" style="background:var(--pink)">Musik</button>'] : [button]).join('')}
-            <button data-page="5" style="background:var(--pink)">Garten</button>
+            ${navigation.map(([page, name, code, color]) =>
+              `<button data-page="${page}" style="background:var(${color})"><small aria-hidden="true">${code}</small><span>${name}</span></button>`
+            ).join('')}
           </div><button data-settings aria-label="82873.4 – Konfiguration" hidden>82873.4</button><p data-nav-spacer>82873.4</p><p data-frequency hidden></p></nav>
           <main></main><div class="heel"></div>
           <footer><span class="rail">${this.demo ? 'Demo · System bereit' : 'System bereit'}</span><span class="cap"></span></footer>
