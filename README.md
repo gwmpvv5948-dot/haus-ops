@@ -23,3 +23,7 @@ Home-Assistant-Panel für ein Raspberry-Pi-Display im Querformat (800 × 480) mi
 Für die Demo im Repository `python3 -m http.server 8000 --bind 127.0.0.1` ausführen und [vorschau.html](http://127.0.0.1:8000/vorschau.html) öffnen. Die Demo verwendet simulierte Zustände.
 
 Für eine manuelle Installation `custom_components/haus_ops` nach `/config/custom_components/haus_ops` kopieren und ab Schritt 2 fortfahren. [YAML-Beispiel](haus_ops.example.yaml).
+
+## Alarme
+
+[Gelbe und rote Alarme in Home Assistant und HAUS-OPS konfigurieren](docs/alarme.md)
