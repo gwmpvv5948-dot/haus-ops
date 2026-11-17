@@ -830,3 +830,10 @@ footer .rail[data-music-tone=error]{background:var(--red)}
 .ops-overview>[data-card-page="4"] .ops-climate{min-height:0;gap:2px;overflow:hidden}
 .ops-overview>[data-card-page="4"] .ops-card-actions{height:28px;min-height:28px;margin:0}
 .ops-overview>[data-card-page="4"] .ops-card-actions>*{overflow:hidden;white-space:nowrap}
+
+.frame:is([data-alert="gelb"],[data-alert="gelb-ruhig"]) > header{align-items:flex-start;gap:4px}
+.frame:is([data-alert="gelb"],[data-alert="gelb-ruhig"]) > header > strong{display:block;flex:0 1 auto;min-width:0;max-width:calc(100% - 95px);height:18px;padding:2px 8px;border-radius:12px;background:#fc3;color:#000;font:700 13px/14px Antonio,"Arial Narrow",sans-serif;letter-spacing:.04em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.frame:is([data-alert="gelb"],[data-alert="gelb-ruhig"]) > header > :is(.rail,.cap,time){height:18px}
+.frame:is([data-alert="gelb"],[data-alert="gelb-ruhig"]) > header > time{line-height:18px}
+
+.frame[data-alert="gelb"] :is(header,footer,.brand,.heel,.nav-scroll [data-page="1"],.ops-safety .ops-heading,.ops-contacts .open,.yellow-warnings [data-warning="neu"] b,.yellow-warnings>strong[data-warning="neu"]){animation:none!important}

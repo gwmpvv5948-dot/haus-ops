@@ -1,10 +1,10 @@
-import {loadPV,pvView} from './pv-panel.js?v=1.6.28';
-import { LightPanel } from './light-panel.js?v=1.6.28';
-import { CircuitsPanel } from './circuits-panel.js?v=1.6.28';
-import { OverviewPanel, overviewFields } from './overview-panel.js?v=1.6.28';
-import { MusicPanel, musicFields } from './music-panel.js?v=1.6.28';
-import { WaterPanel, waterFields } from './water-panel.js?v=1.6.28';
-import { energyFields, energyView } from './energy-panel.js?v=1.6.28';
+import {loadPV,pvView} from './pv-panel.js?v=1.6.29';
+import { LightPanel } from './light-panel.js?v=1.6.29';
+import { CircuitsPanel } from './circuits-panel.js?v=1.6.29';
+import { OverviewPanel, overviewFields } from './overview-panel.js?v=1.6.29';
+import { MusicPanel, musicFields } from './music-panel.js?v=1.6.29';
+import { WaterPanel, waterFields } from './water-panel.js?v=1.6.29';
+import { energyFields, energyView } from './energy-panel.js?v=1.6.29';
 import { ClimatePanel, roomNames } from './climate-panel.js';
 const antonio = new FontFace('Antonio', `url("${new URL('./Antonio.ttf', import.meta.url).href}")`, {
   weight: '400 700',
@@ -86,7 +86,7 @@ class HausOps extends HTMLElement {
     if (!this.shadowRoot) {
       this.attachShadow({ mode: 'open' });
       this.shadowRoot.innerHTML = `
-        <link rel="stylesheet" href="${new URL('./haus-ops.css?v=1.6.28', import.meta.url)}">
+        <link rel="stylesheet" href="${new URL('./haus-ops.css?v=1.6.29', import.meta.url)}">
         <div class="stage"><div class="frame">
           <div class="brand">LCARS 77</div>
           <header><span class="rail"></span><span class="overview-data" aria-hidden="true" hidden></span><span class="overview-rail" aria-hidden="true" hidden></span><strong>HAUS-OPS</strong><time></time><span class="cap"></span></header>
@@ -103,7 +103,10 @@ class HausOps extends HTMLElement {
     }
     this.blindInputEvents = new AbortController();
     const options = {signal:this.blindInputEvents.signal};
-    const recordActivity = () => { this.lastDisplayActivity = performance.now(); };
+    const recordActivity = () => {
+      this.lastDisplayActivity = performance.now();
+      this.updateDisplayBrightness(false);
+    };
     recordActivity();
     for (const type of ['pointerdown', 'pointerup', 'pointercancel', 'keydown', 'wheel', 'click']) {
       this.shadowRoot.addEventListener(type, recordActivity, {...options, capture:true, passive:true});
@@ -663,6 +666,7 @@ class HausOps extends HTMLElement {
     } else if (this.page !== 0 && now - this.lastDisplayActivity >= 60000) {
       this.page = 0;
     }
+    this.updateDisplayBrightness(now - this.lastDisplayActivity >= 60000);
     const lightView = this.page === 9 ? this.lightsPanel.view() : null;
     const circuits = this.page === circuitsPageIndex ? this.circuits.view() : null;
     const music = this.page === musicPageIndex ? this.music.view() : null;
@@ -768,19 +772,33 @@ class HausOps extends HTMLElement {
     this.shadowRoot.querySelector('main').inert = showAlarm;
     const frame = this.shadowRoot.querySelector('.frame');
     frame.toggleAttribute('data-overview', this.page === 0);
-    frame.querySelectorAll('.overview-data,.overview-rail').forEach(node => { node.hidden = this.page !== 0; });
+    frame.querySelectorAll('.overview-data,.overview-rail').forEach(node => { node.hidden = this.page !== 0 || alert === 'gelb'; });
     const appearance = yellowQuiet ? 'gelb-ruhig' : alert;
     const entering = this.pageEntry?.page === this.page && appearance === frame.dataset.alert;
     if (!entering) this.pageEntry = undefined;
+    const startYellowPulse = appearance === 'gelb' &&
+      (incomingWarning || frame.dataset.alert !== 'gelb');
     frame.dataset.alert = appearance;
+    if (appearance !== 'gelb' || startYellowPulse) {
+      frame.getAnimations().filter(animation=>animation.id==='haus-ops-yellow-pulse').forEach(animation=>animation.cancel());
+    }
+    if (startYellowPulse && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      const pulse = frame.animate([
+        {filter:'brightness(1)'},{filter:'brightness(.45)',offset:.5},{filter:'brightness(1)'},
+      ],{duration:2200,iterations:3,easing:'ease-in-out'});
+      pulse.id = 'haus-ops-yellow-pulse';
+    }
     frame.toggleAttribute('data-yellow-warnings', warnings.length > 0);
     frame.toggleAttribute('data-security-alert', alert === 'gelb' &&
       (open.length > 0 || /tür|tor|fenster|schloss/i.test(overviewAlarm.reasons)));
     const climatePage = this.page === 4;
     this.shadowRoot.querySelector('.frame').classList.toggle('climate-page', climatePage);
     this.shadowRoot.querySelector('header strong').textContent = alert === 'rot' ? (overviewAlarm.acknowledged ? redAlarmLabel + ' · quittiert' : redAlarmLabel)
-      : yellowQuiet ? (warnings.some(item=>item.status==='stumm') ? `${warnings.filter(item=>item.status==='stumm').length} stumm · ${warnings.filter(item=>item.status==='quittiert').length} quittiert` : `${warnings.length} quittiert`)
-      : alert === 'gelb' ? `Alarmstufe Gelb · ${overviewAlarm.count} ${overviewAlarm.count === 1 ? 'Meldung' : 'Meldungen'}` : this.page === 9 ? 'Licht' : circuits ? 'Stromkreise' : music ? 'Musik' : water ? 'Wasser' : energy ? 'Energie' : climatePage ? 'Klima' : this.page === 3 ? 'Rollos' : 'HAUS-OPS';
+      : alert === 'gelb' ? ('Alarmstufe Gelb · ' + (yellowQuiet
+        ? warnings.some(item=>item.status==='stumm')
+          ? `${warnings.filter(item=>item.status==='stumm').length} stumm · ${warnings.filter(item=>item.status==='quittiert').length} quittiert`
+          : `${warnings.length} quittiert`
+        : `${overviewAlarm.count} ${overviewAlarm.count === 1 ? 'Meldung' : 'Meldungen'}`)) : this.page === 9 ? 'Licht' : circuits ? 'Stromkreise' : music ? 'Musik' : water ? 'Wasser' : energy ? 'Energie' : climatePage ? 'Klima' : this.page === 3 ? 'Rollos' : 'HAUS-OPS';
     this.shadowRoot.querySelector('footer .rail').textContent = [
       this.demo ? 'Demo' : '', level >= 0 ? 'Lüftung Stufe ' + levels[level] : 'Haus-Ops'
     ].filter(Boolean).join(' · ');
@@ -970,6 +988,44 @@ class HausOps extends HTMLElement {
     return this.ha.callService(entity_id.split('.')[0], service, { entity_id, ...data });
   }
 
+  get activeDisplayBrightness() {
+    const action = this.config?.display_brightness_action;
+    try {
+      const value = localStorage.getItem('haus-ops.display-brightness.' + action);
+      if (value !== null && Number.isFinite(Number(value))) return Math.max(5,Math.min(100,Number(value)));
+    } catch {}
+    return 50;
+  }
+
+  updateDisplayBrightness(standby) {
+    const action = this.config?.display_brightness_action;
+    if (!/^shell_command\.[a-z0-9_]+$/.test(action ?? '') || !this.ha) return;
+    this.displayBrightnessTarget = {action,value:standby ? 5 : this.activeDisplayBrightness};
+    void this.sendDisplayBrightness();
+  }
+
+  async sendDisplayBrightness() {
+    if (this.brightnessSending || Date.now() < (this.brightnessRetryAt ?? 0)) return;
+    this.brightnessSending = true;
+    try {
+      while (this.isConnected && this.displayBrightnessTarget) {
+        const target = this.displayBrightnessTarget;
+        const key = target.action + '/' + target.value;
+        if (this.displayBrightnessApplied === key) break;
+        const result = await this.ha.callWS({
+          type:'call_service',domain:'shell_command',service:target.action.split('.')[1],
+          service_data:{brightness:target.value},return_response:true,
+        });
+        if (result?.response?.returncode !== undefined && result.response.returncode !== 0) throw new Error('SSH fehlgeschlagen');
+        this.displayBrightnessApplied = key;
+      }
+    } catch {
+      this.brightnessRetryAt = Date.now() + 10000;
+    } finally {
+      this.brightnessSending = false;
+    }
+  }
+
   get dashboardVolume() {
     try {
       const stored = localStorage.getItem(dashboardVolumePreference);
@@ -999,7 +1055,7 @@ class HausOps extends HTMLElement {
       return new URL('./sounds/yellow_alert.mp3?v=2', import.meta.url).href;
     }
     if (kind === 'warp' && ['warp_core_loop.wav', 'warp_core.wav', 'warp_core.mp3'].includes(filename)) {
-      return new URL('./sounds/warp_core_loop.wav?v=1.6.28', import.meta.url).href;
+      return new URL('./sounds/warp_core_loop.wav?v=1.6.29', import.meta.url).href;
     }
     if (['beep3', 'beep5', 'beep6'].includes(kind) && filename === kind + '.mp3') {
       return new URL('./sounds/' + filename, import.meta.url).href;
@@ -1357,10 +1413,10 @@ class HausOpsSettings {
         <label>SSH-Aktion für die Display-Helligkeit
           <input name="display-brightness-action" value="${escape(config.display_brightness_action)}" placeholder="shell_command.walldisplay_helligkeit" spellcheck="false">
         </label>
-        <label>Display-Helligkeit <output for="display-brightness">50 %</output>
+        <label>Helligkeit bei Benutzung <output for="display-brightness">50 %</output>
           <input id="display-brightness" type="range" min="5" max="100" step="1" value="50" disabled>
         </label>
-        <small>Der Regler sendet beim Loslassen den Wert als brightness an die gespeicherte HA-Aktion. Ohne Rückmeldung vom Raspberry zeigt er den zuletzt gesendeten Wert.</small>
+        <small>Nach 60 Sekunden ohne Bedienung wird auf 5 % gedimmt. Bei Berührung wird die hier gespeicherte Helligkeit wiederhergestellt. Die Einstellung gilt für diesen Browser.</small>
         ${soundSlots.map(([key,label,defaultFile]) => `<label>${label}<input name="sound-${key}" value="${escape(config.sounds?.[key] ?? defaultFile)}" placeholder="Dateiname, z. B. beep.mp3" spellcheck="false"></label>`).join('')}</fieldset>
       <fieldset><legend>Lichtszenen</legend>
         ${[['off','Alle aus'],['evening','Abendlicht'],['film','Film'],['hell','Hell']].map(([key,label])=>
@@ -1421,21 +1477,16 @@ class HausOpsSettings {
     const brightnessOutput = form.querySelector('output[for="display-brightness"]');
     brightnessOutput.textContent = brightness.value + ' %';
     brightness.oninput = () => { brightnessOutput.textContent = brightness.value + ' %'; };
-    brightness.onchange = async () => {
+    brightness.onchange = () => {
       const value = Number(brightness.value);
-      brightness.disabled = true;
       try {
-        const result = await panel.ha.callWS({
-          type:'call_service',domain:'shell_command',service:brightnessAction.split('.')[1],
-          service_data:{brightness:value},return_response:true,
-        });
-        const response = result?.response;
-        if (response?.returncode !== undefined && response.returncode !== 0) throw new Error('SSH fehlgeschlagen');
-        try { localStorage.setItem(brightnessKey,String(value)); } catch {}
-        form.querySelector('[role=status]').textContent = 'Helligkeitsbefehl ausgeführt.';
+        localStorage.setItem(brightnessKey,String(value));
+        panel.lastDisplayActivity = performance.now();
+        panel.updateDisplayBrightness(false);
+        form.querySelector('[role=status]').textContent = 'Helligkeit bei Benutzung gespeichert.';
       } catch {
-        form.querySelector('[role=status]').textContent = 'Helligkeit konnte nicht gesetzt werden. SSH-Aktion in Home Assistant prüfen.';
-      } finally { brightness.disabled = false; }
+        form.querySelector('[role=status]').textContent = 'Helligkeit konnte in diesem Browser nicht gespeichert werden.';
+      }
     };
     form.elements.namedItem('dashboard-volume').oninput = event => {
       form.querySelector('output[for="dashboard-volume"]').textContent = event.target.value + ' %';
