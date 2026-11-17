@@ -1,0 +1,81 @@
+# Referenz für HA-Pakete. Nicht zusätzlich zu bereits vorhandenen identischen
+# Regeln laden. WAMA-Ende-Hook siehe docs/alarme.md.
+input_boolean:
+  wama_abstellen_ausstehend:
+    name: Waschmaschine nach Programmende noch abzustellen
+
+input_datetime:
+  wama_programmende:
+    name: Waschmaschine letztes Programmende
+    has_date: true
+    has_time: true
+
+template:
+  - binary_sensor:
+      - name: schlafzimmer_temperatur_gelb_bedingung
+        default_entity_id: binary_sensor.schlafzimmer_temperatur_gelb_bedingung
+        unique_id: haus_ops_schlafzimmer_temperatur_gelb_bedingung
+        availability: "{{ is_number(states('sensor.sz_temp')) }}"
+        state: "{{ states('sensor.sz_temp') | float(16) < 16 }}"
+      - name: terrasse_nacht_gelb_bedingung
+        default_entity_id: binary_sensor.terrasse_nacht_gelb_bedingung
+        unique_id: haus_ops_terrasse_nacht_gelb_bedingung
+        availability: "{{ states('binary_sensor.wz_terasse') in ['on', 'off'] }}"
+        state: >-
+          {% set zeit = now() %}
+          {% set kontakt = 'binary_sensor.wz_terasse' %}
+          {{ zeit.hour < 6 and is_state(kontakt, 'on')
+             and as_timestamp(zeit) -
+                 [as_timestamp(today_at('00:00')), as_timestamp(states[kontakt].last_changed)] | max >= 600 }}
+      - name: wama_nicht_abgestellt_gelb_bedingung
+        default_entity_id: binary_sensor.wama_nicht_abgestellt_gelb_bedingung
+        unique_id: haus_ops_wama_nicht_abgestellt_gelb_bedingung
+        availability: "{{ is_number(states('sensor.tasmota_wama_plug_energy_power')) }}"
+        state: >-
+          {{ is_state('input_boolean.wama_abstellen_ausstehend', 'on')
+             and states('sensor.tasmota_wama_plug_energy_power') | float(0) > 0
+             and as_timestamp(states('input_datetime.wama_programmende'), none) is not none
+             and as_timestamp(now()) - as_timestamp(states('input_datetime.wama_programmende'), as_timestamp(now())) >= 3600 }}
+
+alert:
+  schlafzimmer_temperatur_gelb:
+    name: "Schlafzimmer · Temperatur unter 16 °C"
+    entity_id: binary_sensor.schlafzimmer_temperatur_gelb_bedingung
+    state: "on"
+    repeat: 30
+    can_acknowledge: true
+    notifiers: []
+  terrasse_nacht_gelb:
+    name: Terrassentür nach Mitternacht länger als 10 Minuten offen
+    entity_id: binary_sensor.terrasse_nacht_gelb_bedingung
+    state: "on"
+    repeat: 30
+    can_acknowledge: true
+    notifiers: []
+  wama_nicht_abgestellt_gelb:
+    name: "Waschmaschine seit 60 Minuten fertig · bitte ausschalten"
+    entity_id: binary_sensor.wama_nicht_abgestellt_gelb_bedingung
+    state: "on"
+    repeat: 30
+    can_acknowledge: true
+    notifiers: []
+
+automation:
+  - id: haus_ops_wama_abstellen_zuruecksetzen
+    alias: "HAUS-OPS · WAMA ausgeschaltet · Erinnerung zurücksetzen"
+    triggers:
+      - trigger: state
+        entity_id: sensor.tasmota_wama_plug_energy_power
+      - trigger: homeassistant
+        event: start
+    conditions:
+      - condition: template
+        value_template: "{{ is_number(states('sensor.tasmota_wama_plug_energy_power')) and states('sensor.tasmota_wama_plug_energy_power') | float(1) <= 0 }}"
+      - condition: state
+        entity_id: input_boolean.wama_abstellen_ausstehend
+        state: "on"
+    actions:
+      - action: input_boolean.turn_off
+        target:
+          entity_id: input_boolean.wama_abstellen_ausstehend
+    mode: single

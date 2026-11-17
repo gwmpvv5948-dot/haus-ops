@@ -91,3 +91,47 @@ Bei Rot wechselt HAUS-OPS zu **Sicherheit** und zeigt das rote Overlay. Bei akti
 2. Starte Home Assistant neu, um neu angelegte `alert.*` zu laden. Prüfe ihre tatsächlichen IDs unter **Entwicklerwerkzeuge → Zustände** und speichere die HAUS-OPS-Zuordnungen.
 3. Teste Gelb mit einem geeigneten Helfer und prüfe **Neu → Quittiert → verschwunden**. Prüfe bei Rot den Zustand und das Attribut `ursachen` von `sensor.alarmstufe`, das Overlay und die Quittierung.
 4. Wenn die Nachtregel eine kürzere Testverzögerung braucht, setze im Beispiel `600` Sekunden auf `60`. Falls du pro Kontakt einen Minuten-Helfer eingerichtet hast, ändere den Wert dort. Die Regel gilt weiterhin nur im Nachtzeitraum. Stelle nach dem Test die reguläre Verzögerung wieder her.
+
+## Zusätzliche gelbe Warnungen
+
+Die Referenz `examples/gelbe-zusatzalarme.yaml` enthält drei weitere Warnungen. Diese HA-Regeln werden durch ein HACS-Update von HAUS-OPS nicht automatisch installiert. Bereits in HA angelegte Regeln nicht doppelt als Paket hinzufügen.
+
+| Alert | Bedingung | Ende der Warnung |
+| --- | --- | --- |
+| `alert.schlafzimmer_temperatur_gelb` | `sensor.sz_temp` unter 16 °C | Temperatur mindestens 16 °C |
+| `alert.terrasse_nacht_gelb` | `binary_sensor.wz_terasse` offen, 00–06 Uhr, mindestens 10 Minuten seit Öffnung bzw. Mitternacht | Kontakt geschlossen oder 06 Uhr |
+| `alert.wama_nicht_abgestellt_gelb` | 60 Minuten nach tatsächlichem Programmende, Leistung weiterhin über 0 W | 0 W oder neuer Waschgang |
+
+Die Zeitprüfung erfolgt im Minutentakt. Nichtnumerische Temperatur- und Leistungswerte lösen keine neue Warnung aus. Die Alerts erlauben das Quittieren nach dem oben beschriebenen Ablauf. Nach dem Laden der HA-Regeln die drei Alert-IDs unter **Gelbe Warnungen** ergänzen und mit **OK** speichern.
+
+### WAMA fertig · Blueprint-Aktionen
+
+Für den Blueprint `Blackshome/appliance-notifications.yaml` unter dem vorhandenen `use_blueprint.input` der Automation **WAMA fertig** ergänzen. Bereits vorhandene benutzerdefinierte Aktionen zusammenführen, nicht ersetzen. Entscheidend ist die End-Aktion des Blueprints; `last_triggered` der Automation bezeichnet den Start des Waschgangs und eignet sich nicht als Fertig-Zeit.
+
+```yaml
+include_custom_actions:
+  - enable_start_custom_actions
+  - enable_end_custom_actions
+start_custom_actions:
+  - action: input_boolean.turn_off
+    target:
+      entity_id: input_boolean.wama_abstellen_ausstehend
+end_custom_actions:
+  - action: input_datetime.set_datetime
+    target:
+      entity_id: input_datetime.wama_programmende
+    data:
+      timestamp: "{{ as_timestamp(now()) }}"
+  - choose:
+      - conditions: "{{ states('sensor.tasmota_wama_plug_energy_power') | float(0) > 0 }}"
+        sequence:
+          - action: input_boolean.turn_on
+            target:
+              entity_id: input_boolean.wama_abstellen_ausstehend
+    default:
+      - action: input_boolean.turn_off
+        target:
+          entity_id: input_boolean.wama_abstellen_ausstehend
+```
+
+Fertig-Zeit und ausstehende Erinnerung werden in HA-Helfern gespeichert und überstehen Neustarts. Die zusätzliche Rücksetz-Automation im Beispiel beendet die Erinnerung bei 0 W. Nach der erstmaligen Einrichtung beginnt die Überwachung mit dem nächsten vom Blueprint erkannten Programmende.
