@@ -1,9 +1,52 @@
+/** Drag fallback for kiosks that report touchscreen gestures as mouse input. */
+export function bindSettingsScroll(surface, horizontal = () => false) {
+  let drag;
+  let suppressClick = false;
+  const finish = event => {
+    if (drag?.id !== event.pointerId) return;
+    if (surface.hasPointerCapture?.(event.pointerId)) surface.releasePointerCapture(event.pointerId);
+    surface.classList.remove('settings-dragging');
+    drag = undefined;
+  };
+  surface.addEventListener('pointerdown', event => {
+    suppressClick = false;
+    if (event.button !== 0 || !event.isPrimary) return;
+    // Preserve caret placement, selection, sliders and native select menus.
+    if (event.target.closest('input, textarea, select, option, [contenteditable]')) return;
+    const sideways = horizontal();
+    drag = {id:event.pointerId, x:event.clientX, y:event.clientY,
+      left:surface.scrollLeft, top:surface.scrollTop, sideways};
+  });
+  surface.addEventListener('pointermove', event => {
+    if (drag?.id !== event.pointerId) return;
+    const delta = drag.sideways ? drag.x - event.clientX : drag.y - event.clientY;
+    if (!suppressClick && Math.abs(delta) < 8) return;
+    if (!suppressClick) {
+      suppressClick = true;
+      surface.setPointerCapture(event.pointerId);
+      surface.classList.add('settings-dragging');
+    }
+    if (event.cancelable) event.preventDefault();
+    if (drag.sideways) surface.scrollLeft = drag.left + delta;
+    else surface.scrollTop = drag.top + delta;
+  }, {passive:false});
+  for (const type of ['pointerup','pointercancel','lostpointercapture']) surface.addEventListener(type, finish);
+  surface.addEventListener('click', event => {
+    if (!suppressClick || event.detail === 0) return;
+    suppressClick = false;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+  }, {capture:true});
+}
+
 /** Keep the full form intact while offering large, touch-friendly section controls. */
 export function setupSettingsLayout(dialog) {
   const fields = dialog.querySelector('.fields');
   const sections = [...fields.children].filter(element => element.tagName === 'FIELDSET');
   const navigation = dialog.querySelector('.settings-sections');
   const savedSection = dialog.dataset.section;
+  bindSettingsScroll(fields);
+  bindSettingsScroll(navigation, () => matchMedia('(max-width: 900px)').matches);
   const select = index => {
     sections.forEach((section, item) => { section.hidden = item !== index; });
     [...navigation.children].forEach((button, item) => {
