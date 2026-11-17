@@ -37,8 +37,8 @@ export function energyView(panel, engineering = false, summaryOnly = false) {
       yieldToday, use, imp, exp, charge, discharge, inverter,
     }, panel.demo);
   }
-  const source = (name,color,value,chip,details) => `<article class="energy-source ${value === 0 ? 'idle' : ''}" style="--source:var(--${color})">
-    <div><strong>${name}</strong><small>${known(value) ? chip : 'Keine Daten'}</small></div>
+  const source = (name,color,value,chip,details) => `<article ${name==='Solar' && !summaryOnly ? 'data-pv-card' : ''} class="energy-source ${value === 0 ? 'idle' : ''}" style="--source:var(--${color})">
+    <div><strong>${name==='Solar' && !summaryOnly ? '<button data-pv-open aria-label="Solar · PV-Ausblick öffnen">Solar ›</button>' : name}</strong><small>${known(value) ? chip : 'Keine Daten'}</small></div>
     <p>${power(value).replace(/ (k?W)$/, ' <small>$1</small>')}</p><aside>${details}</aside></article>`;
   const suppliers = [[ 'Solar', 'solar', Math.max(0,solar-Math.max(0,-battery)-Math.max(0,-grid)) ],['Akku','battery',Math.max(0,battery)],['Netz','purple',Math.max(0,grid)]];
   const supplied = sum(suppliers.map(item=>item[2]));

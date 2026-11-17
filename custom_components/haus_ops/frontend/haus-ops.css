@@ -661,3 +661,56 @@ footer .rail[data-music-tone=error]{background:var(--red)}
 .music-favorites{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(90px,1fr);grid-template-columns:none;overflow-x:auto;scrollbar-width:none}
 .music-favorites button{white-space:nowrap}
 .circuit-row.selected{outline:1px solid var(--sand);outline-offset:1px;border-radius:4px}
+
+/* Solar outlook within Energie. */
+[data-pv-open],.pv-outlook button{font:inherit;cursor:pointer}
+[data-pv-open]{background:none;color:inherit;border:0;padding:0;text-align:left}
+.pv-outlook{display:grid;gap:7px;color:#ffcf9b}
+.pv-outlook header{display:flex;justify-content:space-between;align-items:center;gap:8px;background:#ffab00;color:#000;border-radius:16px;padding:2px 10px}
+.pv-outlook h2{margin:0;font-size:16px;text-transform:uppercase}
+.pv-outlook [data-pv-back]{background:#111;color:#ffcf9b;border:0;border-radius:12px;padding:4px 9px}
+.pv-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px}
+.pv-metrics>div{background:#211b18;border-radius:13px;padding:3px 8px;font-size:11px;white-space:nowrap}
+.pv-metrics small{display:block;color:#cd9acb;font-size:10px;text-transform:uppercase}
+.pv-metrics strong{font-size:20px;color:#ff9a68}
+.pv-days{display:grid;grid-template-columns:32px repeat(7,minmax(0,1fr));gap:3px;text-align:center}
+.pv-day,.pv-scale{display:grid;grid-template-rows:29px minmax(115px, min(17vh, 157px)) 39px 24px 24px 24px;gap:3px;min-width:0}
+.pv-scale{color:#cd9acb;align-items:center}
+.pv-scale>div{height:100%;position:relative;grid-row:2}
+.pv-scale>div span{position:absolute;right:3px;transform:translateY(50%);font-size:10px}
+.pv-scale>small:nth-last-child(3){grid-row:4}
+.pv-day.selected{outline:1px solid #ffcf9b;border-radius:9px;background:#1b1510}
+.pv-day>button:first-child{border:0;border-radius:14px;color:#cd9acb;background:#202020;text-transform:uppercase;font-size:11px;padding:0}
+.pv-day>button:first-child.today{background:#ffcf9b;color:#17130e}
+.pv-day>button:first-child small{display:block;font-size:9px}
+.pv-plot{position:relative;isolation:isolate;width:100%;border:0;color:inherit;padding:0;background:repeating-linear-gradient(to top,#333 0 1px,transparent 1px 25%);overflow:visible}
+.pv-stack{position:absolute;inset:0 29%;display:flex;flex-direction:column-reverse;gap:2px}
+.pv-stack i{flex:1;background:#202020;border-radius:2px}
+.pv-stack .certain{background:linear-gradient(#ffba37,#ed8500);animation:pv-fill .24s backwards;animation-delay:calc(12ms * var(--segment))}
+.pv-stack .expected{background:repeating-linear-gradient(130deg,#ef9900 0 2px,#50300a 2px 5px);background-size:12px 12px;animation:pv-stripes 4s linear infinite}
+.pv-demand,.pv-expected,.pv-low,.pv-now{position:absolute;z-index:1;white-space:nowrap}
+.pv-demand{left:0;right:0;border-top:1px dashed #cd9acb;color:#dac1eb;text-align:right;font-size:8px}
+.pv-expected{left:50%;transform:translate(-50%,-2px);font-size:17px;background:#16110bd9;border-radius:4px;padding:0 2px}
+.pv-low{left:1px;color:#efad72;font-size:9px}
+.pv-now{left:1px;color:#9bd0ff;font-size:9px;background:#10161c;animation:pv-pulse 2.8s ease-in-out infinite}
+.pv-score{color:var(--pv-score);font-size:18px;line-height:1.1}
+.pv-score small{display:block;font-size:9px}
+.pv-weather,.pv-sun,.pv-rain{font-size:10px;align-self:center}
+.pv-weather ha-icon{--mdc-icon-size:14px;color:#cd9acb;vertical-align:middle}
+.pv-weather small{font-size:8px}
+.pv-mini{display:block;height:4px;margin:2px 5px;background:#2b2b2b;border-radius:3px;overflow:hidden}
+.pv-mini b{display:block;height:100%;background:#ffab00;animation:pv-grow .5s ease-out;transform-origin:left}
+.pv-rain b{background:#9bd0ff}
+.pv-outlook footer{color:#cd9acb;font-size:10px}
+@keyframes pv-fill{from{opacity:0;transform:scaleY(.3)}}
+@keyframes pv-stripes{to{background-position:12px 0}}
+@keyframes pv-pulse{50%{opacity:.55}}
+@keyframes pv-grow{from{transform:scaleX(0)}}
+@media(prefers-reduced-motion:reduce){.pv-outlook *{animation:none!important}}
+[data-pv-card]{cursor:pointer}
+.pv-weather.sunny ha-icon{animation:pv-spin 18s linear infinite}
+.pv-weather.cloudy ha-icon{animation:pv-drift 4s ease-in-out infinite}
+.pv-weather.rainy ha-icon{animation:pv-drizzle 2s ease-in-out infinite}
+@keyframes pv-spin{to{transform:rotate(360deg)}}
+@keyframes pv-drift{50%{transform:translateX(3px)}}
+@keyframes pv-drizzle{50%{transform:translateY(2px);opacity:.65}}

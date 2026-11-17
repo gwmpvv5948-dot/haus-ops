@@ -1,9 +1,10 @@
-import { LightPanel } from './light-panel.js?v=1.6.20';
-import { CircuitsPanel } from './circuits-panel.js?v=1.6.20';
-import { OverviewPanel, overviewFields } from './overview-panel.js?v=1.6.20';
-import { MusicPanel, musicFields } from './music-panel.js?v=1.6.20';
-import { WaterPanel, waterFields } from './water-panel.js?v=1.6.20';
-import { energyFields, energyView } from './energy-panel.js?v=1.6.20';
+import {loadPV,pvView} from './pv-panel.js?v=1.6.21';
+import { LightPanel } from './light-panel.js?v=1.6.21';
+import { CircuitsPanel } from './circuits-panel.js?v=1.6.21';
+import { OverviewPanel, overviewFields } from './overview-panel.js?v=1.6.21';
+import { MusicPanel, musicFields } from './music-panel.js?v=1.6.21';
+import { WaterPanel, waterFields } from './water-panel.js?v=1.6.21';
+import { energyFields, energyView } from './energy-panel.js?v=1.6.21';
 import { ClimatePanel, roomNames } from './climate-panel.js';
 const antonio = new FontFace('Antonio', `url("${new URL('./Antonio.ttf', import.meta.url).href}")`, {
   weight: '400 700',
@@ -84,7 +85,7 @@ class HausOps extends HTMLElement {
     if (!this.shadowRoot) {
       this.attachShadow({ mode: 'open' });
       this.shadowRoot.innerHTML = `
-        <link rel="stylesheet" href="${new URL('./haus-ops.css?v=1.6.20', import.meta.url)}">
+        <link rel="stylesheet" href="${new URL('./haus-ops.css?v=1.6.21', import.meta.url)}">
         <div class="stage"><div class="frame">
           <div class="brand">LCARS 77</div>
           <header><span class="rail"></span><strong>HAUS-OPS</strong><time></time><span class="cap"></span></header>
@@ -499,13 +500,14 @@ class HausOps extends HTMLElement {
     const circuits = this.page === circuitsPageIndex ? this.circuits.view() : null;
     const music = this.page === musicPageIndex ? this.music.view() : null;
     const water = this.page === waterPageIndex ? this.water.view() : null;
-    this.syncWarpSound(this.page === energyPageIndex && this.engineeringMode);
-    const energy = this.page === energyPageIndex ? energyView(this, this.engineeringMode) : null;
+    this.syncWarpSound(this.page === energyPageIndex && this.engineeringMode && !this.pvOpen);
+    if (this.page === energyPageIndex && this.pvOpen) void loadPV(this);
+    const energy = this.page === energyPageIndex ? (this.pvOpen ? pvView(this) : energyView(this, this.engineeringMode)) : null;
     const canConfigure = Boolean(this.ha?.user?.is_admin);
     this.shadowRoot.querySelector('[data-settings]').hidden = !canConfigure || Boolean(energy);
     this.shadowRoot.querySelector('[data-nav-spacer]').hidden = canConfigure || Boolean(energy);
     const frequency = this.shadowRoot.querySelector('[data-frequency]');
-    frequency.hidden = !energy;
+    frequency.hidden = !energy?.hz;
     frequency.textContent = energy?.hz ?? '';
     const accesses = this.accesses();
     const open = accesses.filter(item => item.open);
@@ -754,7 +756,7 @@ class HausOps extends HTMLElement {
       return new URL('./sounds/yellow_alert.mp3?v=2', import.meta.url).href;
     }
     if (kind === 'warp' && ['warp_core_loop.wav', 'warp_core.wav', 'warp_core.mp3'].includes(filename)) {
-      return new URL('./sounds/warp_core_loop.wav?v=1.6.20', import.meta.url).href;
+      return new URL('./sounds/warp_core_loop.wav?v=1.6.21', import.meta.url).href;
     }
     if ((kind === 'beep5' || kind === 'beep6') && filename === kind + '.mp3') {
       return new URL('./sounds/' + filename, import.meta.url).href;
@@ -843,11 +845,22 @@ class HausOps extends HTMLElement {
   async click(event) {
     const playedAlarm = this.playPendingAlarm();
     const button = event.target.closest('button, .circuits-wheel path[data-action^="circuit-room:"]') ??
+      event.target.closest('[data-pv-card]')?.querySelector('[data-pv-open]') ??
       event.target.closest('[data-card-page]')?.querySelector('button[data-page]');
-    if (!button || button.disabled || !button.matches('[data-page], [data-action], [data-settings], [data-energy-mode]')) return;
+    if (!button || button.disabled || !button.matches('[data-page], [data-action], [data-settings], [data-energy-mode], [data-pv-open], [data-pv-back], [data-pv-day]')) return;
     const beeps = soundSlots.map(([kind]) => kind).filter(kind => kind.startsWith('beep') && this.soundUrl(kind));
     if (!playedAlarm && beeps.length && this.alarmAudio?.paused !== false) this.playTouchSound(beeps[Math.floor(Math.random() * beeps.length)]);
     if (button.hasAttribute('data-settings')) { this.settings.open(); return; }
+    if (button.matches('[data-pv-open], [data-pv-back], [data-pv-day]')) {
+      this.pvOpen = !button.hasAttribute('data-pv-back');
+      if (button.dataset.pvDay !== undefined) this.pvSelected = Number(button.dataset.pvDay);
+      this.render();
+      const selector = button.dataset.pvDay !== undefined
+        ? `[data-pv-day="${button.dataset.pvDay}"]`
+        : this.pvOpen ? '[data-pv-back]' : '[data-pv-open]';
+      this.shadowRoot.querySelector(selector)?.focus({preventScroll:true});
+      return;
+    }
     if (button.hasAttribute('data-energy-mode')) {
       this.engineeringMode = !this.engineeringMode;
       this.render();
@@ -856,6 +869,7 @@ class HausOps extends HTMLElement {
     }
     if (button.dataset.page !== undefined) {
       this.page = Number(button.dataset.page);
+      this.pvOpen = false;
       this.alarmDetailsPage = button.hasAttribute('data-alarm-details') ? this.page : undefined;
       this.render();
       this.shadowRoot.querySelector('nav [aria-current=true]')?.focus({ preventScroll: true });
