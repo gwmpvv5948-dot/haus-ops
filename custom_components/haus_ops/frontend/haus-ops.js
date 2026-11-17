@@ -1,12 +1,13 @@
-import { MobileNotifications } from './mobile-notifications.js?v=1.6.38';
-import { nightDisplayOff } from './display-night.js?v=1.6.38';
-import {loadPV,pvView} from './pv-panel.js?v=1.6.38';
-import { LightPanel } from './light-panel.js?v=1.6.38';
-import { CircuitsPanel } from './circuits-panel.js?v=1.6.38';
-import { OverviewPanel, overviewFields } from './overview-panel.js?v=1.6.38';
-import { MusicPanel, musicFields } from './music-panel.js?v=1.6.38';
-import { WaterPanel, waterFields } from './water-panel.js?v=1.6.38';
-import { energyFields, energyView } from './energy-panel.js?v=1.6.38';
+import { setupSettingsLayout } from './settings-layout.js?v=1.6.39';
+import { MobileNotifications } from './mobile-notifications.js?v=1.6.39';
+import { nightDisplayOff } from './display-night.js?v=1.6.39';
+import {loadPV,pvView} from './pv-panel.js?v=1.6.39';
+import { LightPanel } from './light-panel.js?v=1.6.39';
+import { CircuitsPanel } from './circuits-panel.js?v=1.6.39';
+import { OverviewPanel, overviewFields } from './overview-panel.js?v=1.6.39';
+import { MusicPanel, musicFields } from './music-panel.js?v=1.6.39';
+import { WaterPanel, waterFields } from './water-panel.js?v=1.6.39';
+import { energyFields, energyView } from './energy-panel.js?v=1.6.39';
 import { ClimatePanel, roomNames } from './climate-panel.js';
 const antonio = new FontFace('Antonio', `url("${new URL('./Antonio.ttf', import.meta.url).href}")`, {
   weight: '400 700',
@@ -88,7 +89,7 @@ class HausOps extends HTMLElement {
     if (!this.shadowRoot) {
       this.attachShadow({ mode: 'open' });
       this.shadowRoot.innerHTML = `
-        <link rel="stylesheet" href="${new URL('./haus-ops.css?v=1.6.38', import.meta.url)}">
+        <link rel="stylesheet" href="${new URL('./haus-ops.css?v=1.6.39', import.meta.url)}">
         <div class="stage"><div class="frame">
           <div class="brand">LCARS 77</div>
           <header><span class="rail"></span><span class="overview-data" aria-hidden="true" hidden></span><span class="overview-rail" aria-hidden="true" hidden></span><strong>HAUS-OPS</strong><time></time><span class="cap"></span></header>
@@ -1102,7 +1103,7 @@ class HausOps extends HTMLElement {
       return new URL('./sounds/yellow_alert.mp3?v=2', import.meta.url).href;
     }
     if (kind === 'warp' && ['warp_core_loop.wav', 'warp_core.wav', 'warp_core.mp3'].includes(filename)) {
-      return new URL('./sounds/warp_core_loop.wav?v=1.6.38', import.meta.url).href;
+      return new URL('./sounds/warp_core_loop.wav?v=1.6.39', import.meta.url).href;
     }
     if (['beep3', 'beep5', 'beep6'].includes(kind) && filename === kind + '.mp3') {
       return new URL('./sounds/' + filename, import.meta.url).href;
@@ -1454,14 +1455,10 @@ class HausOpsSettings {
     };
     this.dialog = document.createElement('dialog');
     this.dialog.className = 'settings';
-    this.dialog.innerHTML = `<style>
-      .settings{box-sizing:border-box;width:min(680px,96vw);height:min(680px,94dvh);max-height:94dvh;padding:0;overflow:hidden;border:2px solid #ff995f;border-radius:16px;background:#121014;color:#ffe3cd;font:16px system-ui;text-transform:none}
-      .settings form{height:100%;display:grid;grid-template-rows:auto minmax(0,1fr) auto auto}.settings .fields{overflow:auto;padding:0 18px}.settings::backdrop{background:#000b}.settings h2{margin:0;padding:14px 18px;color:#ff995f}.settings fieldset{margin:12px 0;border:1px solid #77617a;border-radius:10px;padding:10px}
-      .settings legend{color:#cd9bd0;font-weight:700}.settings label{display:grid;gap:4px;margin-bottom:8px}.settings :is(input:not([type=checkbox]), textarea, select){min-height:44px;width:100%;max-width:100%;background:#26212b;color:#fff;border:1px solid #a19aff;border-radius:6px;padding:6px;font:inherit}
-      .settings .controls{background:#121014;padding:9px 18px;border-top:1px solid #77617a;display:flex;gap:8px;justify-content:flex-end}.settings button{min-height:48px;padding:0 14px;border-radius:8px}.settings [role=status]{color:#ffcc99;margin:0;padding:4px 18px}.settings [role=status]:empty{display:none}.settings [type=submit]{background:#ff995f;font-weight:800}
-      .settings [data-fill-entities]{display:block;width:100%;margin:0 0 10px;border:1px solid #a19aff;background:#a19aff;color:#121014;font:700 15px system-ui;text-align:center}
-      .settings [data-fill-entities]:disabled{opacity:.55}
-    </style><form><h2>HAUS-OPS konfigurieren</h2><div class="fields">
+    this.dialog.setAttribute('aria-labelledby', 'settings-title');
+    this.dialog.innerHTML = `<link rel="stylesheet" href="${new URL('./settings.css?v=1.6.39', import.meta.url)}">
+    <form><header class="settings-header"><h2 id="settings-title">HAUS-OPS konfigurieren</h2><p>Bereich wählen · Änderungen mit OK speichern</p></header>
+    <nav class="settings-sections" aria-label="Einstellungsbereiche"></nav><div class="fields">
       <fieldset><legend>Display</legend><label><span><input type="checkbox" name="touch-sounds" ${panel.touchSoundsEnabled ? 'checked' : ''}> Star-Trek-Töne auf diesem Display</span></label>
         <label>Dashboard-Lautstärke <output for="dashboard-volume">${panel.dashboardVolume} %</output>
           <input id="dashboard-volume" type="range" name="dashboard-volume" min="0" max="100" value="${panel.dashboardVolume}">
@@ -1524,6 +1521,7 @@ class HausOpsSettings {
             `<label>${label} · % geschlossen<input type="number" min="0" max="100" name="blind-preset.${index}" value="${escape(config.blind_presets?.[index] ?? [0, 50, 80][index])}"></label>`).join('') : ''}
         ${title === 'Lüftung' ? '<p>Stufensteuerung über Trafo-Helfer</p>' : ''}</fieldset>`).join('')}
       </div><p role="status"></p><div class="controls"><button type="button" data-cancel>Abbrechen</button><button type="submit">OK</button></div></form>`;
+    setupSettingsLayout(this.dialog);
     const form = this.dialog.querySelector('form');
     const brightnessControl = form.elements.namedItem('brightness-control');
     brightnessControl.onchange = () => {
