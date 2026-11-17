@@ -1,10 +1,10 @@
-import {loadPV,pvView} from './pv-panel.js?v=1.6.27';
-import { LightPanel } from './light-panel.js?v=1.6.27';
-import { CircuitsPanel } from './circuits-panel.js?v=1.6.27';
-import { OverviewPanel, overviewFields } from './overview-panel.js?v=1.6.27';
-import { MusicPanel, musicFields } from './music-panel.js?v=1.6.27';
-import { WaterPanel, waterFields } from './water-panel.js?v=1.6.27';
-import { energyFields, energyView } from './energy-panel.js?v=1.6.27';
+import {loadPV,pvView} from './pv-panel.js?v=1.6.28';
+import { LightPanel } from './light-panel.js?v=1.6.28';
+import { CircuitsPanel } from './circuits-panel.js?v=1.6.28';
+import { OverviewPanel, overviewFields } from './overview-panel.js?v=1.6.28';
+import { MusicPanel, musicFields } from './music-panel.js?v=1.6.28';
+import { WaterPanel, waterFields } from './water-panel.js?v=1.6.28';
+import { energyFields, energyView } from './energy-panel.js?v=1.6.28';
 import { ClimatePanel, roomNames } from './climate-panel.js';
 const antonio = new FontFace('Antonio', `url("${new URL('./Antonio.ttf', import.meta.url).href}")`, {
   weight: '400 700',
@@ -34,7 +34,7 @@ const redAlarmFile = 'red_alert.mp3';
 const soundSlots = [
   ['beep1', 'Beep 1', 'computerbeep_1.mp3'],
   ['beep2', 'Beep 2', 'computer_work_beep.mp3'],
-  ['beep3', 'Beep 3', ''],
+  ['beep3', 'Beep 3', 'beep3.mp3'],
   ['beep4', 'Beep 4', ''],
   ['beep5', 'Beep 5', 'beep5.mp3'],
   ['beep6', 'Beep 6', 'beep6.mp3'],
@@ -86,7 +86,7 @@ class HausOps extends HTMLElement {
     if (!this.shadowRoot) {
       this.attachShadow({ mode: 'open' });
       this.shadowRoot.innerHTML = `
-        <link rel="stylesheet" href="${new URL('./haus-ops.css?v=1.6.27', import.meta.url)}">
+        <link rel="stylesheet" href="${new URL('./haus-ops.css?v=1.6.28', import.meta.url)}">
         <div class="stage"><div class="frame">
           <div class="brand">LCARS 77</div>
           <header><span class="rail"></span><span class="overview-data" aria-hidden="true" hidden></span><span class="overview-rail" aria-hidden="true" hidden></span><strong>HAUS-OPS</strong><time></time><span class="cap"></span></header>
@@ -999,9 +999,9 @@ class HausOps extends HTMLElement {
       return new URL('./sounds/yellow_alert.mp3?v=2', import.meta.url).href;
     }
     if (kind === 'warp' && ['warp_core_loop.wav', 'warp_core.wav', 'warp_core.mp3'].includes(filename)) {
-      return new URL('./sounds/warp_core_loop.wav?v=1.6.27', import.meta.url).href;
+      return new URL('./sounds/warp_core_loop.wav?v=1.6.28', import.meta.url).href;
     }
-    if ((kind === 'beep5' || kind === 'beep6') && filename === kind + '.mp3') {
+    if (['beep3', 'beep5', 'beep6'].includes(kind) && filename === kind + '.mp3') {
       return new URL('./sounds/' + filename, import.meta.url).href;
     }
     return filename && validSoundName(filename)
@@ -1087,6 +1087,8 @@ class HausOps extends HTMLElement {
   }
 
   async click(event) {
+    if (event.target.closest('.ops-blind-windows [data-blind-position]')) return;
+
     const playedAlarm = this.playPendingAlarm();
     const button = event.target.closest('button, .circuits-wheel path[data-action^="circuit-room:"]') ??
       event.target.closest('[data-pv-card]')?.querySelector('[data-pv-open]') ??
@@ -1352,6 +1354,13 @@ class HausOpsSettings {
         <label>Dashboard-Lautstärke <output for="dashboard-volume">${panel.dashboardVolume} %</output>
           <input id="dashboard-volume" type="range" name="dashboard-volume" min="0" max="100" value="${panel.dashboardVolume}">
         </label>
+        <label>SSH-Aktion für die Display-Helligkeit
+          <input name="display-brightness-action" value="${escape(config.display_brightness_action)}" placeholder="shell_command.walldisplay_helligkeit" spellcheck="false">
+        </label>
+        <label>Display-Helligkeit <output for="display-brightness">50 %</output>
+          <input id="display-brightness" type="range" min="5" max="100" step="1" value="50" disabled>
+        </label>
+        <small>Der Regler sendet beim Loslassen den Wert als brightness an die gespeicherte HA-Aktion. Ohne Rückmeldung vom Raspberry zeigt er den zuletzt gesendeten Wert.</small>
         ${soundSlots.map(([key,label,defaultFile]) => `<label>${label}<input name="sound-${key}" value="${escape(config.sounds?.[key] ?? defaultFile)}" placeholder="Dateiname, z. B. beep.mp3" spellcheck="false"></label>`).join('')}</fieldset>
       <fieldset><legend>Lichtszenen</legend>
         ${[['off','Alle aus'],['evening','Abendlicht'],['film','Film'],['hell','Hell']].map(([key,label])=>
@@ -1398,6 +1407,36 @@ class HausOpsSettings {
         ${title === 'Lüftung' ? '<p>Stufensteuerung über Trafo-Helfer</p>' : ''}</fieldset>`).join('')}
       </div><p role="status"></p><div class="controls"><button type="button" data-cancel>Abbrechen</button><button type="submit">OK</button></div></form>`;
     const form = this.dialog.querySelector('form');
+    const brightness = form.elements.namedItem('display-brightness');
+    const brightnessAction = config.display_brightness_action;
+    const brightnessKey = 'haus-ops.display-brightness.' + brightnessAction;
+    if (/^shell_command\.[a-z0-9_]+$/.test(brightnessAction ?? '')) {
+      brightness.disabled = false;
+      let stored;
+      try { stored = localStorage.getItem(brightnessKey); } catch {}
+      if (stored !== null && stored !== undefined && Number.isFinite(Number(stored))) {
+        brightness.value = String(Math.max(5, Math.min(100, Number(stored))));
+      }
+    }
+    const brightnessOutput = form.querySelector('output[for="display-brightness"]');
+    brightnessOutput.textContent = brightness.value + ' %';
+    brightness.oninput = () => { brightnessOutput.textContent = brightness.value + ' %'; };
+    brightness.onchange = async () => {
+      const value = Number(brightness.value);
+      brightness.disabled = true;
+      try {
+        const result = await panel.ha.callWS({
+          type:'call_service',domain:'shell_command',service:brightnessAction.split('.')[1],
+          service_data:{brightness:value},return_response:true,
+        });
+        const response = result?.response;
+        if (response?.returncode !== undefined && response.returncode !== 0) throw new Error('SSH fehlgeschlagen');
+        try { localStorage.setItem(brightnessKey,String(value)); } catch {}
+        form.querySelector('[role=status]').textContent = 'Helligkeitsbefehl ausgeführt.';
+      } catch {
+        form.querySelector('[role=status]').textContent = 'Helligkeit konnte nicht gesetzt werden. SSH-Aktion in Home Assistant prüfen.';
+      } finally { brightness.disabled = false; }
+    };
     form.elements.namedItem('dashboard-volume').oninput = event => {
       form.querySelector('output[for="dashboard-volume"]').textContent = event.target.value + ' %';
     };
@@ -1517,6 +1556,11 @@ class HausOpsSettings {
         return;
       }
       next.light_scenes[key] = id;
+    }
+    next.display_brightness_action = data.get('display-brightness-action').trim();
+    if (next.display_brightness_action && !/^shell_command\.[a-z0-9_]+$/.test(next.display_brightness_action)) {
+      status.textContent = 'Display-Helligkeit · Bitte eine shell_command-Aktion eingeben.';
+      return;
     }
     next.sounds = {};
     for (const [key, label] of soundSlots) {

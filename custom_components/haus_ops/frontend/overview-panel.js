@@ -2,7 +2,7 @@ const lamps = [['tv','TV'],['stehlampe','Stehlampe'],['esszimmer','Esszimmer'],[
 export const overviewFields = [
   ...lamps.map(([key,label])=>['overview.'+key,label,['light','switch']]),
   ['overview.evening','Abendlicht',['scene']],
-  ['overview.outside','Außentemperatur',['sensor']],
+  ['overview.outside','Außentemperatur',['sensor','weather']],
   ['overview.camera','Kamera',['camera']],
   ['overview.alarm','Alarmstufe',['sensor']],
   ['overview.acknowledged','Alarm quittiert',['input_boolean']],
@@ -158,8 +158,17 @@ export class OverviewPanel {
     const readings = temperatures.map(room=>room.value).filter(Number.isFinite);
     const inside = readings.length ? readings.reduce((sum,value)=>sum+value,0)/readings.length : NaN;
     const outsideId = this.id('outside');
-    const outsideState = outsideId && panel.state(outsideId);
-    const outside = enabled(outsideState) ? Number(outsideState.state) : NaN;
+    const weatherStates = Object.entries(panel.ha?.states ?? {}).filter(([id])=>id.startsWith('weather.'));
+    const outsideState = outsideId ? panel.state(outsideId)
+      : panel.state('weather.home') ?? (weatherStates.length===1 ? weatherStates[0][1] : undefined);
+    const weather = outsideState?.entity_id?.startsWith('weather.') ||
+      outsideState?.attributes?.temperature !== undefined;
+    const rawOutside = weather ? outsideState?.attributes?.temperature : outsideState?.state;
+    const unit = weather ? outsideState?.attributes?.temperature_unit : outsideState?.attributes?.unit_of_measurement;
+    const numericOutside = rawOutside !== null && rawOutside !== undefined && String(rawOutside).trim()
+      ? Number(String(rawOutside).replace(',', '.')) : NaN;
+    const outside = enabled(outsideState) && Number.isFinite(numericOutside)
+      ? unit === '°F' ? (numericOutside-32)*5/9 : numericOutside : NaN;
     return `<div class="ops-overview">
       <section class="ops-safety">${heading('Sicherheit',alert==='rot'?'red':alert==='gelb'?'yellow':'purple',alert==='normal'?'Kein Alarm':alarm,1)}
         ${alert !== 'normal' || complete && !accesses.some(item=>item.open) ? `<strong class="ops-sec-status" data-alert="${alert}">${alarm}</strong>` : ''}

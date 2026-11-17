@@ -825,3 +825,8 @@ footer .rail[data-music-tone=error]{background:var(--red)}
 .ops-blind-position .ops-blind-frame [data-slats]{background:repeating-linear-gradient(#ffcc99 0 4px,#222 4px 5px)}
 .ops-blind-position .ops-blind-frame.dragging [data-slats]{transition:none}
 .ops-blind-position button{grid-template-rows:auto auto}
+
+.ops-overview>[data-card-page="4"]{display:grid;grid-template-rows:var(--heading-height,16px) minmax(0,1fr) 28px;gap:4px}
+.ops-overview>[data-card-page="4"] .ops-climate{min-height:0;gap:2px;overflow:hidden}
+.ops-overview>[data-card-page="4"] .ops-card-actions{height:28px;min-height:28px;margin:0}
+.ops-overview>[data-card-page="4"] .ops-card-actions>*{overflow:hidden;white-space:nowrap}
