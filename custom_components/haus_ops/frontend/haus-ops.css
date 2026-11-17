@@ -846,3 +846,17 @@ nav [data-settings]{touch-action:manipulation;position:relative;z-index:1;min-he
 }
 
 .frame:is([data-alert="gelb"],[data-alert="gelb-ruhig"]){--top-rail-height:18px}
+.music-rooms{overflow-y:auto;scrollbar-width:none;min-height:0;overscroll-behavior:contain}
+.music-rooms>.music-room-row,.music-rooms>.music-shortcut-heading,.music-rooms>.music-radio,.music-rooms>.music-group{flex-shrink:0}
+.music-group-members{display:grid;gap:3px;flex-shrink:0}
+.music-group-members button{min-height:34px;background:#191919;color:var(--pink);border:1px solid #444;border-radius:4px;font-size:12px}
+.music-group-members button[aria-pressed=true]{background:var(--pink);color:#000}
+
+nav{grid-template-rows:minmax(0,1fr) 25px}
+:host([data-tall-landscape]) nav{grid-template-rows:minmax(0,1fr) 25px}
+nav :is([data-settings],[data-nav-spacer]){height:25px;min-height:25px;padding:1px 9px 2px;line-height:22px}
+
+nav,:host([data-tall-landscape]) nav{grid-template-rows:minmax(0,1fr)}
+.heel{padding:0;align-items:stretch}
+.heel :is([data-settings],[data-nav-spacer]){position:relative;z-index:1;flex:1;min-width:0;min-height:0;height:100%;padding:0 9px 5px;background:transparent;color:#000;font:700 14px/1 Antonio,"Arial Narrow",sans-serif;letter-spacing:.04em;display:flex;justify-content:flex-end;align-items:flex-end;border-radius:0;touch-action:manipulation}
+.heel [hidden]{display:none}

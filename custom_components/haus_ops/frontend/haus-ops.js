@@ -1,10 +1,10 @@
-import {loadPV,pvView} from './pv-panel.js?v=1.6.32';
-import { LightPanel } from './light-panel.js?v=1.6.32';
-import { CircuitsPanel } from './circuits-panel.js?v=1.6.32';
-import { OverviewPanel, overviewFields } from './overview-panel.js?v=1.6.32';
-import { MusicPanel, musicFields } from './music-panel.js?v=1.6.32';
-import { WaterPanel, waterFields } from './water-panel.js?v=1.6.32';
-import { energyFields, energyView } from './energy-panel.js?v=1.6.32';
+import {loadPV,pvView} from './pv-panel.js?v=1.6.33';
+import { LightPanel } from './light-panel.js?v=1.6.33';
+import { CircuitsPanel } from './circuits-panel.js?v=1.6.33';
+import { OverviewPanel, overviewFields } from './overview-panel.js?v=1.6.33';
+import { MusicPanel, musicFields } from './music-panel.js?v=1.6.33';
+import { WaterPanel, waterFields } from './water-panel.js?v=1.6.33';
+import { energyFields, energyView } from './energy-panel.js?v=1.6.33';
 import { ClimatePanel, roomNames } from './climate-panel.js';
 const antonio = new FontFace('Antonio', `url("${new URL('./Antonio.ttf', import.meta.url).href}")`, {
   weight: '400 700',
@@ -86,7 +86,7 @@ class HausOps extends HTMLElement {
     if (!this.shadowRoot) {
       this.attachShadow({ mode: 'open' });
       this.shadowRoot.innerHTML = `
-        <link rel="stylesheet" href="${new URL('./haus-ops.css?v=1.6.32', import.meta.url)}">
+        <link rel="stylesheet" href="${new URL('./haus-ops.css?v=1.6.33', import.meta.url)}">
         <div class="stage"><div class="frame">
           <div class="brand">LCARS 77</div>
           <header><span class="rail"></span><span class="overview-data" aria-hidden="true" hidden></span><span class="overview-rail" aria-hidden="true" hidden></span><strong>HAUS-OPS</strong><time></time><span class="cap"></span></header>
@@ -94,8 +94,8 @@ class HausOps extends HTMLElement {
             ${navigation.map(([page, name, code, color]) =>
               `<button data-page="${page}" style="background:var(${color})"><small aria-hidden="true">${code}</small><span>${name}</span></button>`
             ).join('')}
-          </div><button data-settings aria-label="82873.4 – Konfiguration" hidden>82873.4</button><button data-nav-spacer aria-label="82873.4 – Konfiguration, Administrator erforderlich">82873.4</button><p data-frequency hidden></p></nav>
-          <main></main><div class="alarm-layer" hidden></div><div class="heel"></div>
+          </div><p data-frequency hidden></p></nav>
+          <main></main><div class="alarm-layer" hidden></div><div class="heel"><button data-settings aria-label="82873.4 – Konfiguration" hidden>82873.4</button><button data-nav-spacer aria-label="82873.4 – Konfiguration, Administrator erforderlich">82873.4</button></div>
           <footer><span class="rail">${this.demo ? 'Demo · System bereit' : 'System bereit'}</span><span class="cap"></span></footer>
         </div><div class="notice" role="status"></div></div>`;
       this.shadowRoot.addEventListener('click', event => this.click(event));
@@ -680,12 +680,19 @@ class HausOps extends HTMLElement {
       if (overviewAlarm.level === 'gelb' || overviewAlarm.level === 'rot') this.page = 1;
     }
     const now = performance.now();
-    if (overviewAlarm.level !== 'normal' || this.settings.dialog?.open) {
-      this.lastDisplayActivity = now;
-    } else if (this.page !== 0 && now - this.lastDisplayActivity >= 60000) {
+    const standbyBlocked = overviewAlarm.level !== 'normal' || this.settings.dialog?.open;
+    if (standbyBlocked) this.lastDisplayActivity = now;
+    const standby = !standbyBlocked && now - this.lastDisplayActivity >= 60000;
+    if (standby && this.page !== 0) {
       this.page = 0;
+      this.pvOpen = false;
+      this.pageEntry = undefined;
+      this.animatedPage = 0;
+      this.shadowRoot.querySelector('.frame').getAnimations({subtree:true})
+        .filter(animation=>animation.id==='haus-ops-page-entry')
+        .forEach(animation=>animation.cancel());
     }
-    this.updateDisplayBrightness(now - this.lastDisplayActivity >= 60000);
+    this.updateDisplayBrightness(standby);
     const lightView = this.page === 9 ? this.lightsPanel.view() : null;
     const circuits = this.page === circuitsPageIndex ? this.circuits.view() : null;
     const music = this.page === musicPageIndex ? this.music.view() : null;
@@ -872,7 +879,9 @@ class HausOps extends HTMLElement {
       const previousMetrics = [...main.querySelectorAll('[data-light-metric]')].map(node=>Number(node.textContent));
       const rotor = this.page === 0 ? main.querySelector('.ops-fan') : null;
       const lightData = main.querySelector('.light-data');
+      const musicRoomScroll = main.querySelector('.music-rooms')?.scrollTop;
       main.innerHTML = layout;
+      if (musicRoomScroll !== undefined && main.querySelector('.music-rooms')) main.querySelector('.music-rooms').scrollTop = musicRoomScroll;
       const nextRotor = rotor && main.querySelector('.ops-fan');
       if (nextRotor) {
         rotor.querySelector('text').textContent = nextRotor.querySelector('text').textContent;
@@ -1081,7 +1090,7 @@ class HausOps extends HTMLElement {
       return new URL('./sounds/yellow_alert.mp3?v=2', import.meta.url).href;
     }
     if (kind === 'warp' && ['warp_core_loop.wav', 'warp_core.wav', 'warp_core.mp3'].includes(filename)) {
-      return new URL('./sounds/warp_core_loop.wav?v=1.6.32', import.meta.url).href;
+      return new URL('./sounds/warp_core_loop.wav?v=1.6.33', import.meta.url).href;
     }
     if (['beep3', 'beep5', 'beep6'].includes(kind) && filename === kind + '.mp3') {
       return new URL('./sounds/' + filename, import.meta.url).href;
@@ -1210,7 +1219,7 @@ class HausOps extends HTMLElement {
     if (!button.dataset.action) return;
     if (button.dataset.action.startsWith('music-')) {
       const [action, value] = button.dataset.action.slice(6).split(':');
-      await this.music.act(action, action === 'sonos' ? value : Number(value));
+      await this.music.act(action, ['sonos','room','room-play','member'].includes(action) ? value : Number(value));
       return;
     }
     const step = /^climate-(plus|minus|cancel):(\d+)$/.exec(button.dataset.action);

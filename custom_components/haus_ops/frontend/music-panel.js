@@ -51,17 +51,35 @@ export class MusicPanel {
     try { this.localRoom = localStorage.getItem('haus-ops.music-room'); } catch {}
   }
 
-  id(key) { return this.panel.config?.music?.[key] || defaults[key]; }
-  players() { return this.panel.demo ? demoStates : rooms.map(room => this.panel.state(this.id(room))); }
+  id(key) { return key?.startsWith('media_player.') ? key : this.panel.config?.music?.[key] || defaults[key]; }
+
+  roomList() {
+    if (this.panel.demo) return rooms.map((id,index)=>({id,name:names[index]}));
+    this.panel.circuits.load();
+    const registry = this.panel.circuits.registry;
+    const sonos = new Set((registry?.entities ?? []).filter(entry=>entry.platform==='sonos' && !entry.disabled_by)
+      .map(entry=>entry.entity_id));
+    for (const [id,state] of Object.entries(this.panel.ha?.states ?? {})) {
+      if (id.startsWith('media_player.') && Array.isArray(state.attributes?.group_members)) sonos.add(id);
+    }
+    for (const key of rooms) {
+      const id = this.id(key);
+      if (this.panel.state(id)) sonos.add(id);
+    }
+    return [...sonos].filter(id=>id.startsWith('media_player.')).sort().map(id=>({
+      id,name:this.panel.state(id)?.attributes?.friendly_name ?? id,
+    }));
+  }
+
+  leaderId(player, fallback) { return groupMembers(player)[0] || fallback; }
+  players() { return this.panel.demo ? demoStates : this.roomList().map(room => this.panel.state(room.id)); }
   selected() {
+    const list = this.roomList();
     const selection = this.panel.state(this.id('selection'));
-    const value = this.pendingRoom ?? (available(selection) ? selection.state : this.localRoom);
-    return Math.max(0, rooms.indexOf(value));
+    const value = this.pendingRoom ?? this.localRoom ?? (available(selection) ? selection.state : undefined);
+    return Math.max(0,list.findIndex(room=>room.id===value || room.id===this.id(value)));
   }
-  grouped(players) {
-    return groupMembers(players[0]).includes(this.id(rooms[1])) ||
-      groupMembers(players[1]).includes(this.id(rooms[0]));
-  }
+  grouped(players) { return groupMembers(players[this.selected()]).length > 1; }
 
   loadFavorites(entity, ready) {
     this.sonosFavorites ??= new Map();
@@ -89,19 +107,20 @@ export class MusicPanel {
   }
 
   view() {
+    const list = this.roomList(), rooms = list.map(room=>room.id), names = list.map(room=>room.name);
     const players = this.players();
     const index = this.selected();
     const player = players[index];
     const grouped = this.grouped(players);
-    const leader = grouped ? players[0] : player;
+    const leader = this.panel.state(this.leaderId(player,rooms[index])) ?? player;
     const attrs = leader?.attributes ?? {};
     const ready = available(player) && available(leader);
     const playing = ready && leader.state === 'playing';
     const title = ready && leader.state !== 'idle' ? attrs.media_title || attrs.source : '';
     const duration = Number(attrs.media_duration) || 0;
     const live = Boolean(title) && !duration;
-    const volume = this.volumes?.get(index)?.value ?? Math.round((player?.attributes?.volume_level ?? 0)*100);
-    const muted = player?.attributes?.is_volume_muted && !this.volumes?.has(index);
+    const volume = this.volumes?.get(rooms[index])?.value ?? Math.round((player?.attributes?.volume_level ?? 0)*100);
+    const muted = player?.attributes?.is_volume_muted && !this.volumes?.has(rooms[index]);
     const picture = typeof attrs.entity_picture === 'string' &&
       (/^\/(?!\/)/.test(attrs.entity_picture) || /^https:\/\//i.test(attrs.entity_picture)) ? attrs.entity_picture : '';
     const volumeReady = Boolean(supported(player,4));
@@ -115,16 +134,20 @@ export class MusicPanel {
       tone: flash ? flash.error ? 'error' : 'ok' : players.some(item=>!available(item)) ? 'offline' : '',
       layout: `<section class="music-page">
         <section class="music-rooms">${band('Räume','--purple')}
-          ${players.map((item,i)=>`<div class="music-room-row"><button class="music-room" data-action="music-room:${i}" aria-pressed="${i===index}" ${available(item)?'':'data-offline'}>
-            ${equalizer(4,item?.state==='playing')}<strong>${names[i]}</strong>
+          ${players.map((item,i)=>`<div class="music-room-row"><button class="music-room" data-action="music-room:${encodeURIComponent(rooms[i])}" aria-pressed="${i===index}" ${available(item)?'':'data-offline'}>
+            ${equalizer(4,item?.state==='playing')}<strong>${escape(names[i])}</strong>
             <small>${!available(item)?'Offline':item.state==='playing'?'Spielt':item.state==='paused'?'Pause':'Ruhe'}</small>
             <span>${escape(item?.attributes?.media_title || (!available(item) ? 'Keine Verbindung' : ''))}</span></button>
-            <button class="music-room-play" data-action="music-room-play:${i}" aria-label="${names[i]} ${item?.state==='playing'?'pausieren':'abspielen'}"
+            <button class="music-room-play" data-action="music-room-play:${encodeURIComponent(rooms[i])}" aria-label="${escape(names[i])} ${item?.state==='playing'?'pausieren':'abspielen'}"
               ${supported(item,item?.state==='playing'?1:16384)?'':'disabled'}>${transportIcon(item?.state==='playing'?'pause':'play')}</button></div>`).join('')}
           <div class="music-shortcut-heading">${band('Shortcut','--pink')}</div>
           <button class="music-radio ${flash?.radio?'flashing':''}" data-action="music-radio" ${this.panel.demo || available(this.panel.state(radio))?'':'disabled'}>Radio<small>in Küche</small></button>
-          <button class="music-group" data-action="music-group" aria-pressed="${grouped}"
-            ${available(players[1]) && (grouped ? supported(players[1],524288) : supported(players[0],524288))?'':'disabled'}>${grouped?'Gruppe lösen':players.some(item=>!available(item))?'Verbinden · Raum offline':'Räume verbinden'}</button>
+          <button class="music-group" data-action="music-group" aria-expanded="${Boolean(this.groupEditor)}"
+            ${available(player)?'':'disabled'}>Räume gruppieren</button>
+          ${this.groupEditor?`<div class="music-group-members">${players.map((item,i)=>i===index?'':`<button data-action="music-member:${encodeURIComponent(rooms[i])}"
+            aria-pressed="${groupMembers(player).includes(rooms[i])}" ${available(item)&&supported(player,524288)&&supported(item,524288)?'':'disabled'}>${groupMembers(player).includes(rooms[i])?'✓ ':''}${escape(names[i])}</button>`).join('')}
+            <button data-action="music-leave" ${grouped?'':'disabled'}>Gewählten Raum lösen</button></div>`:''}
+
         </section>
         <section class="music-play">${band(`Wiedergabe · ${names[index]}${grouped?' · Gruppe':''}`,'--peach')}
           <div class="music-now">
@@ -161,7 +184,9 @@ export class MusicPanel {
     const progress = root.querySelector('.music-progress');
     if (!progress) return;
     const players = this.players();
-    const player = players[this.grouped(players) ? 0 : this.selected()];
+    const selected = players[this.selected()];
+    const player = this.panel.state(this.leaderId(selected,this.roomList()[this.selected()]?.id)) ?? selected;
+    if (!player) return;
     const attributes = player.attributes;
     const since = Date.parse(attributes.media_position_updated_at);
     const elapsed = player.state === 'playing' && Number.isFinite(since) ? Math.max(0,(Date.now()-since)/1000) : 0;
@@ -171,7 +196,8 @@ export class MusicPanel {
   }
 
   async select(index) {
-    const key = rooms[index];
+    const key = this.roomList()[index]?.id;
+    if (!key) return;
     this.localRoom = key;
     try { localStorage.setItem('haus-ops.music-room',key); } catch {}
     const helper = this.id('selection');
@@ -188,16 +214,24 @@ export class MusicPanel {
 
   async act(action, amount) {
     const panel = this.panel;
+    const list = this.roomList(), rooms = list.map(room=>room.id), names = list.map(room=>room.name);
     const players = this.players();
     const index = this.selected();
     const selected = players[index];
     const grouped = this.grouped(players);
-    const leaderIndex = grouped ? 0 : index;
-    const attrs = players[leaderIndex]?.attributes ?? {};
-    const leader = this.id(rooms[leaderIndex]);
-    const targets = (grouped ? [0,1] : [index]).filter(i=>available(players[i]));
+    const leader = this.leaderId(selected,rooms[index]);
+    const attrs = (panel.state(leader) ?? selected)?.attributes ?? {};
+    const targets = [index].filter(i=>available(players[i]));
     try {
-      if (action === 'room') await this.select(amount);
+      if (action === 'room') await this.select(rooms.indexOf(decodeURIComponent(amount)));
+      else if (action === 'group') this.groupEditor = !this.groupEditor;
+      else if (action === 'member' || action === 'leave') {
+        if (!available(selected)) return;
+        const member = action==='leave' ? rooms[index] : decodeURIComponent(amount);
+        if (!rooms.includes(member) || !available(panel.state(member))) return;
+        if (action==='leave' || groupMembers(selected).includes(member)) await panel.call(member,'unjoin');
+        else await panel.call(leader,'join',{group_members:[member]});
+      }
       else if (action === 'sonos') {
         const entity = this.id(rooms[index]);
         const favorite = this.sonosFavorites?.get(entity)?.items?.find(item=>encodeURIComponent(item.media_content_id)===amount);
@@ -212,17 +246,14 @@ export class MusicPanel {
         await this.select(0);
       } else if (!panel.demo) {
         if (action === 'room-play') {
-          const target = grouped ? 0 : amount;
-          await panel.call(this.id(rooms[target]), 'media_play_pause');
-        } else if (action === 'group') {
-          await (grouped ? panel.call(this.id(rooms[1]),'unjoin')
-            : panel.call(this.id(rooms[0]),'join',{group_members:[this.id(rooms[1])]}));
-          this.message(grouped ? 'Gruppe gelöst' : 'Arbeitszimmer mit Esszimmer verbunden');
+          const target = decodeURIComponent(amount);
+          if (!rooms.includes(target) || !available(panel.state(target))) return;
+          await panel.call(this.leaderId(panel.state(target),target), 'media_play_pause');
         } else if (action === 'volume' || action === 'step') {
-          const previous = this.volumes?.get(index)?.value ?? Math.round((selected.attributes.volume_level ?? 0)*100);
-          this.queueVolume(targets, Math.min(100,Math.max(0,action==='step'?previous+amount:amount)));
+          const previous = this.volumes?.get(rooms[index])?.value ?? Math.round((selected.attributes.volume_level ?? 0)*100);
+          this.queueVolume(targets.map(i=>rooms[i]), Math.min(100,Math.max(0,action==='step'?previous+amount:amount)));
         } else if (action === 'mute') {
-          this.cancelVolume(targets);
+          this.cancelVolume(targets.map(i=>rooms[i]));
           const isMuted = !selected.attributes.is_volume_muted;
           await Promise.all(targets.filter(i=>supported(players[i],8)).map(i=>
             panel.call(this.id(rooms[i]),'volume_mute',{is_volume_muted:isMuted})));
@@ -252,22 +283,21 @@ export class MusicPanel {
   queueVolume(targets, value) {
     this.volumes ??= new Map();
     this.cancelVolume(targets);
-    for (const index of targets) {
+    for (const id of targets) {
       const pending = {value};
-      this.volumes.set(index,pending);
+      this.volumes.set(id,pending);
       pending.timer = setTimeout(async () => {
-        const player = this.players()[index];
-        const id = this.id(rooms[index]);
+        const player = this.panel.state(id);
         try {
           if (!supported(player,4)) return;
           await this.panel.call(id,'volume_set',{volume_level:value/100});
-          if (this.volumes.get(index)===pending && player.attributes.is_volume_muted && supported(player,8)) {
+          if (this.volumes.get(id)===pending && player.attributes.is_volume_muted && supported(player,8)) {
             await this.panel.call(id,'volume_mute',{is_volume_muted:false});
           }
         } catch {
           this.message('Musik · Lautstärke konnte nicht gesetzt werden',true);
         } finally {
-          if (this.volumes.get(index)===pending) this.volumes.delete(index);
+          if (this.volumes.get(id)===pending) this.volumes.delete(id);
           this.panel.render();
         }
       },300);
