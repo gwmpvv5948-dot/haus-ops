@@ -860,3 +860,12 @@ nav,:host([data-tall-landscape]) nav{grid-template-rows:minmax(0,1fr)}
 .heel{padding:0;align-items:stretch}
 .heel :is([data-settings],[data-nav-spacer]){position:relative;z-index:1;flex:1;min-width:0;min-height:0;height:100%;padding:0 9px 5px;background:transparent;color:#000;font:700 14px/1 Antonio,"Arial Narrow",sans-serif;letter-spacing:.04em;display:flex;justify-content:flex-end;align-items:flex-end;border-radius:0;touch-action:manipulation}
 .heel [hidden]{display:none}
+
+.frame{grid-template-rows:49px minmax(0,1fr) 46px}
+.music-page{min-height:0;overflow:hidden}
+.music-rooms{display:flex;flex-direction:column;overflow:hidden;min-height:0}
+.music-room-list{flex:1 1 0;min-height:80px;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:none;touch-action:pan-y;-webkit-overflow-scrolling:touch;display:flex;flex-direction:column;gap:4px}
+.music-room-list .music-room-row{flex:0 0 auto}
+.music-room-list button{touch-action:pan-y}
+.music-room-list::-webkit-scrollbar{display:none}
+.music-group-members{max-height:100px;overflow-y:auto;touch-action:pan-y;scrollbar-width:none}

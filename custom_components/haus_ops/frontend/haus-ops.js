@@ -1,10 +1,10 @@
-import {loadPV,pvView} from './pv-panel.js?v=1.6.33';
-import { LightPanel } from './light-panel.js?v=1.6.33';
-import { CircuitsPanel } from './circuits-panel.js?v=1.6.33';
-import { OverviewPanel, overviewFields } from './overview-panel.js?v=1.6.33';
-import { MusicPanel, musicFields } from './music-panel.js?v=1.6.33';
-import { WaterPanel, waterFields } from './water-panel.js?v=1.6.33';
-import { energyFields, energyView } from './energy-panel.js?v=1.6.33';
+import {loadPV,pvView} from './pv-panel.js?v=1.6.34';
+import { LightPanel } from './light-panel.js?v=1.6.34';
+import { CircuitsPanel } from './circuits-panel.js?v=1.6.34';
+import { OverviewPanel, overviewFields } from './overview-panel.js?v=1.6.34';
+import { MusicPanel, musicFields } from './music-panel.js?v=1.6.34';
+import { WaterPanel, waterFields } from './water-panel.js?v=1.6.34';
+import { energyFields, energyView } from './energy-panel.js?v=1.6.34';
 import { ClimatePanel, roomNames } from './climate-panel.js';
 const antonio = new FontFace('Antonio', `url("${new URL('./Antonio.ttf', import.meta.url).href}")`, {
   weight: '400 700',
@@ -86,7 +86,7 @@ class HausOps extends HTMLElement {
     if (!this.shadowRoot) {
       this.attachShadow({ mode: 'open' });
       this.shadowRoot.innerHTML = `
-        <link rel="stylesheet" href="${new URL('./haus-ops.css?v=1.6.33', import.meta.url)}">
+        <link rel="stylesheet" href="${new URL('./haus-ops.css?v=1.6.34', import.meta.url)}">
         <div class="stage"><div class="frame">
           <div class="brand">LCARS 77</div>
           <header><span class="rail"></span><span class="overview-data" aria-hidden="true" hidden></span><span class="overview-rail" aria-hidden="true" hidden></span><strong>HAUS-OPS</strong><time></time><span class="cap"></span></header>
@@ -194,6 +194,13 @@ class HausOps extends HTMLElement {
       this.style.setProperty('--stage-height', (height / scale) + 'px');
     });
     this.resize.observe(this);
+    const navigation = this.shadowRoot.querySelector('.nav-scroll');
+    this.navigationResize = new ResizeObserver(() => {
+      const height = navigation.clientHeight;
+      const count = Math.max(1,Math.floor((height+3)/57));
+      navigation.style.setProperty('--nav-block', ((height-(count-1)*3)/count)+'px');
+    });
+    this.navigationResize.observe(navigation);
     this.render();
     this.tick();
     this.lightDataClock = setInterval(() => this.updateLightData(), 160);
@@ -423,6 +430,7 @@ class HausOps extends HTMLElement {
     this.draggingBlind = undefined;
     this.stopWarpSound();
     this.resize?.disconnect();
+    this.navigationResize?.disconnect();
     clearInterval(this.clock);
     clearTimeout(this.noticeTimeout);
   }
@@ -879,9 +887,9 @@ class HausOps extends HTMLElement {
       const previousMetrics = [...main.querySelectorAll('[data-light-metric]')].map(node=>Number(node.textContent));
       const rotor = this.page === 0 ? main.querySelector('.ops-fan') : null;
       const lightData = main.querySelector('.light-data');
-      const musicRoomScroll = main.querySelector('.music-rooms')?.scrollTop;
+      const musicRoomScroll = main.querySelector('.music-room-list')?.scrollTop;
       main.innerHTML = layout;
-      if (musicRoomScroll !== undefined && main.querySelector('.music-rooms')) main.querySelector('.music-rooms').scrollTop = musicRoomScroll;
+      if (musicRoomScroll !== undefined && main.querySelector('.music-room-list')) main.querySelector('.music-room-list').scrollTop = musicRoomScroll;
       const nextRotor = rotor && main.querySelector('.ops-fan');
       if (nextRotor) {
         rotor.querySelector('text').textContent = nextRotor.querySelector('text').textContent;
@@ -1090,7 +1098,7 @@ class HausOps extends HTMLElement {
       return new URL('./sounds/yellow_alert.mp3?v=2', import.meta.url).href;
     }
     if (kind === 'warp' && ['warp_core_loop.wav', 'warp_core.wav', 'warp_core.mp3'].includes(filename)) {
-      return new URL('./sounds/warp_core_loop.wav?v=1.6.33', import.meta.url).href;
+      return new URL('./sounds/warp_core_loop.wav?v=1.6.34', import.meta.url).href;
     }
     if (['beep3', 'beep5', 'beep6'].includes(kind) && filename === kind + '.mp3') {
       return new URL('./sounds/' + filename, import.meta.url).href;

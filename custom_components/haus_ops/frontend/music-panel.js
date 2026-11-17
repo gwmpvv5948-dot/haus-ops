@@ -134,12 +134,13 @@ export class MusicPanel {
       tone: flash ? flash.error ? 'error' : 'ok' : players.some(item=>!available(item)) ? 'offline' : '',
       layout: `<section class="music-page">
         <section class="music-rooms">${band('Räume','--purple')}
-          ${players.map((item,i)=>`<div class="music-room-row"><button class="music-room" data-action="music-room:${encodeURIComponent(rooms[i])}" aria-pressed="${i===index}" ${available(item)?'':'data-offline'}>
+          <div class="music-room-list">${players.map((item,i)=>`<div class="music-room-row"><button class="music-room" data-action="music-room:${encodeURIComponent(rooms[i])}" aria-pressed="${i===index}" ${available(item)?'':'data-offline'}>
             ${equalizer(4,item?.state==='playing')}<strong>${escape(names[i])}</strong>
             <small>${!available(item)?'Offline':item.state==='playing'?'Spielt':item.state==='paused'?'Pause':'Ruhe'}</small>
             <span>${escape(item?.attributes?.media_title || (!available(item) ? 'Keine Verbindung' : ''))}</span></button>
             <button class="music-room-play" data-action="music-room-play:${encodeURIComponent(rooms[i])}" aria-label="${escape(names[i])} ${item?.state==='playing'?'pausieren':'abspielen'}"
               ${supported(item,item?.state==='playing'?1:16384)?'':'disabled'}>${transportIcon(item?.state==='playing'?'pause':'play')}</button></div>`).join('')}
+          </div>
           <div class="music-shortcut-heading">${band('Shortcut','--pink')}</div>
           <button class="music-radio ${flash?.radio?'flashing':''}" data-action="music-radio" ${this.panel.demo || available(this.panel.state(radio))?'':'disabled'}>Radio<small>in Küche</small></button>
           <button class="music-group" data-action="music-group" aria-expanded="${Boolean(this.groupEditor)}"
