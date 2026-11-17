@@ -151,6 +151,12 @@ export class WaterPanel {
     const publishedAverage = read('average', true);
     const average = !demo && Number.isFinite(publishedAverage) ? publishedAverage
       : available.length ? available.reduce((sum, value) => sum + value, 0) / available.length : NaN;
+    const calendarYear = now.getFullYear();
+    const remainingDays = (Date.UTC(calendarYear, 11, 31) -
+      Date.UTC(calendarYear, now.getMonth(), now.getDate())) / 86400000;
+    const forecast = Number.isFinite(year) && Number.isFinite(average) &&
+      (demo || !stale && Number.isFinite(age) && dayKey(new Date(Date.now() - age)) === day)
+      ? year + average * remainingDays / 1000 : NaN;
     const maximum = Math.max(260, Number.isFinite(used) ? used : 0, ...available);
     const trend = demo ? [[60,54],[330,62],[415,96],[430,100],[500,107]] :
       [...(published?.today_points?.length ? published.today_points : points), ...this.live].sort((a,b) => a[0]-b[0]);
@@ -161,10 +167,11 @@ export class WaterPanel {
       layout: `<section class="water-page ${flowing ? 'water-flowing' : ''}">
         <section class="water-left">${band('Heute','--blue')}
           ${tank(used, maximum, average)}
-          ${band('Durchfluss','--purple')}
-          <div class="water-pipe" aria-hidden="true"></div>
-          <div class="water-rate"><strong>${format(flow,1)} <small>L/min</small></strong><b>${flowing ? 'Fließt' : Number.isFinite(flow) ? 'Ruhe' : 'Keine Daten'}</b></div>
-          <small class="water-duration ${alarm ? 'warn' : ''}">Dauerfluss ${elapsed >= 60 ? Math.floor(elapsed/60)+' min' : elapsed+' s'} · ${alarm ? 'Prüfen!' : Number.isFinite(flow) ? 'OK' : '—'}</small>
+          ${band('Prognose','--purple')}
+          <div class="water-rate"><strong>${Number.isFinite(forecast) ? '≈ ' : ''}${format(forecast,1)} <small>m³</small></strong></div>
+          <small class="water-duration">${Number.isFinite(forecast)
+            ? `Bis 31.12. · Ø ${format(average)} L/Tag · ${remainingDays} Resttage`
+            : 'Jahresverbrauch, Tagesdurchschnitt und aktueller Zählerstand nötig'}</small>
         </section>
         <section class="water-right">
           <div class="water-stats"><article><small>Seit 1. Januar</small><strong class="water-year">${format(year,3)} <small>m³</small></strong></article>

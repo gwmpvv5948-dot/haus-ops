@@ -1,10 +1,10 @@
-import {loadPV,pvView} from './pv-panel.js?v=1.6.21';
-import { LightPanel } from './light-panel.js?v=1.6.21';
-import { CircuitsPanel } from './circuits-panel.js?v=1.6.21';
-import { OverviewPanel, overviewFields } from './overview-panel.js?v=1.6.21';
-import { MusicPanel, musicFields } from './music-panel.js?v=1.6.21';
-import { WaterPanel, waterFields } from './water-panel.js?v=1.6.21';
-import { energyFields, energyView } from './energy-panel.js?v=1.6.21';
+import {loadPV,pvView} from './pv-panel.js?v=1.6.22';
+import { LightPanel } from './light-panel.js?v=1.6.22';
+import { CircuitsPanel } from './circuits-panel.js?v=1.6.22';
+import { OverviewPanel, overviewFields } from './overview-panel.js?v=1.6.22';
+import { MusicPanel, musicFields } from './music-panel.js?v=1.6.22';
+import { WaterPanel, waterFields } from './water-panel.js?v=1.6.22';
+import { energyFields, energyView } from './energy-panel.js?v=1.6.22';
 import { ClimatePanel, roomNames } from './climate-panel.js';
 const antonio = new FontFace('Antonio', `url("${new URL('./Antonio.ttf', import.meta.url).href}")`, {
   weight: '400 700',
@@ -85,7 +85,7 @@ class HausOps extends HTMLElement {
     if (!this.shadowRoot) {
       this.attachShadow({ mode: 'open' });
       this.shadowRoot.innerHTML = `
-        <link rel="stylesheet" href="${new URL('./haus-ops.css?v=1.6.21', import.meta.url)}">
+        <link rel="stylesheet" href="${new URL('./haus-ops.css?v=1.6.22', import.meta.url)}">
         <div class="stage"><div class="frame">
           <div class="brand">LCARS 77</div>
           <header><span class="rail"></span><strong>HAUS-OPS</strong><time></time><span class="cap"></span></header>
@@ -103,6 +103,7 @@ class HausOps extends HTMLElement {
     this.blindInputEvents = new AbortController();
     const options = {signal:this.blindInputEvents.signal};
     this.bindLightMouseScroll(options);
+    this.bindOverviewDimmer(options);
     this.shadowRoot.addEventListener('pointerdown', event => {
       if (event.target.matches('[data-light-range]:enabled')) this.lightDrag = event.pointerId;
       if (!event.target.matches('[data-blind-position]:enabled') || !event.isPrimary || event.button !== 0) return;
@@ -164,6 +165,41 @@ class HausOps extends HTMLElement {
     this.tick();
     this.lightDataClock = setInterval(() => this.updateLightData(), 160);
     this.clock = setInterval(() => { this.tick(); this.render(); }, 1000);
+  }
+
+  bindOverviewDimmer(options) {
+    const main = this.shadowRoot.querySelector('main');
+    main.addEventListener('pointerdown', event => {
+      const button = event.target.closest('[data-overview-dimmer]:enabled');
+      if (!button || !event.isPrimary || event.button !== 0) return;
+      this.overviewLightDrag = {button, pointer:event.pointerId, start:event.clientX};
+      button.setPointerCapture(event.pointerId);
+    }, options);
+    main.addEventListener('pointermove', event => {
+      const drag = this.overviewLightDrag;
+      if (drag?.pointer !== event.pointerId || (drag.value === undefined && Math.abs(event.clientX-drag.start)<6)) return;
+      const box = drag.button.getBoundingClientRect();
+      drag.value = Math.round(100 * Math.max(0,Math.min(1,(event.clientX-box.left)/box.width)));
+      drag.button.style.setProperty('--fill',drag.value+'%');
+      drag.button.querySelector('small').textContent = drag.value ? drag.value+' %' : 'Aus';
+    }, options);
+    for (const type of ['pointerup','pointercancel','lostpointercapture']) {
+      main.addEventListener(type, event => {
+        const drag = this.overviewLightDrag;
+        if (drag?.pointer !== event.pointerId) return;
+        this.overviewLightDrag = undefined;
+        if (drag.value === undefined) return;
+        if (type === 'pointerup') {
+          drag.button.dataset.swiped = '';
+          setTimeout(()=>delete drag.button.dataset.swiped,0);
+          this.overview.act('brightness',drag.button.dataset.action.slice('ops-toggle:'.length),drag.value)
+            .catch(()=>this.notify('Licht konnte nicht eingestellt werden')).finally(()=>this.render());
+        } else {
+          this.layout = undefined;
+          this.render();
+        }
+      }, options);
+    }
   }
 
   bindLightMouseScroll(options) {
@@ -650,7 +686,7 @@ class HausOps extends HTMLElement {
       this.layout = layout;
     }
     const dragging = this.page === 3 && this.draggingBlind !== undefined;
-    if (!dragging && !(lightView && this.lightDrag !== undefined) && this.layout !== layout) {
+    if (!dragging && !(this.page === 0 && this.overviewLightDrag) && !(lightView && this.lightDrag !== undefined) && this.layout !== layout) {
       const focused = this.shadowRoot.activeElement;
       const action = main.contains(focused) && focused.dataset.action;
       const focusedBlind = main.contains(focused) && focused.dataset.blindPosition;
@@ -756,7 +792,7 @@ class HausOps extends HTMLElement {
       return new URL('./sounds/yellow_alert.mp3?v=2', import.meta.url).href;
     }
     if (kind === 'warp' && ['warp_core_loop.wav', 'warp_core.wav', 'warp_core.mp3'].includes(filename)) {
-      return new URL('./sounds/warp_core_loop.wav?v=1.6.21', import.meta.url).href;
+      return new URL('./sounds/warp_core_loop.wav?v=1.6.22', import.meta.url).href;
     }
     if ((kind === 'beep5' || kind === 'beep6') && filename === kind + '.mp3') {
       return new URL('./sounds/' + filename, import.meta.url).href;
@@ -847,7 +883,7 @@ class HausOps extends HTMLElement {
     const button = event.target.closest('button, .circuits-wheel path[data-action^="circuit-room:"]') ??
       event.target.closest('[data-pv-card]')?.querySelector('[data-pv-open]') ??
       event.target.closest('[data-card-page]')?.querySelector('button[data-page]');
-    if (!button || button.disabled || !button.matches('[data-page], [data-action], [data-settings], [data-energy-mode], [data-pv-open], [data-pv-back], [data-pv-day]')) return;
+    if (!button || button.disabled || button.hasAttribute('data-swiped') || !button.matches('[data-page], [data-action], [data-settings], [data-energy-mode], [data-pv-open], [data-pv-back], [data-pv-day]')) return;
     const beeps = soundSlots.map(([kind]) => kind).filter(kind => kind.startsWith('beep') && this.soundUrl(kind));
     if (!playedAlarm && beeps.length && this.alarmAudio?.paused !== false) this.playTouchSound(beeps[Math.floor(Math.random() * beeps.length)]);
     if (button.hasAttribute('data-settings')) { this.settings.open(); return; }
@@ -916,7 +952,6 @@ class HausOps extends HTMLElement {
         case 'ops-toggle':
         case 'ops-brightness':
         case 'ops-off':
-        case 'ops-evening':
         case 'ops-ack':
           await this.overview.act(kind.slice(4), index, value === undefined ? undefined : Number(value));
           break;
@@ -1073,6 +1108,11 @@ class HausOpsSettings {
         ${[['off','Alle aus'],['evening','Abendlicht'],['film','Film'],['hell','Hell']].map(([key,label])=>
           `<label>${label}<input name="light-scene-${key}" value="${escape(config.light_scenes?.[key])}" placeholder="${escape(panel.lightsPanel.sceneId(key))}" spellcheck="false"></label>`).join('')}
       </fieldset>
+      <fieldset><legend>Lichter in der Übersicht</legend>
+        <label>Bis zu sechs Entitäts-IDs, eine pro Zeile
+          <textarea name="overview-lights" rows="6" spellcheck="false" autocapitalize="none">${escape((config.overview_lights ?? panel.overview.favoriteLights().map(light=>light.id)).join('\n'))}</textarea>
+        </label>
+      </fieldset>
       <fieldset><legend>Leuchten im Dashboard</legend>
         <label>Eine Entitäts-ID pro Zeile. Ergänze oder entferne Leuchten direkt in der Liste.
           <textarea name="light-selection" rows="8" spellcheck="false" autocapitalize="none">${escape((config.light_selection_saved ? config.lights : panel.lightsPanel.lights().map(light=>light.id)).join('\n'))}</textarea>
@@ -1183,6 +1223,11 @@ class HausOpsSettings {
     next.light_selection_saved = true;
     if (next.lights.some(id => !circuit(id))) {
       status.textContent = 'Leuchtenfilter · Bitte IDs mit light. oder switch. eingeben.';
+      return;
+    }
+    next.overview_lights = [...new Set(data.get('overview-lights').split(/[\s,]+/).filter(Boolean))];
+    if (next.overview_lights.length > 6 || next.overview_lights.some(id => !circuit(id))) {
+      status.textContent = 'Übersicht · Bitte bis zu sechs IDs mit light. oder switch. eingeben.';
       return;
     }
     next.light_scenes = {};

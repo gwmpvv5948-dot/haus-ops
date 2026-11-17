@@ -28,13 +28,13 @@ export class OverviewPanel {
     return Object.keys(this.panel.ha?.states ?? {}).filter(id => id.startsWith('light.')).sort();
   }
 
-  lights() {
+  lights(selection) {
     const featured = lamps.map(([key,name]) => [this.id(key),name]);
-    const ids = this.panel.demo ? featured.map(([id]) => id) : this.panel.config?.light_selection_saved ? this.panel.config.lights : [...new Set([
+    const ids = this.panel.demo ? featured.map(([id]) => id) : selection ?? (this.panel.config?.light_selection_saved ? this.panel.config.lights : [...new Set([
       ...featured.filter(([id]) => this.panel.state(id)).map(([id]) => id),
       ...(this.panel.config?.lights ?? []),
       ...this.discoveredLights(),
-    ])];
+    ])]);
     const excluded = new Set(this.panel.config?.light_exclude ?? []);
     const names = new Map(featured);
     return ids.filter(id=>this.panel.demo || !excluded.has(id)).map((id,i)=>{
@@ -62,43 +62,53 @@ export class OverviewPanel {
       acknowledged: this.localAck || this.panel.state(this.id('acknowledged'))?.state==='on'};
   }
 
+  favoriteLights() {
+    return this.lights(this.panel.config?.overview_lights).slice(0,6);
+  }
+
   async act(action, id, value) {
-    const lights = this.lights();
     const panel = this.panel;
+    const favorites = this.favoriteLights();
     if (action === 'ack') {
       if (enabled(panel.state(this.id('acknowledged')))) await panel.call(this.id('acknowledged'),'turn_on');
       this.localAck = true;
-    } else if (action === 'evening') {
-      if (panel.demo) this.demoVolumes = [40,25,35,0];
-      else await panel.call(this.id('evening'),'turn_on');
     } else if (action === 'off') {
-      if (panel.demo) this.demoVolumes = [0,0,0,0];
-      else await Promise.all(lights.filter(light=>light.on && light.ready).map(light=>panel.call(light.id,'turn_off')));
+      await Promise.all(favorites.filter(light=>light.on && light.ready).map(light=>this.act('toggle',light.id)));
     } else {
-      const index = lights.findIndex(light => light.id === id);
-      const light = lights[index];
+      const light = favorites.find(item=>item.id===id);
       if (!light?.ready || (value !== undefined && !light.dim)) return;
+      const level = value ?? (light.on ? 0 : light.dim ? light.percent || 100 : 100);
       if (panel.demo) {
+        const index = this.lights().findIndex(item=>item.id===id);
         this.demoVolumes ??= [40,0,80,0];
-        this.demoVolumes[index] = value ?? (light.on ? 0 : 100);
-      } else await panel.call(light.id, value===undefined?'toggle':'turn_on', value===undefined?{}:{brightness_pct:value});
+        this.demoVolumes[index] = level;
+      } else {
+        await panel.call(id,level?'turn_on':'turn_off',level && light.dim ? {brightness_pct:level} : {});
+      }
+      panel.lightsPanel.scene = undefined;
     }
   }
 
-  lightControls(all = false) {
-    const lights = this.lights();
-    const visible = all ? lights : lights.slice(0,4);
-    const tv = lights.find(light => light.id === this.id('tv'));
-    return `<div class="ops-lights"><div class="ops-light-list">${visible.map(({id,name,on,percent,dim,ready})=>`<div class="ops-light ${on?'on':''}">
-      <button data-action="ops-toggle:${escapeHtml(id)}" aria-pressed="${on}" ${ready?'':'disabled'}>${escapeHtml(name)}</button>
-      ${dim?`<div class="ops-dimmer">${Array.from({length:10},(_,j)=>`<button data-action="ops-brightness:${escapeHtml(id)}:${(j+1)*10}" class="${percent>j*10?'filled':''}" style="--height:${25+j*8}%"
-        aria-label="${escapeHtml(name)} ${(j+1)*10} Prozent" ${ready?'':'disabled'}><i></i></button>`).join('')}</div>`:''}
-      <b>${!ready?'—':on?(dim?percent+' %':'An'):'Aus'}</b></div>`).join('') || '<small>Keine Leuchten verfügbar</small>'}</div>
-      <div class="ops-pair">${all
-        ? `<button data-action="ops-off" ${lights.some(light=>light.on)?'':'disabled'}>Alle aus</button>`
-        : (this.panel.config?.light_exclude?.includes(this.id('tv')) || this.panel.config?.light_selection_saved && !tv) ? ''
-        : `<button data-action="ops-toggle:${escapeHtml(this.id('tv'))}" aria-pressed="${Boolean(tv?.on)}" ${tv?.ready?'':'disabled'}>TV Licht</button>`}
-      <button data-action="ops-evening" ${this.panel.demo || enabled(this.panel.state(this.id('evening')))?'':'disabled'}>Abendlicht</button></div></div>`;
+  lightControls(lights) {
+    const tiles = Array.from({length:6},(_,index)=>{
+      const light = lights[index];
+      if (!light) return '<span class="ops-light-tile empty" aria-hidden="true"></span>';
+      const level = light.on ? light.dim ? light.percent : 100 : 0;
+      const status = !light.ready ? 'Offline' : !light.on ? 'Aus' : light.dim ? level+' %' : 'An';
+      return `<button class="ops-light-tile ${light.ready?'':'offline'}" style="--fill:${level}%"
+        data-action="ops-toggle:${escapeHtml(light.id)}" ${light.dim?'data-overview-dimmer':''}
+        aria-pressed="${light.on}" ${light.ready?'':'disabled'}><small>${status}</small><strong>${escapeHtml(light.name)}</strong></button>`;
+    }).join('');
+    const sceneReady = key => {
+      const entity = this.panel.lightsPanel.sceneId(key);
+      return this.panel.demo || (['scene','script'].includes(entity.split('.')[0]) && enabled(this.panel.state(entity)));
+    };
+    return `<div class="ops-light-grid">${tiles}</div><div class="ops-light-actions">
+      <button data-action="ops-off" ${lights.some(light=>light.on&&light.ready)?'':'disabled'}>Alle aus</button>
+      <button data-action="light-scene:evening" ${sceneReady('evening')?'':'disabled'}>Abend</button>
+      <button data-action="light-scene:film" ${sceneReady('film')?'':'disabled'}>Film</button>
+      <button data-page="9">Licht ▶</button>
+    </div>`;
   }
 
   supply(energy, alarm) {
@@ -130,6 +140,7 @@ export class OverviewPanel {
     const speeds = [0,120,260,430,700];
     const duration = speeds[level] ? 360/speeds[level] : 0;
     const blinds = panel.blinds();
+    const lights = this.favoriteLights();
     return `<div class="ops-overview">
       <section class="ops-safety">${heading('Sicherheit',alert==='rot'?'red':alert==='gelb'?'yellow':'purple',alarm,1)}
         <strong class="ops-sec-status" data-alert="${alert}">${alarm}</strong>
@@ -161,7 +172,7 @@ export class OverviewPanel {
           <b>${blind.position===100?'Offen':blind.position===0?'Zu':Number.isFinite(blind.position)?format(100-blind.position)+' %':'—'}</b></div>`).join('')}</div>
       </section>
       <section class="ops-utilities ${overviewAlarm.leak?'ops-leak':''}">${heading('Versorgung',overviewAlarm.leak?'red':'peach','Strom · Wasser',6)}${this.supply(energy,overviewAlarm)}</section>
-      <section>${heading('Licht','sand',this.lights().filter(light=>light.on).length+' an',9)}${this.lightControls()}</section>
+      <section class="ops-light-card">${heading('Licht','sand',lights.filter(light=>light.on).length+' an',9)}${this.lightControls(lights)}</section>
     </div>`;
   }
 }
