@@ -461,8 +461,6 @@ footer .rail[data-music-tone=error]{background:var(--red)}
 @keyframes ops-scan{from{transform:translateX(-100%)}to{transform:translateX(290%)}}
 .ops-air{display:flex;justify-content:center;align-items:center;min-height:55px}
 .ops-fan{width:66px;height:66px;flex:none}.ops-fan text{fill:var(--peach);text-anchor:middle;dominant-baseline:central;font-size:13px}
-.ops-rotor{transform-origin:60px 60px;animation:ops-spin var(--turn) linear infinite}
-@keyframes ops-spin{to{transform:rotate(360deg)}}
 .ops-timer{display:flex;align-items:center;gap:3px;white-space:nowrap;font-size:10px}
 .ops-stages,.ops-pair{display:flex;gap:3px}
 .ops-stages button,.ops-timer button,.ops-pair button,.ops-light button,.ops-blinds .actions button{border:1px solid #383838;border-radius:5px;background:#080808;color:#eee}
@@ -773,7 +771,6 @@ footer .rail[data-music-tone=error]{background:var(--red)}
 .ops-card-actions button:active{filter:brightness(1.5)}
 .ops-air{flex:1;gap:12px;justify-content:flex-start;min-height:0}
 .ops-fan{width:min(55%,103px);height:auto}
-.ops-rotor{animation:none}
 .ops-vent-reading{display:grid;color:var(--pink)}
 .ops-vent-reading small{font-size:9px}
 .ops-vent-reading strong{font-size:28px;line-height:1.05}

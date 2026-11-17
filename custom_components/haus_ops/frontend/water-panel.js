@@ -2,6 +2,7 @@ const sensors = {
   meter: ['Wasserzähler', 'sensor.wasserzaehler'],
   today: ['Verbrauch heute', 'sensor.wassermanager_verbrauch_heute'],
   year: ['Verbrauch seit Januar', 'sensor.wassermanager_verbrauch_seit_januar'],
+  forecast: ['Jahresprognose', 'sensor.wassermanager_jahresprognose'],
   average: ['Durchschnitt 14 Tage', 'sensor.wassermanager_durchschnitt_14_tage'],
   flow: ['Durchfluss (L/min)', 'sensor.wasser_durchfluss'],
   leak: ['Dauerfluss-Warnung', 'binary_sensor.wasser_dauerfluss'],
@@ -68,7 +69,7 @@ export class WaterPanel {
     page.className = next.querySelector('.water-page').className;
     for (const selector of ['.water-level', '.water-total', '.water-percent', '.water-scale',
       '.water-average-line', '.water-meter', '.water-chart', '.water-column', '.water-average',
-      '.water-rate', '.water-duration', '.water-year']) {
+      '.water-rate', '.water-duration', '.water-year', '.water-forecast-heading']) {
       const current = [...page.querySelectorAll(selector)];
       const incoming = [...next.querySelectorAll(selector)];
       if (selector === '.water-meter') {
@@ -151,12 +152,12 @@ export class WaterPanel {
     const publishedAverage = read('average', true);
     const average = !demo && Number.isFinite(publishedAverage) ? publishedAverage
       : available.length ? available.reduce((sum, value) => sum + value, 0) / available.length : NaN;
-    const calendarYear = now.getFullYear();
-    const remainingDays = (Date.UTC(calendarYear, 11, 31) -
-      Date.UTC(calendarYear, now.getMonth(), now.getDate())) / 86400000;
-    const forecast = Number.isFinite(year) && Number.isFinite(average) &&
-      (demo || !stale && Number.isFinite(age) && dayKey(new Date(Date.now() - age)) === day)
-      ? year + average * remainingDays / 1000 : NaN;
+    const forecastState = this.panel.state(this.entity('forecast'));
+    const calendarYear = forecastState?.attributes?.year ?? now.getFullYear();
+    const remainingDays = forecastState?.attributes?.remaining_days ??
+      (Date.UTC(now.getFullYear(), 11, 31) - Date.UTC(now.getFullYear(), now.getMonth(), now.getDate())) / 86400000;
+    const forecastAverage = forecastState?.attributes?.average_liters ?? average;
+    const forecast = demo ? year + average * remainingDays / 1000 : read('forecast');
     const maximum = Math.max(260, Number.isFinite(used) ? used : 0, ...available);
     const trend = demo ? [[60,54],[330,62],[415,96],[430,100],[500,107]] :
       [...(published?.today_points?.length ? published.today_points : points), ...this.live].sort((a,b) => a[0]-b[0]);
@@ -167,11 +168,11 @@ export class WaterPanel {
       layout: `<section class="water-page ${flowing ? 'water-flowing' : ''}">
         <section class="water-left">${band('Heute','--blue')}
           ${tank(used, maximum, average)}
-          ${band('Prognose','--purple')}
-          <div class="water-rate"><strong>${Number.isFinite(forecast) ? '≈ ' : ''}${format(forecast,1)} <small>m³</small></strong></div>
+          <div class="water-forecast-heading">${band('Prognose bis 31.12.'+calendarYear,'--purple')}</div>
+          <div class="water-rate"><strong>${Number.isFinite(forecast) ? '≈ ' : ''}${format(forecast,3)} <small>m³</small></strong></div>
           <small class="water-duration">${Number.isFinite(forecast)
-            ? `Bis 31.12. · Ø ${format(average)} L/Tag · ${remainingDays} Resttage`
-            : 'Jahresverbrauch, Tagesdurchschnitt und aktueller Zählerstand nötig'}</small>
+            ? `Ø ${format(forecastAverage)} L/Tag · ${remainingDays} Resttage`
+            : forecastState ? 'Wassermanager liefert noch keine Prognose' : 'Prognosesensor fehlt'}</small>
         </section>
         <section class="water-right">
           <div class="water-stats"><article><small>Seit 1. Januar</small><strong class="water-year">${format(year,3)} <small>m³</small></strong></article>

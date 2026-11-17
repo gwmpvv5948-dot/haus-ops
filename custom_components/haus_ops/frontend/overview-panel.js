@@ -175,7 +175,7 @@ export class OverviewPanel {
         <div class="ops-air">
           <svg viewBox="0 0 120 120" role="img" aria-label="Lüfterrad" class="ops-fan"><circle cx="60" cy="60" r="52" fill="#101019"/>
             ${Array.from({length:24},(_,i)=>`<path data-fan-segment d="M60 3v7" transform="rotate(${i*15} 60 60)" stroke="${i<level*6?(i<6?'#ff995f':'#cd9bd0'):'#292929'}" stroke-width="7"/>`).join('')}
-            <path class="ops-fan-marker" d="M60 3v7" stroke="#fff" stroke-width="7"/>
+            <path class="ops-fan-marker" visibility="hidden" d="M60 3v7" stroke="#fff" stroke-width="7"/>
             <g class="ops-rotor">
             ${Array.from({length:6},(_,i)=>`<path d="M60 60Q47 18 75 19Q88 29 60 60" transform="rotate(${i*60} 60 60)" fill="#cd9bd0"/>`).join('')}
             </g><circle cx="60" cy="60" r="14" fill="#000" stroke="#ff995f"/>

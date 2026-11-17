@@ -1,10 +1,10 @@
-import {loadPV,pvView} from './pv-panel.js?v=1.6.25';
-import { LightPanel } from './light-panel.js?v=1.6.25';
-import { CircuitsPanel } from './circuits-panel.js?v=1.6.25';
-import { OverviewPanel, overviewFields } from './overview-panel.js?v=1.6.25';
-import { MusicPanel, musicFields } from './music-panel.js?v=1.6.25';
-import { WaterPanel, waterFields } from './water-panel.js?v=1.6.25';
-import { energyFields, energyView } from './energy-panel.js?v=1.6.25';
+import {loadPV,pvView} from './pv-panel.js?v=1.6.26';
+import { LightPanel } from './light-panel.js?v=1.6.26';
+import { CircuitsPanel } from './circuits-panel.js?v=1.6.26';
+import { OverviewPanel, overviewFields } from './overview-panel.js?v=1.6.26';
+import { MusicPanel, musicFields } from './music-panel.js?v=1.6.26';
+import { WaterPanel, waterFields } from './water-panel.js?v=1.6.26';
+import { energyFields, energyView } from './energy-panel.js?v=1.6.26';
 import { ClimatePanel, roomNames } from './climate-panel.js';
 const antonio = new FontFace('Antonio', `url("${new URL('./Antonio.ttf', import.meta.url).href}")`, {
   weight: '400 700',
@@ -86,7 +86,7 @@ class HausOps extends HTMLElement {
     if (!this.shadowRoot) {
       this.attachShadow({ mode: 'open' });
       this.shadowRoot.innerHTML = `
-        <link rel="stylesheet" href="${new URL('./haus-ops.css?v=1.6.25', import.meta.url)}">
+        <link rel="stylesheet" href="${new URL('./haus-ops.css?v=1.6.26', import.meta.url)}">
         <div class="stage"><div class="frame">
           <div class="brand">LCARS 77</div>
           <header><span class="rail"></span><span class="overview-data" aria-hidden="true" hidden></span><span class="overview-rail" aria-hidden="true" hidden></span><strong>HAUS-OPS</strong><time></time><span class="cap"></span></header>
@@ -391,6 +391,8 @@ class HausOps extends HTMLElement {
 
   disconnectedCallback() {
     clearInterval(this.overviewDataClock);
+    this.pageEntry = undefined;
+    this.animatedPage = undefined;
     cancelAnimationFrame(this.rotorFrame);
     this.rotorFrame = undefined;
     clearInterval(this.lightDataClock);
@@ -764,7 +766,10 @@ class HausOps extends HTMLElement {
     const frame = this.shadowRoot.querySelector('.frame');
     frame.toggleAttribute('data-overview', this.page === 0);
     frame.querySelectorAll('.overview-data,.overview-rail').forEach(node => { node.hidden = this.page !== 0; });
-    frame.dataset.alert = yellowQuiet ? 'gelb-ruhig' : alert;
+    const appearance = yellowQuiet ? 'gelb-ruhig' : alert;
+    const entering = this.pageEntry?.page === this.page && appearance === frame.dataset.alert;
+    if (!entering) this.pageEntry = undefined;
+    frame.dataset.alert = appearance;
     frame.toggleAttribute('data-yellow-warnings', warnings.length > 0);
     frame.toggleAttribute('data-security-alert', alert === 'gelb' &&
       (open.length > 0 || /tür|tor|fenster|schloss/i.test(overviewAlarm.reasons)));
@@ -799,11 +804,11 @@ class HausOps extends HTMLElement {
     }
     const flows = [...main.querySelectorAll('[data-energy-flow]')];
     const slats = this.animatedPage === this.page ? [...main.querySelectorAll('[data-slats]')] : [];
-    if (this.layout !== layout && water && main.querySelector('.water-page')) {
+    if (!entering && this.layout !== layout && water && main.querySelector('.water-page')) {
       this.water.update(main, layout);
       this.layout = layout;
     }
-    if (this.layout !== layout && energy && this.engineeringMode && main.querySelector('.engineering')) {
+    if (!entering && this.layout !== layout && energy && this.engineeringMode && main.querySelector('.engineering')) {
       const template = document.createElement('template');
       template.innerHTML = layout;
       for (const selector of ['.eng-data', '.eng-details', '.eng-bottom']) {
@@ -818,7 +823,7 @@ class HausOps extends HTMLElement {
       this.layout = layout;
     }
     const dragging = this.page === 3 && this.draggingBlind !== undefined;
-    if (!dragging && !(this.page === 1 && this.warningHold) && !(this.page === 0 && this.overviewLightDrag) && !(lightView && this.lightDrag !== undefined) && this.layout !== layout) {
+    if (!entering && !dragging && !(this.page === 1 && this.warningHold) && !(this.page === 0 && this.overviewLightDrag) && !(lightView && this.lightDrag !== undefined) && this.layout !== layout) {
       const focused = this.shadowRoot.activeElement;
       const action = main.contains(focused) && focused.dataset.action;
       const focusedBlind = main.contains(focused) && focused.dataset.blindPosition;
@@ -883,13 +888,15 @@ class HausOps extends HTMLElement {
   updateOverviewRotor(main, level) {
     this.rotorTarget = [0,120,260,430,700][level] ?? 0;
     if (this.rotorFrame) return;
-    if (!main.querySelector('.ops-rotor') || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const fan = main.querySelector('.ops-fan');
+    if (this.page !== 0 || !fan || !this.rotorTarget || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const rotor = fan.querySelector('.ops-rotor');
+    const marker = fan.querySelector('.ops-fan-marker');
     let previous = performance.now();
-    let angle = 0;
+    let angle = this.rotorAngle ?? 0;
     let velocity = 0;
     const spin = now => {
-      const fan = main.querySelector('.ops-fan');
-      if (this.page !== 0 || !fan || !this.isConnected) {
+      if (this.page !== 0 || !fan.isConnected || !this.isConnected) {
         this.rotorFrame = undefined;
         return;
       }
@@ -897,8 +904,15 @@ class HausOps extends HTMLElement {
       previous = now;
       velocity += (this.rotorTarget-velocity)*Math.min(1,dt*1.5);
       angle = (angle + velocity*dt)%360;
-      fan.querySelector('.ops-rotor').setAttribute('transform',`rotate(${angle} 60 60)`);
-      fan.querySelector('.ops-fan-marker').setAttribute('transform',`rotate(${angle} 60 60)`);
+      this.rotorAngle = angle;
+      if (this.rotorTarget === 0 && velocity < .1) {
+        marker.setAttribute('visibility','hidden');
+        this.rotorFrame = undefined;
+        return;
+      }
+      rotor.setAttribute('transform',`rotate(${angle} 60 60)`);
+      marker.setAttribute('visibility','visible');
+      marker.setAttribute('transform',`rotate(${Math.round(angle/15)*15} 60 60)`);
       this.rotorFrame = requestAnimationFrame(spin);
     };
     this.rotorFrame = requestAnimationFrame(spin);
@@ -909,11 +923,15 @@ class HausOps extends HTMLElement {
     const frame = this.shadowRoot.querySelector('.frame');
     frame.getAnimations({ subtree: true }).filter(animation => animation.id === 'haus-ops-page-entry')
       .forEach(animation => animation.cancel());
+    const entry = {page:this.page};
+    const animations = [];
+    this.pageEntry = entry;
     const animate = (element, keyframes, duration, delay = 0) => {
       const animation = element.animate(keyframes, {duration, delay, easing:'ease-out', fill:'backwards'});
       animation.id = 'haus-ops-page-entry';
+      animations.push(animation.finished);
     };
-    frame.querySelectorAll(':scope > header .rail, :scope > footer .rail').forEach(rail => {
+    frame.querySelectorAll(':scope > header .rail, :scope > header .overview-rail:not([hidden]), :scope > footer .rail').forEach(rail => {
       animate(rail, [{transform:'scaleX(0)', transformOrigin:'left'},
         {transform:'scaleX(1)', transformOrigin:'left'}], this.page === 0 ? 700 : 800);
     });
@@ -930,6 +948,11 @@ class HausOps extends HTMLElement {
     Array.from(cards).forEach((card, index) => {
       animate(card, [{opacity:0, transform:this.page === 0 ? 'translateY(8px)' : 'translateX(-7px)'}, {opacity:1, transform:'none'}],
         this.page === 0 ? 600 : 650, Math.min(index, 5) * (this.page === 0 ? 100 : 65));
+    });
+    Promise.allSettled(animations).then(() => {
+      if (this.pageEntry !== entry) return;
+      this.pageEntry = undefined;
+      if (this.isConnected) this.render();
     });
   }
 
@@ -973,7 +996,7 @@ class HausOps extends HTMLElement {
       return new URL('./sounds/yellow_alert.mp3?v=2', import.meta.url).href;
     }
     if (kind === 'warp' && ['warp_core_loop.wav', 'warp_core.wav', 'warp_core.mp3'].includes(filename)) {
-      return new URL('./sounds/warp_core_loop.wav?v=1.6.25', import.meta.url).href;
+      return new URL('./sounds/warp_core_loop.wav?v=1.6.26', import.meta.url).href;
     }
     if ((kind === 'beep5' || kind === 'beep6') && filename === kind + '.mp3') {
       return new URL('./sounds/' + filename, import.meta.url).href;
