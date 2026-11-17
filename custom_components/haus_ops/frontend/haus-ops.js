@@ -1,10 +1,10 @@
-import {loadPV,pvView} from './pv-panel.js?v=1.6.31';
-import { LightPanel } from './light-panel.js?v=1.6.31';
-import { CircuitsPanel } from './circuits-panel.js?v=1.6.31';
-import { OverviewPanel, overviewFields } from './overview-panel.js?v=1.6.31';
-import { MusicPanel, musicFields } from './music-panel.js?v=1.6.31';
-import { WaterPanel, waterFields } from './water-panel.js?v=1.6.31';
-import { energyFields, energyView } from './energy-panel.js?v=1.6.31';
+import {loadPV,pvView} from './pv-panel.js?v=1.6.32';
+import { LightPanel } from './light-panel.js?v=1.6.32';
+import { CircuitsPanel } from './circuits-panel.js?v=1.6.32';
+import { OverviewPanel, overviewFields } from './overview-panel.js?v=1.6.32';
+import { MusicPanel, musicFields } from './music-panel.js?v=1.6.32';
+import { WaterPanel, waterFields } from './water-panel.js?v=1.6.32';
+import { energyFields, energyView } from './energy-panel.js?v=1.6.32';
 import { ClimatePanel, roomNames } from './climate-panel.js';
 const antonio = new FontFace('Antonio', `url("${new URL('./Antonio.ttf', import.meta.url).href}")`, {
   weight: '400 700',
@@ -86,7 +86,7 @@ class HausOps extends HTMLElement {
     if (!this.shadowRoot) {
       this.attachShadow({ mode: 'open' });
       this.shadowRoot.innerHTML = `
-        <link rel="stylesheet" href="${new URL('./haus-ops.css?v=1.6.31', import.meta.url)}">
+        <link rel="stylesheet" href="${new URL('./haus-ops.css?v=1.6.32', import.meta.url)}">
         <div class="stage"><div class="frame">
           <div class="brand">LCARS 77</div>
           <header><span class="rail"></span><span class="overview-data" aria-hidden="true" hidden></span><span class="overview-rail" aria-hidden="true" hidden></span><strong>HAUS-OPS</strong><time></time><span class="cap"></span></header>
@@ -187,7 +187,11 @@ class HausOps extends HTMLElement {
       const tallLandscape = width / height < (800 / 480 + 1920 / 1200) / 2;
       const layoutHeight = tallLandscape ? 500 : 480;
       this.toggleAttribute('data-tall-landscape', tallLandscape);
-      this.style.setProperty('--scale', Math.min(width / 800, height / layoutHeight));
+      const scale = Math.min(width / 800, height / layoutHeight);
+      if (scale <= 0) return;
+      this.style.setProperty('--scale', scale);
+      this.style.setProperty('--stage-width', (width / scale) + 'px');
+      this.style.setProperty('--stage-height', (height / scale) + 'px');
     });
     this.resize.observe(this);
     this.render();
@@ -1077,7 +1081,7 @@ class HausOps extends HTMLElement {
       return new URL('./sounds/yellow_alert.mp3?v=2', import.meta.url).href;
     }
     if (kind === 'warp' && ['warp_core_loop.wav', 'warp_core.wav', 'warp_core.mp3'].includes(filename)) {
-      return new URL('./sounds/warp_core_loop.wav?v=1.6.31', import.meta.url).href;
+      return new URL('./sounds/warp_core_loop.wav?v=1.6.32', import.meta.url).href;
     }
     if (['beep3', 'beep5', 'beep6'].includes(kind) && filename === kind + '.mp3') {
       return new URL('./sounds/' + filename, import.meta.url).href;
