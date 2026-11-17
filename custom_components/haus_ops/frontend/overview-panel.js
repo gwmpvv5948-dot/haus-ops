@@ -143,7 +143,7 @@ export class OverviewPanel {
     const lights = this.favoriteLights();
     return `<div class="ops-overview">
       <section class="ops-safety">${heading('Sicherheit',alert==='rot'?'red':alert==='gelb'?'yellow':'purple',alarm,1)}
-        <strong class="ops-sec-status" data-alert="${alert}">${alarm}</strong>
+        ${alert !== 'normal' || complete && !accesses.some(item=>item.open) ? `<strong class="ops-sec-status" data-alert="${alert}">${alarm}</strong>` : ''}
         <small class="ops-safety-note" title="${safetyText}">${safetyText}</small>
         <div class="ops-contacts">${accesses.map(item=>`<span class="${item.open ? (alert === 'normal' ? 'contact-open' : 'open') : ''} ${item.open===undefined&&!item.open?'missing':''}">${escape(item.name)}</span>`).join('')}</div>
         <small class="ops-caption">Sensor-Scan · ${accesses.filter(item=>item.open!==undefined).length} / ${accesses.length} online</small>

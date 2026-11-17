@@ -1,10 +1,10 @@
-import {loadPV,pvView} from './pv-panel.js?v=1.6.23';
-import { LightPanel } from './light-panel.js?v=1.6.23';
-import { CircuitsPanel } from './circuits-panel.js?v=1.6.23';
-import { OverviewPanel, overviewFields } from './overview-panel.js?v=1.6.23';
-import { MusicPanel, musicFields } from './music-panel.js?v=1.6.23';
-import { WaterPanel, waterFields } from './water-panel.js?v=1.6.23';
-import { energyFields, energyView } from './energy-panel.js?v=1.6.23';
+import {loadPV,pvView} from './pv-panel.js?v=1.6.24';
+import { LightPanel } from './light-panel.js?v=1.6.24';
+import { CircuitsPanel } from './circuits-panel.js?v=1.6.24';
+import { OverviewPanel, overviewFields } from './overview-panel.js?v=1.6.24';
+import { MusicPanel, musicFields } from './music-panel.js?v=1.6.24';
+import { WaterPanel, waterFields } from './water-panel.js?v=1.6.24';
+import { energyFields, energyView } from './energy-panel.js?v=1.6.24';
 import { ClimatePanel, roomNames } from './climate-panel.js';
 const antonio = new FontFace('Antonio', `url("${new URL('./Antonio.ttf', import.meta.url).href}")`, {
   weight: '400 700',
@@ -43,6 +43,7 @@ const soundSlots = [
   ['warp', 'Warp Sound · Energiekern', 'warp_core_loop.wav'],
 ];
 const validSoundName = value => /^[^/\\?#]+\.(mp3|wav|ogg|m4a)$/i.test(value);
+const dashboardVolumePreference = 'haus-ops.dashboard-volume';
 const touchSoundPreference = 'haus-ops.touch-sounds';
 const levels = ['Aus', 'Low', '1', '2', 'Max'];
 const climate = new Intl.NumberFormat('de-DE', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
@@ -85,7 +86,7 @@ class HausOps extends HTMLElement {
     if (!this.shadowRoot) {
       this.attachShadow({ mode: 'open' });
       this.shadowRoot.innerHTML = `
-        <link rel="stylesheet" href="${new URL('./haus-ops.css?v=1.6.23', import.meta.url)}">
+        <link rel="stylesheet" href="${new URL('./haus-ops.css?v=1.6.24', import.meta.url)}">
         <div class="stage"><div class="frame">
           <div class="brand">LCARS 77</div>
           <header><span class="rail"></span><strong>HAUS-OPS</strong><time></time><span class="cap"></span></header>
@@ -879,6 +880,21 @@ class HausOps extends HTMLElement {
     return this.ha.callService(entity_id.split('.')[0], service, { entity_id, ...data });
   }
 
+  get dashboardVolume() {
+    try {
+      const stored = localStorage.getItem(dashboardVolumePreference);
+      if (stored !== null && Number.isFinite(Number(stored))) return Math.min(100, Math.max(0, Number(stored)));
+    } catch {}
+    return 100;
+  }
+
+  applyDashboardVolume() {
+    const level = this.dashboardVolume / 100;
+    if (this.alarmAudio) this.alarmAudio.volume = level;
+    if (this.warpAudio) this.warpAudio.volume = level * .22;
+    this.touchAudio?.forEach(audio => { audio.volume = level * .22; });
+  }
+
   get touchSoundsEnabled() {
     try { return localStorage.getItem(touchSoundPreference) !== 'off'; }
     catch { return true; }
@@ -893,7 +909,7 @@ class HausOps extends HTMLElement {
       return new URL('./sounds/yellow_alert.mp3?v=2', import.meta.url).href;
     }
     if (kind === 'warp' && ['warp_core_loop.wav', 'warp_core.wav', 'warp_core.mp3'].includes(filename)) {
-      return new URL('./sounds/warp_core_loop.wav?v=1.6.23', import.meta.url).href;
+      return new URL('./sounds/warp_core_loop.wav?v=1.6.24', import.meta.url).href;
     }
     if ((kind === 'beep5' || kind === 'beep6') && filename === kind + '.mp3') {
       return new URL('./sounds/' + filename, import.meta.url).href;
@@ -923,6 +939,7 @@ class HausOps extends HTMLElement {
     this.pendingAlarmSound = Boolean(next);
     if (!next) return;
     this.alarmAudio ??= new Audio();
+    this.alarmAudio.volume = this.dashboardVolume / 100;
     this.alarmAudio.src = next;
     this.playPendingAlarm();
   }
@@ -953,7 +970,7 @@ class HausOps extends HTMLElement {
       this.lastBeep?.pause();
       this.lastBeep = audio;
     }
-    audio.volume = 0.22;
+    audio.volume = .22 * this.dashboardVolume / 100;
     audio.currentTime = 0;
     audio.play().catch(() => {});
   }
@@ -975,7 +992,7 @@ class HausOps extends HTMLElement {
     this.warpSoundUrl = url;
     this.warpAudio = new Audio(url);
     this.warpAudio.loop = true;
-    this.warpAudio.volume = 0.22;
+    this.warpAudio.volume = .22 * this.dashboardVolume / 100;
     this.warpAudio.play().catch(() => {});
   }
 
@@ -1217,6 +1234,9 @@ class HausOpsSettings {
       .settings [data-fill-entities]:disabled{opacity:.55}
     </style><form><h2>HAUS-OPS konfigurieren</h2><div class="fields">
       <fieldset><legend>Display</legend><label><span><input type="checkbox" name="touch-sounds" ${panel.touchSoundsEnabled ? 'checked' : ''}> Star-Trek-Töne auf diesem Display</span></label>
+        <label>Dashboard-Lautstärke <output for="dashboard-volume">${panel.dashboardVolume} %</output>
+          <input id="dashboard-volume" type="range" name="dashboard-volume" min="0" max="100" value="${panel.dashboardVolume}">
+        </label>
         ${soundSlots.map(([key,label,defaultFile]) => `<label>${label}<input name="sound-${key}" value="${escape(config.sounds?.[key] ?? defaultFile)}" placeholder="Dateiname, z. B. beep.mp3" spellcheck="false"></label>`).join('')}</fieldset>
       <fieldset><legend>Lichtszenen</legend>
         ${[['off','Alle aus'],['evening','Abendlicht'],['film','Film'],['hell','Hell']].map(([key,label])=>
@@ -1258,6 +1278,9 @@ class HausOpsSettings {
         ${title === 'Lüftung' ? '<p>Stufensteuerung über Trafo-Helfer</p>' : ''}</fieldset>`).join('')}
       </div><p role="status"></p><div class="controls"><button type="button" data-cancel>Abbrechen</button><button type="submit">OK</button></div></form>`;
     const form = this.dialog.querySelector('form');
+    form.elements.namedItem('dashboard-volume').oninput = event => {
+      form.querySelector('output[for="dashboard-volume"]').textContent = event.target.value + ' %';
+    };
     form.querySelectorAll('[data-fill-entities]').forEach(button => {
       button.onclick = () => {
         const field = form.elements.namedItem(button.dataset.fillEntities);
@@ -1379,6 +1402,8 @@ class HausOpsSettings {
     try {
       await this.panel.ha.callWS({ type: 'frontend/set_system_data', key: settingsKey, value: next });
       try { localStorage.setItem(touchSoundPreference, data.has('touch-sounds') ? 'on' : 'off'); } catch {}
+      try { localStorage.setItem(dashboardVolumePreference, data.get('dashboard-volume')); } catch {}
+      this.panel.applyDashboardVolume();
       this.panel.savedConfig = next;
       this.panel.render();
       this.dialog.close();
