@@ -100,9 +100,9 @@ export class OverviewPanel {
       if (!light) return '<span class="ops-light-tile empty" aria-hidden="true"></span>';
       const level = light.on ? light.dim ? light.percent : 100 : 0;
       const status = !light.ready ? 'Offline' : !light.on ? 'Aus' : light.dim ? level+' %' : 'An';
-      return `<button class="ops-light-tile ${light.ready?'':'offline'}" style="--fill:${level}%"
+      return `<button class="ops-light-tile ${light.ready?'':'offline'}" style="--fill:${level}%" data-bright="${level>=55}"
         data-action="ops-toggle:${escapeHtml(light.id)}" ${light.dim?'data-overview-dimmer':''}
-        aria-pressed="${light.on}" ${light.ready?'':'disabled'}><small>${status}</small><strong>${escapeHtml(light.name)}</strong></button>`;
+        aria-pressed="${light.on}" ${light.ready?'':'disabled'}><small class="ops-light-status">${status}</small><small class="ops-light-code" aria-hidden="true">10-30${index+1}</small><strong>${escapeHtml(light.name)}</strong></button>`;
     }).join('');
     const sceneReady = key => {
       const entity = this.panel.lightsPanel.sceneId(key);
@@ -194,11 +194,13 @@ export class OverviewPanel {
           <div><small>Ø Innen</small><span>${format(inside,1)}°</span></div>${action('05-20','Heizung ▶','data-page="4"')}</div>
       </section>
       <section class="ops-blinds" data-card-page="3">${heading('Rollos','sand',blinds.some(blind=>blind.movement)?'Fährt':blinds.every(blind=>blind.position===0)?'Alle zu':blinds.filter(blind=>blind.position===100).length+' offen',3)}
-        <div class="ops-blind-windows">${blinds.map(blind=>`<button data-action="ops-blind:${escape(blind.key)}"
-          ${panel.canToggleOverviewBlind(blind)?'':'disabled'}>
-          <b>${blind.position===null?'—':blind.position+' %'}</b>
-          <span class="ops-blind-frame"><i data-slats="${escape(blind.key)}" style="height:${blind.position===null?0:100-blind.position}%"></i></span>
-          <strong>${escape(blind.name)}</strong><small>${escape(blind.status)}</small></button>`).join('')}</div>
+        <div class="ops-blind-windows">${blinds.map(blind=>`<div class="blind-position ops-blind-position">
+          <b data-overview-position>${blind.position===null?'—':blind.position+' %'}</b>
+          <span class="blind-window ops-blind-frame"><i data-slats="${escape(blind.key)}" style="height:${blind.position===null?0:100-blind.position}%"></i>
+            <input type="range" min="0" max="100" value="${blind.position ?? 0}" data-blind-position="${escape(blind.key)}"
+              aria-label="${escape(blind.name)} · Öffnung in Prozent" ${blind.available&&(blind.features&4)?'':'disabled'}></span>
+          <button data-action="ops-blind:${escape(blind.key)}" ${panel.canToggleOverviewBlind(blind)?'':'disabled'}>
+            <strong>${escape(blind.name)}</strong><small>${escape(blind.status)}</small></button></div>`).join('')}</div>
         ${actions(action('07-01','↓ Alle ab','data-action="cover:0"',panel.canMoveCover(0)?'':'disabled'),
           action('07-02','Stop','data-action="ops-blind-stop"',blinds.some(blind=>blind.available&&(blind.features&8))?'':'disabled'),
           action('07-03','↑ Alle auf','data-action="cover:1"',panel.canMoveCover(1)?'':'disabled'))}

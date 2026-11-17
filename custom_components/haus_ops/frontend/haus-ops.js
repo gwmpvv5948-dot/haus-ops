@@ -1,10 +1,10 @@
-import {loadPV,pvView} from './pv-panel.js?v=1.6.26';
-import { LightPanel } from './light-panel.js?v=1.6.26';
-import { CircuitsPanel } from './circuits-panel.js?v=1.6.26';
-import { OverviewPanel, overviewFields } from './overview-panel.js?v=1.6.26';
-import { MusicPanel, musicFields } from './music-panel.js?v=1.6.26';
-import { WaterPanel, waterFields } from './water-panel.js?v=1.6.26';
-import { energyFields, energyView } from './energy-panel.js?v=1.6.26';
+import {loadPV,pvView} from './pv-panel.js?v=1.6.27';
+import { LightPanel } from './light-panel.js?v=1.6.27';
+import { CircuitsPanel } from './circuits-panel.js?v=1.6.27';
+import { OverviewPanel, overviewFields } from './overview-panel.js?v=1.6.27';
+import { MusicPanel, musicFields } from './music-panel.js?v=1.6.27';
+import { WaterPanel, waterFields } from './water-panel.js?v=1.6.27';
+import { energyFields, energyView } from './energy-panel.js?v=1.6.27';
 import { ClimatePanel, roomNames } from './climate-panel.js';
 const antonio = new FontFace('Antonio', `url("${new URL('./Antonio.ttf', import.meta.url).href}")`, {
   weight: '400 700',
@@ -86,7 +86,7 @@ class HausOps extends HTMLElement {
     if (!this.shadowRoot) {
       this.attachShadow({ mode: 'open' });
       this.shadowRoot.innerHTML = `
-        <link rel="stylesheet" href="${new URL('./haus-ops.css?v=1.6.26', import.meta.url)}">
+        <link rel="stylesheet" href="${new URL('./haus-ops.css?v=1.6.27', import.meta.url)}">
         <div class="stage"><div class="frame">
           <div class="brand">LCARS 77</div>
           <header><span class="rail"></span><span class="overview-data" aria-hidden="true" hidden></span><span class="overview-rail" aria-hidden="true" hidden></span><strong>HAUS-OPS</strong><time></time><span class="cap"></span></header>
@@ -269,7 +269,8 @@ class HausOps extends HTMLElement {
       const box = drag.button.getBoundingClientRect();
       drag.value = Math.round(100 * Math.max(0,Math.min(1,(event.clientX-box.left)/box.width)));
       drag.button.style.setProperty('--fill',drag.value+'%');
-      drag.button.querySelector('small').textContent = drag.value ? drag.value+' %' : 'Aus';
+      drag.button.dataset.bright = String(drag.value >= 55);
+      drag.button.querySelector('.ops-light-status').textContent = drag.value ? drag.value+' %' : 'Aus';
     }, options);
     for (const type of ['pointerup','pointercancel','lostpointercapture']) {
       main.addEventListener(type, event => {
@@ -575,7 +576,9 @@ class HausOps extends HTMLElement {
     const position = input.valueAsNumber;
     const frame = input.closest('.blind-position');
     frame.querySelector('[data-slats]').style.height = `${100 - position}%`;
-    frame.querySelector('small').textContent = `${position} % offen`;
+    const overviewPosition = frame.querySelector('[data-overview-position]');
+    if (overviewPosition) overviewPosition.textContent = `${position} %`;
+    else frame.querySelector('small').textContent = `${position} % offen`;
   }
 
   async setBlindPosition(input) {
@@ -822,7 +825,7 @@ class HausOps extends HTMLElement {
       }
       this.layout = layout;
     }
-    const dragging = this.page === 3 && this.draggingBlind !== undefined;
+    const dragging = [0,3].includes(this.page) && this.draggingBlind !== undefined;
     if (!entering && !dragging && !(this.page === 1 && this.warningHold) && !(this.page === 0 && this.overviewLightDrag) && !(lightView && this.lightDrag !== undefined) && this.layout !== layout) {
       const focused = this.shadowRoot.activeElement;
       const action = main.contains(focused) && focused.dataset.action;
@@ -868,7 +871,7 @@ class HausOps extends HTMLElement {
       const input = main.querySelector(`[data-blind-position="${blind.key}"]`);
       if (input) {
         input.value = blind.position ?? 0;
-        input.closest('.blind-position').querySelector('small').textContent =
+        if (this.page === 3) input.closest('.blind-position').querySelector('small').textContent =
           blind.position === null ? 'Keine Daten' : `${blind.position} % offen`;
       }
       main.querySelector(`[data-slats="${blind.key}"]`)
@@ -996,7 +999,7 @@ class HausOps extends HTMLElement {
       return new URL('./sounds/yellow_alert.mp3?v=2', import.meta.url).href;
     }
     if (kind === 'warp' && ['warp_core_loop.wav', 'warp_core.wav', 'warp_core.mp3'].includes(filename)) {
-      return new URL('./sounds/warp_core_loop.wav?v=1.6.26', import.meta.url).href;
+      return new URL('./sounds/warp_core_loop.wav?v=1.6.27', import.meta.url).href;
     }
     if ((kind === 'beep5' || kind === 'beep6') && filename === kind + '.mp3') {
       return new URL('./sounds/' + filename, import.meta.url).href;
