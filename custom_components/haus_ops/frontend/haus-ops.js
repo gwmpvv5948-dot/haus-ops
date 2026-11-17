@@ -1,10 +1,10 @@
-import {loadPV,pvView} from './pv-panel.js?v=1.6.24';
-import { LightPanel } from './light-panel.js?v=1.6.24';
-import { CircuitsPanel } from './circuits-panel.js?v=1.6.24';
-import { OverviewPanel, overviewFields } from './overview-panel.js?v=1.6.24';
-import { MusicPanel, musicFields } from './music-panel.js?v=1.6.24';
-import { WaterPanel, waterFields } from './water-panel.js?v=1.6.24';
-import { energyFields, energyView } from './energy-panel.js?v=1.6.24';
+import {loadPV,pvView} from './pv-panel.js?v=1.6.25';
+import { LightPanel } from './light-panel.js?v=1.6.25';
+import { CircuitsPanel } from './circuits-panel.js?v=1.6.25';
+import { OverviewPanel, overviewFields } from './overview-panel.js?v=1.6.25';
+import { MusicPanel, musicFields } from './music-panel.js?v=1.6.25';
+import { WaterPanel, waterFields } from './water-panel.js?v=1.6.25';
+import { energyFields, energyView } from './energy-panel.js?v=1.6.25';
 import { ClimatePanel, roomNames } from './climate-panel.js';
 const antonio = new FontFace('Antonio', `url("${new URL('./Antonio.ttf', import.meta.url).href}")`, {
   weight: '400 700',
@@ -18,7 +18,7 @@ const musicPageIndex = 8;
 const circuitsPageIndex = 10;
 const navigation = [
   [0, 'Übersicht', '01-47', '--sand'],
-  [circuitsPageIndex, 'Stromkreise', '03-318', '--sand'],
+  [circuitsPageIndex, 'Stromkreise', '03-318', '--purple'],
   [energyPageIndex, 'Energie', '02-112', '--sand'],
   [waterPageIndex, 'Wasser', '03-309', '--blue'],
   [9, 'Licht', '10-301', '--sand'],
@@ -86,10 +86,10 @@ class HausOps extends HTMLElement {
     if (!this.shadowRoot) {
       this.attachShadow({ mode: 'open' });
       this.shadowRoot.innerHTML = `
-        <link rel="stylesheet" href="${new URL('./haus-ops.css?v=1.6.24', import.meta.url)}">
+        <link rel="stylesheet" href="${new URL('./haus-ops.css?v=1.6.25', import.meta.url)}">
         <div class="stage"><div class="frame">
           <div class="brand">LCARS 77</div>
-          <header><span class="rail"></span><strong>HAUS-OPS</strong><time></time><span class="cap"></span></header>
+          <header><span class="rail"></span><span class="overview-data" aria-hidden="true" hidden></span><span class="overview-rail" aria-hidden="true" hidden></span><strong>HAUS-OPS</strong><time></time><span class="cap"></span></header>
           <nav aria-label="Ansichten"><div class="nav-scroll">
             ${navigation.map(([page, name, code, color]) =>
               `<button data-page="${page}" style="background:var(${color})"><small aria-hidden="true">${code}</small><span>${name}</span></button>`
@@ -103,6 +103,15 @@ class HausOps extends HTMLElement {
     }
     this.blindInputEvents = new AbortController();
     const options = {signal:this.blindInputEvents.signal};
+    const recordActivity = () => { this.lastDisplayActivity = performance.now(); };
+    recordActivity();
+    for (const type of ['pointerdown', 'pointerup', 'pointercancel', 'keydown', 'wheel', 'click']) {
+      this.shadowRoot.addEventListener(type, recordActivity, {...options, capture:true, passive:true});
+    }
+    this.shadowRoot.addEventListener('pointermove', event => {
+      if (event.buttons) recordActivity();
+    }, {...options, capture:true, passive:true});
+
     this.bindLightMouseScroll(options);
     this.bindOverviewDimmer(options);
     this.bindWarningHold(options);
@@ -166,6 +175,7 @@ class HausOps extends HTMLElement {
     this.render();
     this.tick();
     this.lightDataClock = setInterval(() => this.updateLightData(), 160);
+    this.overviewDataClock = setInterval(() => this.updateOverviewData(),700);
     this.clock = setInterval(() => { this.tick(); this.render(); }, 1000);
   }
 
@@ -269,8 +279,9 @@ class HausOps extends HTMLElement {
         if (drag.value === undefined) return;
         if (type === 'pointerup') {
           drag.button.dataset.swiped = '';
+          this.layout = undefined;
           setTimeout(()=>delete drag.button.dataset.swiped,0);
-          this.overview.act('brightness',drag.button.dataset.action.slice('ops-toggle:'.length),drag.value)
+          this.overview.act('brightness',drag.button.dataset.action.slice('ops-toggle:'.length),Math.round(drag.value/10)*10)
             .catch(()=>this.notify('Licht konnte nicht eingestellt werden')).finally(()=>this.render());
         } else {
           this.layout = undefined;
@@ -372,7 +383,16 @@ class HausOps extends HTMLElement {
     }
   }
 
+  updateOverviewData() {
+    if (this.page !== 0 || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const cell = this.shadowRoot.querySelector('.overview-data');
+    if (cell) cell.textContent = String(1000 + Math.floor(Math.random()*9000));
+  }
+
   disconnectedCallback() {
+    clearInterval(this.overviewDataClock);
+    cancelAnimationFrame(this.rotorFrame);
+    this.rotorFrame = undefined;
     clearInterval(this.lightDataClock);
     this.blindInputEvents?.abort();
     this.draggingBlind = undefined;
@@ -389,8 +409,9 @@ class HausOps extends HTMLElement {
       .map((name, index) => ({ name, lock: index === 2, open: index === 2 && !this.demoLocked }));
     return (this.config?.access ?? []).map(({ name, entity }) => {
       const lock = entity?.startsWith('lock.');
-      const state = this.state(entity)?.state;
-      return { name, entity, lock, open: lock ? ({ locked: false, unlocked: true, open: true })[state]
+      const reading = this.state(entity);
+      const state = reading?.state;
+      return { name, entity, lock, changed: reading?.last_changed, open: lock ? ({ locked: false, unlocked: true, open: true })[state]
         : ({ on: true, off: false, open: true, closed: false, opening: true, closing: true })[state] };
     });
   }
@@ -471,7 +492,7 @@ class HausOps extends HTMLElement {
     this.shadowRoot.querySelectorAll('[data-timer-bar] i').forEach((node, index, all) => {
       const duration = this.demo ? this.demoDuration ?? 600 : (this.timer?.attributes?.duration || '0:10:00')
         .split(':').reduce((total, part) => total * 60 + Number(part), 0);
-      node.style.background = index < Math.ceil(seconds / (duration || 600) * all.length) ? 'var(--peach)' : '';
+      node.style.background = index < Math.ceil(node.closest('.ops-timer') ? seconds / 900 : seconds / (duration || 600) * all.length) ? 'var(--peach)' : '';
     });
   }
 
@@ -489,7 +510,7 @@ class HausOps extends HTMLElement {
         : Number.isFinite(raw) ? Math.max(0, Math.min(100, raw))
         : state.state === 'closed' ? 0 : null;
       const movement = ({ opening: 'auf', closing: 'ab' })[state?.state];
-      const status = !available ? 'Keine Verbindung' : position === 100 ? 'Offen'
+      const status = !available ? 'Keine Verbindung' : movement ? 'Fährt '+movement : position === 100 ? 'Offen'
         : position === 0 ? 'Zu' : position === null ? 'Keine Position' : `${position} % offen`;
       return { key, name: configured?.name || label, entity, available, position, movement, status,
         features: this.demo ? 15 : state?.attributes?.supported_features ?? 0, index };
@@ -583,9 +604,12 @@ class HausOps extends HTMLElement {
     finally { this.pendingBlindSelection = undefined; }
   }
 
-  async moveBlinds(index) {
+  canToggleOverviewBlind(blind) {
+    return blind.available && blind.position !== null && Boolean(blind.features & (blind.position > 0 ? 2 : 1));
+  }
+
+  async moveBlinds(index, selection = this.selectedBlind()) {
     const [, service, feature] = blindCommands[index];
-    const selection = this.selectedBlind();
     const targets = this.blinds().filter(blind => (selection === 'all' || selection === blind.key)
       && blind.available && (blind.features & feature));
     const configured = this.config?.blind_presets?.[index - 3];
@@ -628,6 +652,12 @@ class HausOps extends HTMLElement {
       this.previousAlarmLevel = overviewAlarm.level;
       if (overviewAlarm.level === 'gelb' || overviewAlarm.level === 'rot') this.page = 1;
     }
+    const now = performance.now();
+    if (overviewAlarm.level !== 'normal' || this.settings.dialog?.open) {
+      this.lastDisplayActivity = now;
+    } else if (this.page !== 0 && now - this.lastDisplayActivity >= 60000) {
+      this.page = 0;
+    }
     const lightView = this.page === 9 ? this.lightsPanel.view() : null;
     const circuits = this.page === circuitsPageIndex ? this.circuits.view() : null;
     const music = this.page === musicPageIndex ? this.music.view() : null;
@@ -661,8 +691,6 @@ class HausOps extends HTMLElement {
         name, on: this.state(entity)?.state === 'on', ready: valid(this.state(entity))
       }));
     const deviceLabel = device => device.ready ? (device.on ? 'An' : 'Aus') : 'Keine Daten';
-    const coverButtons = `<div class="actions">${['ab', 'auf'].map((action, index) =>
-      `<button data-action="cover:${index}" ${this.canMoveCover(index) ? '' : 'disabled'}><span aria-hidden="true">${index ? '↑' : '↓'}</span> Alle ${action}</button>`).join('')}</div>`;
     if (this.ha) this.syncAlarmSound(yellowQuiet ? 'normal' : overviewAlarm.level, overviewAlarm.acknowledged);
     if (overviewAlarm.level !== 'rot') this.alarmDetailsPage = undefined;
     const hasAlarm = overviewAlarm.level !== 'normal';
@@ -673,7 +701,7 @@ class HausOps extends HTMLElement {
     switch (this.page) {
       case 0:
         layout = this.overview.render({accesses, complete, alarm, rooms, level, levels,
-          coverButtons, escape, overviewAlarm, energy:energyView(this,false,true)});
+          escape, overviewAlarm, energy:energyView(this,false,true)});
         break;
       case 9:
         layout = lightView.layout;
@@ -734,6 +762,8 @@ class HausOps extends HTMLElement {
     alarmLayer.hidden = !showAlarm;
     this.shadowRoot.querySelector('main').inert = showAlarm;
     const frame = this.shadowRoot.querySelector('.frame');
+    frame.toggleAttribute('data-overview', this.page === 0);
+    frame.querySelectorAll('.overview-data,.overview-rail').forEach(node => { node.hidden = this.page !== 0; });
     frame.dataset.alert = yellowQuiet ? 'gelb-ruhig' : alert;
     frame.toggleAttribute('data-yellow-warnings', warnings.length > 0);
     frame.toggleAttribute('data-security-alert', alert === 'gelb' &&
@@ -747,7 +777,7 @@ class HausOps extends HTMLElement {
       this.demo ? 'Demo' : '', level >= 0 ? 'Lüftung Stufe ' + levels[level] : 'Haus-Ops'
     ].filter(Boolean).join(' · ');
     const footer = this.shadowRoot.querySelector('footer .rail');
-    const blinds = this.page === 3 ? this.blinds() : [];
+    const blinds = [0,3].includes(this.page) ? this.blinds() : [];
     if (lightView) footer.textContent = lightView.status;
     if (circuits) footer.textContent = circuits.status;
     footer.classList.toggle('blind-error', Boolean(energy?.warning) || blinds.some(blind => !blind.available));
@@ -756,11 +786,11 @@ class HausOps extends HTMLElement {
     footer.dataset.musicTone = music?.tone ?? '';
     if (this.page === 0) footer.textContent = alert !== 'normal'
       ? overviewAlarm.reasons || alarm
-      : `Übersicht · ${this.overview.lights().filter(light=>light.on).length} Lichter an · Lüftung ${levels[level] ?? '—'}`;
+      : `Übersicht · ${this.overview.favoriteLights().filter(light=>light.on).length} Lichter an · Lüftung ${levels[level] ?? '—'} · Kein Alarm`;
     if (music) footer.textContent = music.status;
     if (water) footer.textContent = water.status;
     if (energy) footer.textContent = energy.status;
-    if (blinds.length) {
+    if (this.page === 3 && blinds.length) {
       const moving = blinds.filter(blind => blind.available && blind.movement);
       const status = (moving.length ? moving : blinds.filter(blind => blind.available)).map(blind =>
         `${blind.name} ${blind.movement ? `fährt ${blind.movement}${blind.position === null ? '' : ` ${100 - blind.position} %`}` : blind.status}`);
@@ -768,7 +798,7 @@ class HausOps extends HTMLElement {
         ...(!moving.length && status.length ? ['Bereit'] : []), ...status].join(' · ');
     }
     const flows = [...main.querySelectorAll('[data-energy-flow]')];
-    const slats = [...main.querySelectorAll('[data-slats]')];
+    const slats = this.animatedPage === this.page ? [...main.querySelectorAll('[data-slats]')] : [];
     if (this.layout !== layout && water && main.querySelector('.water-page')) {
       this.water.update(main, layout);
       this.layout = layout;
@@ -795,8 +825,17 @@ class HausOps extends HTMLElement {
       const modeFocused = main.contains(focused) && focused.hasAttribute('data-energy-mode');
       const lightScroll = [...main.querySelectorAll('.light-columns,.light-rooms')].map(node=>node.scrollLeft);
       const previousMetrics = [...main.querySelectorAll('[data-light-metric]')].map(node=>Number(node.textContent));
+      const rotor = this.page === 0 ? main.querySelector('.ops-fan') : null;
       const lightData = main.querySelector('.light-data');
       main.innerHTML = layout;
+      const nextRotor = rotor && main.querySelector('.ops-fan');
+      if (nextRotor) {
+        rotor.querySelector('text').textContent = nextRotor.querySelector('text').textContent;
+        rotor.querySelectorAll('[data-fan-segment]').forEach((segment,index)=>{
+          segment.setAttribute('stroke',nextRotor.querySelectorAll('[data-fan-segment]')[index].getAttribute('stroke'));
+        });
+        nextRotor.replaceWith(rotor);
+      }
       if (lightData && lightView) main.querySelector('.light-data').replaceWith(lightData);
       main.querySelectorAll('.light-columns,.light-rooms').forEach((node,index)=>{ node.scrollLeft = lightScroll[index] ?? 0; });
       if (lightView) {
@@ -832,12 +871,37 @@ class HausOps extends HTMLElement {
     });
     this.shadowRoot.querySelectorAll('nav [data-page]').forEach(button =>
       button.setAttribute('aria-current', Number(button.dataset.page) === this.page));
+    this.updateOverviewRotor(main,level);
     this.tick();
     if (music) this.music.tick(main);
     if (this.animatedPage !== this.page) {
       this.animatedPage = this.page;
       this.animatePage(main);
     }
+  }
+
+  updateOverviewRotor(main, level) {
+    this.rotorTarget = [0,120,260,430,700][level] ?? 0;
+    if (this.rotorFrame) return;
+    if (!main.querySelector('.ops-rotor') || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    let previous = performance.now();
+    let angle = 0;
+    let velocity = 0;
+    const spin = now => {
+      const fan = main.querySelector('.ops-fan');
+      if (this.page !== 0 || !fan || !this.isConnected) {
+        this.rotorFrame = undefined;
+        return;
+      }
+      const dt = Math.min(.1,(now-previous)/1000);
+      previous = now;
+      velocity += (this.rotorTarget-velocity)*Math.min(1,dt*1.5);
+      angle = (angle + velocity*dt)%360;
+      fan.querySelector('.ops-rotor').setAttribute('transform',`rotate(${angle} 60 60)`);
+      fan.querySelector('.ops-fan-marker').setAttribute('transform',`rotate(${angle} 60 60)`);
+      this.rotorFrame = requestAnimationFrame(spin);
+    };
+    this.rotorFrame = requestAnimationFrame(spin);
   }
 
   animatePage(main) {
@@ -851,7 +915,7 @@ class HausOps extends HTMLElement {
     };
     frame.querySelectorAll(':scope > header .rail, :scope > footer .rail').forEach(rail => {
       animate(rail, [{transform:'scaleX(0)', transformOrigin:'left'},
-        {transform:'scaleX(1)', transformOrigin:'left'}], 800);
+        {transform:'scaleX(1)', transformOrigin:'left'}], this.page === 0 ? 700 : 800);
     });
     if (this.page === 9) this.lightsPanel.animateBank(main,60);
     const wheel = main.querySelector('.circuits-wheel');
@@ -864,8 +928,8 @@ class HausOps extends HTMLElement {
     }
     const cards = main.querySelector('.ops-overview')?.children ?? main.firstElementChild?.children ?? [];
     Array.from(cards).forEach((card, index) => {
-      animate(card, [{opacity:0, transform:'translateX(-7px)'}, {opacity:1, transform:'none'}],
-        650, Math.min(index, 5) * 65);
+      animate(card, [{opacity:0, transform:this.page === 0 ? 'translateY(8px)' : 'translateX(-7px)'}, {opacity:1, transform:'none'}],
+        this.page === 0 ? 600 : 650, Math.min(index, 5) * (this.page === 0 ? 100 : 65));
     });
   }
 
@@ -909,7 +973,7 @@ class HausOps extends HTMLElement {
       return new URL('./sounds/yellow_alert.mp3?v=2', import.meta.url).href;
     }
     if (kind === 'warp' && ['warp_core_loop.wav', 'warp_core.wav', 'warp_core.mp3'].includes(filename)) {
-      return new URL('./sounds/warp_core_loop.wav?v=1.6.24', import.meta.url).href;
+      return new URL('./sounds/warp_core_loop.wav?v=1.6.25', import.meta.url).href;
     }
     if ((kind === 'beep5' || kind === 'beep6') && filename === kind + '.mp3') {
       return new URL('./sounds/' + filename, import.meta.url).href;
@@ -1080,6 +1144,31 @@ class HausOps extends HTMLElement {
           else if (this.canSetLevel(i)) await this.call(this.legacyVent.entity, 'select_option',
             { option: this.legacyVent.options[i] });
           break;
+        case 'ops-lock': {
+          const unlocked = this.accesses().filter(item=>item.lock && item.open===true);
+          if (this.demo) this.demoLocked = true;
+          else await Promise.all(unlocked.map(item=>this.call(item.entity,'lock')));
+          break;
+        }
+        case 'ops-camera': {
+          const entityId = this.config?.overview?.camera;
+          if (entityId?.startsWith('camera.')) this.dispatchEvent(new CustomEvent('hass-more-info',{
+            detail:{entityId},bubbles:true,composed:true,
+          }));
+          break;
+        }
+        case 'ops-pv':
+          this.page = energyPageIndex;
+          this.pvOpen = true;
+          break;
+        case 'ops-blind': {
+          const blind = this.blinds().find(item=>item.key===index);
+          if (blind && this.canToggleOverviewBlind(blind)) await this.moveBlinds(blind.position>0?0:2,blind.key);
+          break;
+        }
+        case 'ops-blind-stop':
+          await this.moveBlinds(1,'all');
+          break;
         case 'ops-toggle':
         case 'ops-brightness':
         case 'ops-off':
@@ -1088,7 +1177,7 @@ class HausOps extends HTMLElement {
           break;
         case 'ops-timer':
         case 'timer': {
-          const seconds = kind === 'ops-timer' ? Math.min(3600,this.remaining+900) : this.remaining+600;
+          const seconds = kind === 'ops-timer' ? Math.min(10800,this.remaining+900) : this.remaining+600;
           if (this.demo) {
             this.demoDuration = seconds;
             this.demoEnd = i ? 0 : Date.now() + seconds * 1000;
@@ -1098,7 +1187,7 @@ class HausOps extends HTMLElement {
           break;
         }
         case 'cover':
-          if (this.demo) this.demoPosition = i ? 100 : 0;
+          if (this.demo) await this.moveBlinds(i ? 2 : 0,'all');
           else if (this.canMoveCover(i)) {
             const entity = this.coverTarget(i);
             await this.call(entity, this.coverService(entity, i));
@@ -1242,6 +1331,11 @@ class HausOpsSettings {
         ${[['off','Alle aus'],['evening','Abendlicht'],['film','Film'],['hell','Hell']].map(([key,label])=>
           `<label>${label}<input name="light-scene-${key}" value="${escape(config.light_scenes?.[key])}" placeholder="${escape(panel.lightsPanel.sceneId(key))}" spellcheck="false"></label>`).join('')}
       </fieldset>
+      <fieldset><legend>Wetterstandort</legend>
+        <label>Breitengrad (−90 bis 90)<input name="weather-latitude" inputmode="decimal" value="${escape(config.weather_location?.latitude)}"></label>
+        <label>Längengrad (−180 bis 180)<input name="weather-longitude" inputmode="decimal" value="${escape(config.weather_location?.longitude)}"></label>
+        <p>Open-Meteo erhält diese Koordinaten für die PV-Wettervorschau. Beide Felder leer lassen, um den Wetterabruf auszuschalten.</p>
+      </fieldset>
       <fieldset><legend>Gelbe Warnungen</legend>
         <label>Eine alert.*-Entität pro Zeile
           <textarea name="yellow-alerts" rows="5" spellcheck="false" autocapitalize="none">${escape(config.yellow_alerts?.join('\n'))}</textarea>
@@ -1366,6 +1460,16 @@ class HausOpsSettings {
     if (next.lights.some(id => !circuit(id))) {
       status.textContent = 'Leuchtenfilter · Bitte IDs mit light. oder switch. eingeben.';
       return;
+    }
+    const latitude = data.get('weather-latitude').trim().replace(',', '.');
+    const longitude = data.get('weather-longitude').trim().replace(',', '.');
+    if (latitude || longitude) {
+      const lat = Number(latitude), lon = Number(longitude);
+      if (!latitude || !longitude || !Number.isFinite(lat) || !Number.isFinite(lon) || Math.abs(lat)>90 || Math.abs(lon)>180) {
+        status.textContent = 'Wetterstandort · Bitte gültigen Breiten- und Längengrad eintragen.';
+        return;
+      }
+      next.weather_location = {latitude:lat,longitude:lon};
     }
     next.yellow_alerts = [...new Set(data.get('yellow-alerts').split(/[\s,]+/).filter(Boolean))];
     if (next.yellow_alerts.some(id => !/^alert\.[a-z0-9_]+$/.test(id) || !this.panel.ha.states[id])) {

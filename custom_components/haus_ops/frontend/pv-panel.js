@@ -5,6 +5,14 @@ const fmt = (value, digits=1) => Number.isFinite(value) ? value.toLocaleString('
 const fallback = 'sensor.solcast_pv_forecast_prognose_heute';
 
 export async function loadPV(panel){
+  const location = panel.config?.weather_location;
+  const weatherKey = location ? JSON.stringify(location) : '';
+  if (panel.pvWeatherKey !== weatherKey) {
+    panel.pvWeatherKey = weatherKey;
+    panel.pvWeatherAt = 0;
+    panel.pvWeather = undefined;
+    panel.pvAttempt = 0;
+  }
   if(panel.demo || !panel.ha?.callWS || panel.pvLoading || Date.now()-(panel.pvAttempt||0)<300000)return;
   panel.pvLoading=true;
   panel.pvAttempt=Date.now();
@@ -24,9 +32,17 @@ export async function loadPV(panel){
       panel.pvReferences=monthlyReferences(rows[source],Date.now(),zone);
     })(),
     (async()=>{
-      if(Date.now()-(panel.pvWeatherAt||0)<3600000)return;
-      const response=await fetch('https://api.open-meteo.com/v1/forecast?latitude=51.05&longitude=13.74&daily=weather_code,sunshine_duration,daylight_duration,precipitation_sum&forecast_days=7&timezone='+encodeURIComponent(zone),{signal:AbortSignal.timeout(10000)});
-      if(response.ok){panel.pvWeather=weatherDays(await response.json());panel.pvWeatherAt=Date.now();}
+      if(!location || Date.now()-(panel.pvWeatherAt||0)<3600000)return;
+      const response=await fetch('https://api.open-meteo.com/v1/forecast?'+new URLSearchParams({
+        latitude:location.latitude, longitude:location.longitude, timezone:zone,
+        daily:'weather_code,sunshine_duration,daylight_duration,precipitation_sum', forecast_days:7,
+      }),{signal:AbortSignal.timeout(10000),credentials:'omit',referrerPolicy:'no-referrer'});
+      if(response.ok){
+        const data = await response.json();
+        if (panel.pvWeatherKey === weatherKey) {
+          panel.pvWeather=weatherDays(data);panel.pvWeatherAt=Date.now();
+        }
+      }
     })()
   ]);
   panel.pvLoading=false;
@@ -98,6 +114,6 @@ export function pvView(panel){
         <div class="pv-rain"><small>${fmt(r.weather.rain)} mm</small>${bar(r.weather.rain,10)}</div>
       </article>`;
     }).join('')}</div>
-    <footer>Solcast · Open-Meteo Dresden · 100 % = ${fmt(active.reference.kwh)} kWh Monatsreferenz${active.reference.source==='provisional'?' (vorläufig)':''} · Hausbedarf ohne Tesla</footer>
+    <footer>Solcast · ${panel.config?.weather_location ? 'Open-Meteo' : 'Wetterstandort nicht eingestellt'} · 100 % = ${fmt(active.reference.kwh)} kWh Monatsreferenz${active.reference.source==='provisional'?' (vorläufig)':''} · Hausbedarf ohne Tesla</footer>
     </section>`};
 }

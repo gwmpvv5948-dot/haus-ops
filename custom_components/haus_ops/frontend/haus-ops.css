@@ -754,3 +754,57 @@ footer .rail[data-music-tone=error]{background:var(--red)}
 .yellow-queue [data-warning=stumm]{border-color:var(--pink)}
 .yellow-warnings [data-warning=neu] b,.yellow-warnings>strong[data-warning=neu]{animation:ops-alert 1.6s infinite alternate}
 @media(prefers-reduced-motion:reduce){.frame[data-alert=gelb] :is(.brand,.heel,.nav-scroll [data-page="1"]),.yellow-warnings [data-warning=neu] b,.yellow-warnings>strong[data-warning=neu]{animation:none!important}}
+
+.ops-overview{grid-template-columns:repeat(3,minmax(0,1fr));grid-template-rows:repeat(2,minmax(0,1fr));gap:10px 12px;--gold:#fa0}
+.ops-overview>section{overflow:hidden;--card-color:var(--peach)}
+.ops-overview>.ops-safety{--card-color:var(--purple)}
+.ops-overview>.ops-vent{--card-color:var(--pink)}
+.ops-overview>[data-card-page="4"]{--card-color:var(--blue)}
+.ops-overview>.ops-blinds{--card-color:var(--sand)}
+.ops-overview>.ops-light-card{--card-color:var(--gold)}
+.ops-overview .ops-heading i{background:linear-gradient(105deg,currentColor 44%,#fff8 50%,currentColor 56%) 0/250% 100%}
+.ops-card-actions{display:flex;gap:3px;margin-top:auto;min-height:28px;flex:none}
+.ops-card-actions>*{background:#222;color:var(--card-color);flex:1;min-width:0;display:flex;flex-direction:column;align-items:flex-end;justify-content:center;padding:2px 5px;font-size:10px;line-height:1.1;text-align:right}
+.ops-card-actions>:first-child{border-radius:13px 0 0 13px}
+.ops-card-actions>:last-child{border-radius:0 13px 13px 0}
+.ops-card-actions small{font-size:7px;opacity:.82}
+.ops-card-actions button:is([aria-pressed=true],:last-child):not(:disabled){background:var(--card-color);color:#000}
+.ops-card-actions button.ops-off{background:var(--red);color:#000}
+.ops-card-actions button:active{filter:brightness(1.5)}
+.ops-air{flex:1;gap:12px;justify-content:flex-start;min-height:0}
+.ops-fan{width:min(55%,103px);height:auto}
+.ops-rotor{animation:none}
+.ops-vent-reading{display:grid;color:var(--pink)}
+.ops-vent-reading small{font-size:9px}
+.ops-vent-reading strong{font-size:28px;line-height:1.05}
+.ops-vent-reading b{color:var(--sand);font-size:16px}
+.ops-timer button{border:0;border-radius:20px;background:var(--pink);color:#000;min-width:26px}
+.ops-climate{flex:1;grid-template-rows:repeat(6,minmax(0,1fr))}
+.ops-climate>div{min-height:0;grid-template-columns:minmax(0,1fr) 30% 34px}
+.ops-climate span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ops-blind-windows{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;flex:1;min-height:0}
+.ops-blind-windows button{display:grid;grid-template-rows:auto minmax(0,1fr) auto auto;gap:2px;background:#000;color:var(--sand);padding:0 2px;min-width:0}
+.ops-blind-windows button:disabled{opacity:.7}
+.ops-blind-windows strong,.ops-blind-windows small{font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ops-blind-windows strong{color:var(--pink)}
+.ops-blind-windows b{font-size:14px}
+.ops-blind-frame{position:relative;overflow:hidden;border:2px solid var(--sand);border-radius:7px;background:linear-gradient(#1a2a39,#10151c)}
+.ops-blind-frame::before{content:"";position:absolute;inset:0 49%;background:#ffcc9966}
+.ops-blind-frame i{display:block;position:relative;background:repeating-linear-gradient(#ffcc99 0 4px,#222 4px 5px);box-shadow:0 1px #fff;transition:height .45s linear}
+.ops-supply{flex:1}
+.ops-supply>div{align-content:center}
+.ops-supply strong,.ops-water strong{font-size:19px}
+.ops-water-average{width:55%;text-align:right}
+.ops-water-average i{display:block;height:5px;background:linear-gradient(90deg,var(--blue) var(--water-share),#262626 var(--water-share));border-radius:5px;margin-top:2px}
+.frame[data-overview] .overview-data{background:var(--pink);color:#000;height:14px;padding:0 6px;font-size:10px;min-width:28px;text-align:right}
+.frame[data-overview] .overview-rail{background:var(--peach);height:14px;flex:2}
+.frame[data-overview] header strong{font-size:19px}
+.frame[data-overview] [data-page="9"]{--gold:#fa0}
+.nav-scroll [data-page="9"]{background:#fa0!important}
+.nav-scroll button[aria-current=true]>small::after{content:" ◀"}
+@media(prefers-reduced-motion:no-preference){.ops-overview .ops-heading i{animation:light-scan 6s linear infinite}}
+@media(prefers-reduced-motion:reduce){.ops-blind-frame i{transition:none}}
+@property --fill{syntax:"<percentage>";inherits:false;initial-value:0%}
+.ops-light-tile{transition:--fill .55s ease}
+.ops-light-tile:active{transition:none}
+@media(prefers-reduced-motion:reduce){.ops-light-tile{transition:none}}

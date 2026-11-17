@@ -2,6 +2,8 @@ const lamps = [['tv','TV'],['stehlampe','Stehlampe'],['esszimmer','Esszimmer'],[
 export const overviewFields = [
   ...lamps.map(([key,label])=>['overview.'+key,label,['light','switch']]),
   ['overview.evening','Abendlicht',['scene']],
+  ['overview.outside','Außentemperatur',['sensor']],
+  ['overview.camera','Kamera',['camera']],
   ['overview.alarm','Alarmstufe',['sensor']],
   ['overview.acknowledged','Alarm quittiert',['input_boolean']],
 ];
@@ -11,6 +13,8 @@ const bars = (count,value) => `<span class="ops-bars" aria-hidden="true">${Array
   `<i class="${i/count<value?'filled':''}"></i>`).join('')}</span>`;
 const heading = (title,color,info,page) => `<div class="ops-heading" style="--card-color:var(--${color})">
   ${page===undefined?`<h2>${title}</h2>`:`<button data-page="${page}">${title}</button>`}<i></i>${info?`<b>${info}</b>`:''}</div>`;
+const action = (code,label,attributes='',extra='') => `<button ${attributes} ${extra}><small>${code}</small><span>${label}</span></button>`;
+const actions = (...buttons) => `<div class="ops-card-actions">${buttons.join('')}</div>`;
 const escapeHtml = value => String(value).replace(/[&<>"']/g, c =>
   ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
 const enabled = state => state && !['unknown','unavailable'].includes(state.state);
@@ -19,6 +23,7 @@ export class OverviewPanel {
   constructor(panel) { this.panel = panel; }
 
   id(key) {
+    if (key === 'outside' || key === 'camera') return this.panel.config?.overview?.[key];
     return this.panel.config?.overview?.[key] || ({
       evening:'scene.abendlicht', alarm:'sensor.alarmstufe', acknowledged:'input_boolean.alarm_quittiert',
     })[key] || (lamps.some(([id])=>id===key) ? 'light.'+key : 'sensor.kwl_'+key);
@@ -103,12 +108,12 @@ export class OverviewPanel {
       const entity = this.panel.lightsPanel.sceneId(key);
       return this.panel.demo || (['scene','script'].includes(entity.split('.')[0]) && enabled(this.panel.state(entity)));
     };
-    return `<div class="ops-light-grid">${tiles}</div><div class="ops-light-actions">
-      <button data-action="ops-off" ${lights.some(light=>light.on&&light.ready)?'':'disabled'}>Alle aus</button>
-      <button data-action="light-scene:evening" ${sceneReady('evening')?'':'disabled'}>Abend</button>
-      <button data-action="light-scene:film" ${sceneReady('film')?'':'disabled'}>Film</button>
-      <button data-page="9">Licht ▶</button>
-    </div>`;
+    return `<div class="ops-light-grid">${tiles}</div>${actions(
+      action('10-01','Alle aus','data-action="ops-off" class="ops-off"',lights.some(light=>light.on&&light.ready)?'':'disabled'),
+      action('10-02','Abend','data-action="light-scene:evening"',sceneReady('evening')?'':'disabled'),
+      action('10-03','Film','data-action="light-scene:film"',sceneReady('film')?'':'disabled'),
+      action('10-30','Licht ▶','data-page="9"'))}`;
+
   }
 
   supply(energy, alarm) {
@@ -119,60 +124,88 @@ export class OverviewPanel {
     const leak = alarm.leak;
     const read = sensor => enabled(sensor) && sensor.state.trim()
       ? Number(sensor.state)*(sensor.attributes.unit_of_measurement==='m³'?1000:1) : NaN;
+    const waterUsed = this.panel.demo ? 107 : read(today);
+    const waterAverage = this.panel.demo ? 180 : read(average);
+    const ratio = waterAverage > 0 && Number.isFinite(waterUsed) ? waterUsed / waterAverage : NaN;
     const watts = value => format(Math.abs(value))+' W';
     return `<div class="ops-supply">${[
       ['Solar',watts(energy.solar),'#ffaa00'],['Haus',watts(energy.house),'var(--peach)'],
       [energy.grid<0?'Netz · Einspeisung':'Netz · Bezug',watts(energy.grid),'var(--purple)'],['Akku',format(energy.soc)+' %','#99ddbb'],
     ].map(([label,value,color])=>`<div style="--source:${color}"><small>${label}</small><strong>${value}</strong></div>`).join('')}</div>
     <div class="energy-flow ops-flow">${energy.segments}</div>
-    <button class="ops-water ${leak?'bad':''}" data-page="7"><span>Wasser heute<strong>${this.panel.demo?107:format(read(today))} L</strong></span>
-      <small>Ø ${this.panel.demo?180:format(read(average))} L</small><b>${leak?'Leck':read(rate)>0?'Fließt':read(rate)===0 || this.panel.demo?'Ruhe':'—'}</b></button>`;
+    <button class="ops-water ${leak?'bad':''}" data-page="7"><span>Wasser heute<strong>${format(waterUsed)} L</strong></span>
+      <span class="ops-water-average"><small>Ø ${format(waterAverage)} L${Number.isFinite(ratio)?' · '+format(ratio*100)+' %':''}</small>
+      <i style="--water-share:${Number.isFinite(ratio)?Math.min(100,Math.max(0,ratio*100)):0}%"></i></span>
+      ${leak?'<b>Leck</b>':read(rate)>0?'<b>Fließt</b>':''}</button>`;
+
   }
 
   render(data) {
-    const {accesses,complete,alarm,rooms,level,levels,coverButtons,escape,energy,overviewAlarm} = data;
+    const {accesses,complete,alarm,rooms,level,levels,escape,energy,overviewAlarm} = data;
     const panel = this.panel;
     const alert = overviewAlarm.level;
     const safetyText = alert !== 'normal' ? escape(overviewAlarm.reasons || alarm)
       : complete ? 'Status der Zugänge' : 'Zustand einzelner Kontakte fehlt';
     const temperatures = panel.demo ? rooms : ['Wohnzimmer','Carla','Alwin','Schlafzimmer','Flur','Bad']
       .map(name=>rooms.find(room=>room.name===name) ?? {name,value:NaN,display:'—'});
-    const speeds = [0,120,260,430,700];
-    const duration = speeds[level] ? 360/speeds[level] : 0;
     const blinds = panel.blinds();
     const lights = this.favoriteLights();
+    const secured = accesses.filter(item=>item.open===false).length;
+    const open = accesses.filter(item=>item.open===true);
+    const latest = accesses.filter(item=>Number.isFinite(Date.parse(item.changed))).sort((a,b)=>Date.parse(b.changed)-Date.parse(a.changed))[0];
+    const lockReady = accesses.some(item=>item.lock && item.open===true);
+    const camera = panel.config?.overview?.camera;
+    const readings = temperatures.map(room=>room.value).filter(Number.isFinite);
+    const inside = readings.length ? readings.reduce((sum,value)=>sum+value,0)/readings.length : NaN;
+    const outsideId = this.id('outside');
+    const outsideState = outsideId && panel.state(outsideId);
+    const outside = enabled(outsideState) ? Number(outsideState.state) : NaN;
     return `<div class="ops-overview">
-      <section class="ops-safety">${heading('Sicherheit',alert==='rot'?'red':alert==='gelb'?'yellow':'purple',alarm,1)}
+      <section class="ops-safety">${heading('Sicherheit',alert==='rot'?'red':alert==='gelb'?'yellow':'purple',alert==='normal'?'Kein Alarm':alarm,1)}
         ${alert !== 'normal' || complete && !accesses.some(item=>item.open) ? `<strong class="ops-sec-status" data-alert="${alert}">${alarm}</strong>` : ''}
-        <small class="ops-safety-note" title="${safetyText}">${safetyText}</small>
+        <small class="ops-safety-note" title="${safetyText}">${alert==='normal'?`${secured} / ${accesses.length} gesichert${open.length?' · '+open.map(item=>escape(item.name)).join(', ')+' offen':''}`:safetyText}</small>
         <div class="ops-contacts">${accesses.map(item=>`<span class="${item.open ? (alert === 'normal' ? 'contact-open' : 'open') : ''} ${item.open===undefined&&!item.open?'missing':''}">${escape(item.name)}</span>`).join('')}</div>
         <small class="ops-caption">Sensor-Scan · ${accesses.filter(item=>item.open!==undefined).length} / ${accesses.length} online</small>
+        ${latest?`<small class="ops-caption">Zuletzt geändert · ${escape(latest.name)} ${new Date(latest.changed).toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'})}</small>`:''}
+        ${actions(action('06-11','Verriegeln','data-action="ops-lock"',lockReady?'':'disabled'),
+          action('06-12','Kameras','data-action="ops-camera"',camera&&enabled(panel.state(camera))?'':'disabled'),
+          action('06-40','Details ▶','data-page="1"'))}
       </section>
       <section class="ops-vent">${heading('Hauslüftung','pink',level===4?'Boost':level>0?'Aktiv':level===0?'Aus':'—',2)}
         <div class="ops-air">
           <svg viewBox="0 0 120 120" role="img" aria-label="Lüfterrad" class="ops-fan"><circle cx="60" cy="60" r="52" fill="#101019"/>
-            ${Array.from({length:24},(_,i)=>`<path d="M60 3v7" transform="rotate(${i*15} 60 60)" stroke="${i<level*6?(i<6?'#ff995f':'#cd9bd0'):'#292929'}" stroke-width="7"/>`).join('')}
-            <g class="ops-rotor" style="--turn:${duration || 1}s;animation-play-state:${duration?'running':'paused'}">
+            ${Array.from({length:24},(_,i)=>`<path data-fan-segment d="M60 3v7" transform="rotate(${i*15} 60 60)" stroke="${i<level*6?(i<6?'#ff995f':'#cd9bd0'):'#292929'}" stroke-width="7"/>`).join('')}
+            <path class="ops-fan-marker" d="M60 3v7" stroke="#fff" stroke-width="7"/>
+            <g class="ops-rotor">
             ${Array.from({length:6},(_,i)=>`<path d="M60 60Q47 18 75 19Q88 29 60 60" transform="rotate(${i*60} 60 60)" fill="#cd9bd0"/>`).join('')}
             </g><circle cx="60" cy="60" r="14" fill="#000" stroke="#ff995f"/>
             <text x="60" y="61">${levels[level] ?? '—'}</text></svg>
+          <div class="ops-vent-reading"><small>Stufe</small><strong>${levels[level] ?? '—'}</strong><small>Modus</small><b>${panel.remaining>0?'Timer':'Auto'}</b></div>
         </div>
-        <div class="ops-stages">${levels.map((name,i)=>`<button data-action="vent:${i}" aria-pressed="${i===level}" ${panel.canSetLevel(i)?'':'disabled'}>${escapeHtml(name)}</button>`).join('')}</div>
         <div class="ops-timer">Timer <span data-timer-bar>${bars(12,0)}</span><strong>${panel.remaining>0?'<span data-countdown></span>':'Auto'}</strong>
           <button data-action="ops-timer:0" ${panel.demo || enabled(panel.timer)?'':'disabled'}>+15</button>
-          <button data-action="ops-timer:1" ${panel.demo || enabled(panel.timer)?'':'disabled'}>Stop</button></div>
+        </div>
+        ${actions(...levels.map((name,i)=>action('08-0'+i,escapeHtml(name),`data-action="vent:${i}" aria-pressed="${i===level}"`,panel.canSetLevel(i)?'':'disabled')))}
       </section>
-      <section data-card-page="4">${heading('Klima · Quartiere','sand',temperatures.length+' Räume',4)}
-        <div class="ops-climate">${temperatures.map(room=>`<div style="--reading:var(--${room.value<19?'blue':room.value<20.5?'purple':room.value<21.5?'sand':'peach'})">
+      <section data-card-page="4">${heading('Klima · Quartiere','blue',temperatures.length+' Räume',4)}
+        <div class="ops-climate">${temperatures.map(room=>`<div style="--reading:var(--${room.value<20?'blue':'peach'})">
           <span>${escape(room.name)} ${room.stale?'<small class="warn">· Still</small>':''}</span>${bars(10,Math.max(0,(room.value-15)/10))}<strong>${room.display}</strong></div>`).join('')}</div>
+        <div class="ops-card-actions"><div><small>Außen</small><span>${format(outside,1)}°</span></div>
+          <div><small>Ø Innen</small><span>${format(inside,1)}°</span></div>${action('05-20','Heizung ▶','data-page="4"')}</div>
       </section>
-      <section class="ops-blinds" data-card-page="3">${heading('Rollos','purple',blinds.some(blind=>blind.movement)?'Fährt':blinds.length+' Fenster',3)}
-        ${coverButtons}
-        <div class="ops-blind-rows">${blinds.map(blind=>`<div><span>${escape(blind.name)}</span>${bars(10,Number.isFinite(blind.position)?1-blind.position/100:0)}
-          <b>${blind.position===100?'Offen':blind.position===0?'Zu':Number.isFinite(blind.position)?format(100-blind.position)+' %':'—'}</b></div>`).join('')}</div>
+      <section class="ops-blinds" data-card-page="3">${heading('Rollos','sand',blinds.some(blind=>blind.movement)?'Fährt':blinds.every(blind=>blind.position===0)?'Alle zu':blinds.filter(blind=>blind.position===100).length+' offen',3)}
+        <div class="ops-blind-windows">${blinds.map(blind=>`<button data-action="ops-blind:${escape(blind.key)}"
+          ${panel.canToggleOverviewBlind(blind)?'':'disabled'}>
+          <b>${blind.position===null?'—':blind.position+' %'}</b>
+          <span class="ops-blind-frame"><i data-slats="${escape(blind.key)}" style="height:${blind.position===null?0:100-blind.position}%"></i></span>
+          <strong>${escape(blind.name)}</strong><small>${escape(blind.status)}</small></button>`).join('')}</div>
+        ${actions(action('07-01','↓ Alle ab','data-action="cover:0"',panel.canMoveCover(0)?'':'disabled'),
+          action('07-02','Stop','data-action="ops-blind-stop"',blinds.some(blind=>blind.available&&(blind.features&8))?'':'disabled'),
+          action('07-03','↑ Alle auf','data-action="cover:1"',panel.canMoveCover(1)?'':'disabled'))}
       </section>
-      <section class="ops-utilities ${overviewAlarm.leak?'ops-leak':''}">${heading('Versorgung',overviewAlarm.leak?'red':'peach','Strom · Wasser',6)}${this.supply(energy,overviewAlarm)}</section>
-      <section class="ops-light-card">${heading('Licht','sand',lights.filter(light=>light.on).length+' an',9)}${this.lightControls(lights)}</section>
+      <section class="ops-utilities ${overviewAlarm.leak?'ops-leak':''}">${heading('Versorgung',overviewAlarm.leak?'red':'peach','Strom · Wasser',6)}${this.supply(energy,overviewAlarm)}
+        ${actions(action('02-112','Energie ▶','data-page="6"'),action('03-309','Wasser ▶','data-page="7"'),action('02-3','PV-Ausblick ▶','data-action="ops-pv"'))}</section>
+      <section class="ops-light-card">${heading('Licht','gold',lights.filter(light=>light.on).length+' an',9)}${this.lightControls(lights)}</section>
     </div>`;
   }
 }
