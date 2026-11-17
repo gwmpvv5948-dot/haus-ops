@@ -10,6 +10,8 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.typing import ConfigType
 
+from .notifications import async_setup_notifications
+
 DOMAIN = "haus_ops"
 ASSET_URL = "/haus_ops_static"
 
@@ -39,11 +41,12 @@ CONFIG_SCHEMA = vol.Schema(
 
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     """Serve the bundled frontend and register its panel."""
+    await async_setup_notifications(hass, (config[DOMAIN] or {}).get("mobile_notifications", {}))
     await hass.http.async_register_static_paths(
         [StaticPathConfig(ASSET_URL, str(Path(__file__).parent / "frontend"), False)]
     )
     frontend.add_extra_js_url(hass, f"{ASSET_URL}/enterprise-icon.js?v=1")
-    version = "1.6.37"
+    version = "1.6.38"
     await panel_custom.async_register_panel(
         hass,
         frontend_url_path="haus-ops",

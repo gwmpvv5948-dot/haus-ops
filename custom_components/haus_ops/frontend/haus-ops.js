@@ -1,11 +1,12 @@
-import { nightDisplayOff } from './display-night.js?v=1.6.37';
-import {loadPV,pvView} from './pv-panel.js?v=1.6.37';
-import { LightPanel } from './light-panel.js?v=1.6.37';
-import { CircuitsPanel } from './circuits-panel.js?v=1.6.37';
-import { OverviewPanel, overviewFields } from './overview-panel.js?v=1.6.37';
-import { MusicPanel, musicFields } from './music-panel.js?v=1.6.37';
-import { WaterPanel, waterFields } from './water-panel.js?v=1.6.37';
-import { energyFields, energyView } from './energy-panel.js?v=1.6.37';
+import { MobileNotifications } from './mobile-notifications.js?v=1.6.38';
+import { nightDisplayOff } from './display-night.js?v=1.6.38';
+import {loadPV,pvView} from './pv-panel.js?v=1.6.38';
+import { LightPanel } from './light-panel.js?v=1.6.38';
+import { CircuitsPanel } from './circuits-panel.js?v=1.6.38';
+import { OverviewPanel, overviewFields } from './overview-panel.js?v=1.6.38';
+import { MusicPanel, musicFields } from './music-panel.js?v=1.6.38';
+import { WaterPanel, waterFields } from './water-panel.js?v=1.6.38';
+import { energyFields, energyView } from './energy-panel.js?v=1.6.38';
 import { ClimatePanel, roomNames } from './climate-panel.js';
 const antonio = new FontFace('Antonio', `url("${new URL('./Antonio.ttf', import.meta.url).href}")`, {
   weight: '400 700',
@@ -87,7 +88,7 @@ class HausOps extends HTMLElement {
     if (!this.shadowRoot) {
       this.attachShadow({ mode: 'open' });
       this.shadowRoot.innerHTML = `
-        <link rel="stylesheet" href="${new URL('./haus-ops.css?v=1.6.37', import.meta.url)}">
+        <link rel="stylesheet" href="${new URL('./haus-ops.css?v=1.6.38', import.meta.url)}">
         <div class="stage"><div class="frame">
           <div class="brand">LCARS 77</div>
           <header><span class="rail"></span><span class="overview-data" aria-hidden="true" hidden></span><span class="overview-rail" aria-hidden="true" hidden></span><strong>HAUS-OPS</strong><time></time><span class="cap"></span></header>
@@ -1101,7 +1102,7 @@ class HausOps extends HTMLElement {
       return new URL('./sounds/yellow_alert.mp3?v=2', import.meta.url).href;
     }
     if (kind === 'warp' && ['warp_core_loop.wav', 'warp_core.wav', 'warp_core.mp3'].includes(filename)) {
-      return new URL('./sounds/warp_core_loop.wav?v=1.6.37', import.meta.url).href;
+      return new URL('./sounds/warp_core_loop.wav?v=1.6.38', import.meta.url).href;
     }
     if (['beep3', 'beep5', 'beep6'].includes(kind) && filename === kind + '.mp3') {
       return new URL('./sounds/' + filename, import.meta.url).href;
@@ -1412,7 +1413,7 @@ const isTemperature = entity => entity.attributes.device_class === 'temperature'
   || ['°C', '°F'].includes(entity.attributes.unit_of_measurement);
 
 class HausOpsSettings {
-  constructor(panel) { this.panel = panel; }
+  constructor(panel) { this.panel = panel; this.mobile = new MobileNotifications(this); }
 
   async load(hass) {
     if (!hass?.callWS || this.loading) return;
@@ -1420,6 +1421,7 @@ class HausOpsSettings {
     try {
       const { value } = await hass.callWS({ type: 'frontend/get_system_data', key: settingsKey });
       this.panel.savedConfig = value ?? undefined;
+      if (hass.user?.is_admin) await this.mobile.load(hass);
       this.panel.render();
     } catch {
       this.panel.notify('HAUS-OPS-Konfiguration konnte nicht geladen werden');
@@ -1455,7 +1457,7 @@ class HausOpsSettings {
     this.dialog.innerHTML = `<style>
       .settings{box-sizing:border-box;width:min(680px,96vw);height:min(680px,94dvh);max-height:94dvh;padding:0;overflow:hidden;border:2px solid #ff995f;border-radius:16px;background:#121014;color:#ffe3cd;font:16px system-ui;text-transform:none}
       .settings form{height:100%;display:grid;grid-template-rows:auto minmax(0,1fr) auto auto}.settings .fields{overflow:auto;padding:0 18px}.settings::backdrop{background:#000b}.settings h2{margin:0;padding:14px 18px;color:#ff995f}.settings fieldset{margin:12px 0;border:1px solid #77617a;border-radius:10px;padding:10px}
-      .settings legend{color:#cd9bd0;font-weight:700}.settings label{display:grid;gap:4px;margin-bottom:8px}.settings :is(input:not([type=checkbox]), textarea){min-height:44px;width:100%;max-width:100%;background:#26212b;color:#fff;border:1px solid #a19aff;border-radius:6px;padding:6px;font:inherit}
+      .settings legend{color:#cd9bd0;font-weight:700}.settings label{display:grid;gap:4px;margin-bottom:8px}.settings :is(input:not([type=checkbox]), textarea, select){min-height:44px;width:100%;max-width:100%;background:#26212b;color:#fff;border:1px solid #a19aff;border-radius:6px;padding:6px;font:inherit}
       .settings .controls{background:#121014;padding:9px 18px;border-top:1px solid #77617a;display:flex;gap:8px;justify-content:flex-end}.settings button{min-height:48px;padding:0 14px;border-radius:8px}.settings [role=status]{color:#ffcc99;margin:0;padding:4px 18px}.settings [role=status]:empty{display:none}.settings [type=submit]{background:#ff995f;font-weight:800}
       .settings [data-fill-entities]{display:block;width:100%;margin:0 0 10px;border:1px solid #a19aff;background:#a19aff;color:#121014;font:700 15px system-ui;text-align:center}
       .settings [data-fill-entities]:disabled{opacity:.55}
@@ -1491,6 +1493,7 @@ class HausOpsSettings {
           <textarea name="yellow-alerts" rows="5" spellcheck="false" autocapitalize="none">${escape(config.yellow_alerts?.join('\n'))}</textarea>
         </label>
       </fieldset>
+      ${this.mobile.fields()}
       <fieldset><legend>Lichter in der Übersicht</legend>
         <label>Bis zu sechs Entitäts-IDs, eine pro Zeile
           <textarea name="overview-lights" rows="6" spellcheck="false" autocapitalize="none">${escape((config.overview_lights ?? panel.overview.favoriteLights().map(light=>light.id)).join('\n'))}</textarea>
@@ -1695,8 +1698,12 @@ class HausOpsSettings {
       }
       next.sounds[key] = filename;
     }
+    let mobileConfig;
+    try { mobileConfig = this.mobile.configFromForm(data, next); }
+    catch (error) { status.textContent = error.message; return; }
     submit.disabled = true;
     try {
+      await this.mobile.save(this.panel.ha, mobileConfig);
       await this.panel.ha.callWS({ type: 'frontend/set_system_data', key: settingsKey, value: next });
       try { localStorage.setItem(touchSoundPreference, data.has('touch-sounds') ? 'on' : 'off'); } catch {}
       try { localStorage.setItem(dashboardVolumePreference, data.get('dashboard-volume')); } catch {}

@@ -1,0 +1,23 @@
+# Unter dem bestehenden haus_ops:-Block ergänzen, keinen zweiten Block anlegen.
+# Voraussetzung: notify.mobile_app_iphone ist in HA verfügbar.
+haus_ops:
+  mobile_notifications:
+    yellow:
+      recipients:
+        - mobile_app_iphone
+      repeat_seconds: 0
+      critical: false
+    red:
+      recipients:
+        - mobile_app_iphone
+      repeat_seconds: 0
+      critical: false
+    yellow_alerts:
+      - alert.schlafzimmer_temperatur_gelb
+      - alert.terrasse_nacht_gelb
+      - alert.wama_nicht_abgestellt_gelb
+    red_alerts:
+      - alert.garagentor_nacht_rot
+      - alert.haustuer_nacht_rot
+    red_sensor: sensor.alarmstufe
+    red_acknowledged: input_boolean.alarm_quittiert

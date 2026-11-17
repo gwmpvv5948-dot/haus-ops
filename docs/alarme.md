@@ -135,3 +135,20 @@ end_custom_actions:
 ```
 
 Fertig-Zeit und ausstehende Erinnerung werden in HA-Helfern gespeichert und überstehen Neustarts. Die zusätzliche Rücksetz-Automation im Beispiel beendet die Erinnerung bei 0 W. Nach der erstmaligen Einrichtung beginnt die Überwachung mit dem nächsten vom Blueprint erkannten Programmende.
+
+## Mobile Alarmmeldungen
+
+Unter **82873.4 → Mobile Alarmmeldungen** werden die in HA verfügbaren `notify.mobile_app_*`-Aktionen als Empfänger angeboten. Für Gelb und Rot können jeweils mehrere Geräte ausgewählt werden. Ohne Auswahl wird nichts versendet. Die Zustellung übernimmt die HAUS-OPS-Integration im Home-Assistant-Backend; der Browser muss dafür nicht geöffnet sein.
+
+- **Nur einmal beim Auslösen** ist die Voreinstellung. Optional alle 30 Sekunden, jede Minute, alle 5 Minuten oder alle 30 Minuten erinnern.
+- Gelb verwendet die konfigurierten **Gelben Warnungen** (`alert.*`). Nur Zustand `on` sendet; `off` (quittiert) und `idle` senden nicht.
+- Für Rot kann eine eigene Liste `alert.*` hinterlegt werden. Eine leere Liste verwendet den unter **Alarmstufe** konfigurierten Sensor, standardmäßig `sensor.alarmstufe`.
+- Der HA-Helfer unter **Alarm quittiert** beendet rote Push-Wiederholungen, ohne die Alarmursache zu löschen. Für browserunabhängiges Quittieren muss dieser Helfer vorhanden und korrekt zugeordnet sein. Wie bisher beim Ende des roten Alarms zurücksetzen.
+- Kritische Meldungen sind nur für Rot optional. Auf iOS ist dafür die Companion-App-Berechtigung für kritische Hinweise erforderlich; normale Meldungen bleiben standardmäßig aktiv. Bei Android werden bei aktivierter Option hohe Priorität und sofortige Zustellung angefordert; eine Umgehung von „Nicht stören“ wird nicht pauschal eingerichtet.
+- Die Wiederholungen werden im 30-Sekunden-Takt geprüft. Erfolgreiche Zustellungen und die Konfiguration bleiben über Neustarts erhalten. Ein aktiver Alarm wird nicht erneut als neu versendet, solange seine Kennung und sein Beginn unverändert bleiben. Wenn HA beim Neustart einen neuen Beginn meldet, kann eine erneute Erstnachricht entstehen.
+
+Die Beispielkonfiguration `examples/mobile-alarmmeldungen.yaml` verwendet `notify.mobile_app_iphone` einmalig für Gelb und Rot. Vorhandene weitere Alert-IDs ergänzen. Die YAML-Konfiguration dient als Startwert; anschließend im Dashboard gespeicherte Mobile-Einstellungen haben Vorrang. Der Versand beginnt nach dem Laden der aktualisierten Integration. Beim erstmaligen Aktivieren können bereits laufende, nicht quittierte Alarme eine Nachricht erzeugen.
+
+Die Einstellungen speichern sich im HA-Verzeichnis `.storage/haus_ops.mobile_notifications`. Sie enthalten Empfänger-Aktionsnamen und Versandzeitpunkte, keine Passwörter oder Push-Tokens. Companion App und HA übernehmen den eigentlichen Push-Versand. Ein erfolgreicher HA-Aktionsaufruf bestätigt noch nicht, dass das Telefon die Nachricht tatsächlich angezeigt hat.
+
+Referenz: [kritische Companion-App-Benachrichtigungen](https://companion.home-assistant.io/docs/notifications/critical-notifications/).
