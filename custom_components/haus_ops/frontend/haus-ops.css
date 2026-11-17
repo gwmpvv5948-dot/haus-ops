@@ -733,3 +733,24 @@ footer .rail[data-music-tone=error]{background:var(--red)}
 .ops-light-actions button:nth-child(2){background:var(--peach)}
 .ops-light-actions button:nth-child(3){background:var(--pink)}
 .ops-light-actions button:last-child{border-radius:0 10px 10px 0}
+
+.frame[data-alert=gelb] :is(.brand,.heel){--peach:#fc3;animation:ops-alert 2s infinite alternate}
+.frame[data-alert=gelb] .nav-scroll [data-page="1"]{background:#fc3!important;animation:ops-alert 2s infinite alternate}
+.frame[data-yellow-warnings][data-alert=gelb-ruhig] .nav-scroll [data-page="1"]{box-shadow:inset -5px 0 #fc3}
+.frame[data-alert=gelb-ruhig] > header strong{background:#fc3;color:#000;border-radius:12px;padding:2px 8px}
+.yellow-warnings{min-height:0;overflow:hidden;gap:5px;color:var(--sand)}
+.yellow-warnings>strong{font-size:35px;color:#fc3}
+.yellow-warnings>div:not([class]){font-size:17px}
+.yellow-warnings>small{font-size:11px;color:var(--pink)}
+.yellow-actions{display:grid;grid-template-columns:1.4fr 1fr 1fr;gap:5px}
+.yellow-actions button{min-height:45px;border-radius:7px;font-size:13px}
+.yellow-actions small{display:block;font-size:9px}
+.yellow-actions [data-warning-hold]{position:relative;background:#141414;border:1px solid #555;color:var(--sand)}
+.yellow-actions [data-warning-hold].holding::after{content:"";position:absolute;inset:auto 0 0;height:4px;background:#fc3;transform-origin:left;animation:yellow-hold 1.2s linear both}
+@keyframes yellow-hold{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+.yellow-queue{display:grid;align-content:start;gap:4px;overflow:auto;scrollbar-width:none;min-height:0}
+.yellow-queue button{display:flex;justify-content:space-between;align-items:center;gap:6px;min-height:32px;background:#211d12;color:var(--sand);border:1px solid transparent;border-radius:14px;padding:0 10px;font-size:12px;text-align:left}
+.yellow-queue button[aria-pressed=true],.yellow-queue [data-warning=quittiert]{border-color:#fc3}
+.yellow-queue [data-warning=stumm]{border-color:var(--pink)}
+.yellow-warnings [data-warning=neu] b,.yellow-warnings>strong[data-warning=neu]{animation:ops-alert 1.6s infinite alternate}
+@media(prefers-reduced-motion:reduce){.frame[data-alert=gelb] :is(.brand,.heel,.nav-scroll [data-page="1"]),.yellow-warnings [data-warning=neu] b,.yellow-warnings>strong[data-warning=neu]{animation:none!important}}

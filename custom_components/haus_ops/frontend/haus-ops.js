@@ -1,10 +1,10 @@
-import {loadPV,pvView} from './pv-panel.js?v=1.6.22';
-import { LightPanel } from './light-panel.js?v=1.6.22';
-import { CircuitsPanel } from './circuits-panel.js?v=1.6.22';
-import { OverviewPanel, overviewFields } from './overview-panel.js?v=1.6.22';
-import { MusicPanel, musicFields } from './music-panel.js?v=1.6.22';
-import { WaterPanel, waterFields } from './water-panel.js?v=1.6.22';
-import { energyFields, energyView } from './energy-panel.js?v=1.6.22';
+import {loadPV,pvView} from './pv-panel.js?v=1.6.23';
+import { LightPanel } from './light-panel.js?v=1.6.23';
+import { CircuitsPanel } from './circuits-panel.js?v=1.6.23';
+import { OverviewPanel, overviewFields } from './overview-panel.js?v=1.6.23';
+import { MusicPanel, musicFields } from './music-panel.js?v=1.6.23';
+import { WaterPanel, waterFields } from './water-panel.js?v=1.6.23';
+import { energyFields, energyView } from './energy-panel.js?v=1.6.23';
 import { ClimatePanel, roomNames } from './climate-panel.js';
 const antonio = new FontFace('Antonio', `url("${new URL('./Antonio.ttf', import.meta.url).href}")`, {
   weight: '400 700',
@@ -85,7 +85,7 @@ class HausOps extends HTMLElement {
     if (!this.shadowRoot) {
       this.attachShadow({ mode: 'open' });
       this.shadowRoot.innerHTML = `
-        <link rel="stylesheet" href="${new URL('./haus-ops.css?v=1.6.22', import.meta.url)}">
+        <link rel="stylesheet" href="${new URL('./haus-ops.css?v=1.6.23', import.meta.url)}">
         <div class="stage"><div class="frame">
           <div class="brand">LCARS 77</div>
           <header><span class="rail"></span><strong>HAUS-OPS</strong><time></time><span class="cap"></span></header>
@@ -104,6 +104,7 @@ class HausOps extends HTMLElement {
     const options = {signal:this.blindInputEvents.signal};
     this.bindLightMouseScroll(options);
     this.bindOverviewDimmer(options);
+    this.bindWarningHold(options);
     this.shadowRoot.addEventListener('pointerdown', event => {
       if (event.target.matches('[data-light-range]:enabled')) this.lightDrag = event.pointerId;
       if (!event.target.matches('[data-blind-position]:enabled') || !event.isPrimary || event.button !== 0) return;
@@ -165,6 +166,82 @@ class HausOps extends HTMLElement {
     this.tick();
     this.lightDataClock = setInterval(() => this.updateLightData(), 160);
     this.clock = setInterval(() => { this.tick(); this.render(); }, 1000);
+  }
+
+  yellowWarnings() {
+    this.yellowMuted ??= new Map();
+    return (this.config?.yellow_alerts ?? []).flatMap(id => {
+      const state = this.state(id);
+      if (!['on','off'].includes(state?.state)) {
+        this.yellowMuted.delete(id);
+        return [];
+      }
+      const muted = this.yellowMuted.get(id);
+      const status = state.state === 'off' ? 'quittiert'
+        : muted?.since === state.last_changed && muted.until > Date.now() ? 'stumm' : 'neu';
+      return [{id,name:state.attributes.friendly_name || id, since:state.last_changed,status}];
+    });
+  }
+
+  warningView(warnings) {
+    const selected = warnings.find(item=>item.id===this.selectedWarning) ?? warnings[0];
+    const time = item => new Date(item.since).toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'});
+    return `<section class="yellow-warnings">
+      <strong data-warning="${selected.status}">${selected.status==='neu'?'Alarmstufe Gelb':'Gelb · '+selected.status}</strong>
+      <div>${escape(selected.name)}</div><small>Quelle ${escape(selected.id)} · ${selected.status==='neu'?'Gemeldet':'Seit'} ${escape(time(selected))}</small>
+      <div class="yellow-actions">
+        <button data-warning-hold="${escape(selected.id)}" ${selected.status==='quittiert'?'disabled':''}>Quittieren <small>1,2 s halten</small></button>
+        <button data-action="yellow-mute:${escape(selected.id)}" ${selected.status!=='neu'?'disabled':''}>Stumm 30 min</button>
+        <button data-action="yellow-details:${escape(selected.id)}">Details</button>
+      </div><h2 class="band">Warnungen</h2>
+      <div class="yellow-queue">${warnings.map(item=>`<button data-action="yellow-select:${escape(item.id)}" data-warning="${item.status}"
+        aria-pressed="${selected===item}"><span>${escape(item.name)}</span><b>${item.status} · ${escape(time(item))}</b></button>`).join('')}</div>
+    </section>`;
+  }
+
+  bindWarningHold(options) {
+    const root = this.shadowRoot;
+    const cancel = () => {
+      clearTimeout(this.warningHold?.timer);
+      this.warningHold?.button.classList.remove('holding');
+      this.warningHold = undefined;
+    };
+    const start = (button, pointer) => {
+      if (!button || this.warningHold) return;
+      const id = button.dataset.warningHold;
+      const since = this.state(id)?.last_changed;
+      button.classList.add('holding');
+      const timer = setTimeout(async () => {
+        cancel();
+        if (!button.isConnected || this.state(id)?.state !== 'on' || this.state(id)?.last_changed !== since) return;
+        try {
+          await this.call(id,'turn_off');
+          this.selectedWarning = this.yellowWarnings().find(item=>item.id!==id && item.status==='neu')?.id ?? id;
+        } catch { this.notify('Quittieren fehlgeschlagen'); }
+        this.render();
+      },1200);
+      this.warningHold = {button,pointer,timer};
+    };
+    root.addEventListener('pointerdown',event => {
+      const button = event.target.closest('[data-warning-hold]:enabled');
+      if (!button || event.button!==0 || !event.isPrimary) return;
+      button.setPointerCapture(event.pointerId);
+      start(button,event.pointerId);
+    },options);
+    for (const type of ['pointerup','pointercancel','lostpointercapture']) {
+      root.addEventListener(type,event=>{ if (this.warningHold?.pointer===event.pointerId) cancel(); },options);
+    }
+    root.addEventListener('keydown',event=>{
+      if (![' ','Enter'].includes(event.key)) return;
+      const button = event.target.closest('[data-warning-hold]:enabled');
+      if (!button) return;
+      event.preventDefault();
+      if (!event.repeat) start(button,undefined);
+    },options);
+    root.addEventListener('keyup',event=>{ if ([' ','Enter'].includes(event.key)) cancel(); },options);
+    root.addEventListener('focusout',event=>{ if (event.target===this.warningHold?.button) cancel(); },options);
+    window.addEventListener('blur',cancel,options);
+    options.signal.addEventListener('abort',cancel,{once:true});
   }
 
   bindOverviewDimmer(options) {
@@ -528,6 +605,24 @@ class HausOps extends HTMLElement {
     const main = this.shadowRoot?.querySelector('main');
     if (!main) return;
     const overviewAlarm = this.overview.alarm();
+    const warnings = this.yellowWarnings();
+    const newWarnings = warnings.filter(item=>item.status==='neu');
+    const warningActive = newWarnings.length > 0;
+    const newKeys = new Set(newWarnings.map(item=>item.id+'/'+item.since));
+    const incomingWarning = [...newKeys].some(key=>!this.previousWarnings?.has(key));
+    this.previousWarnings = newKeys;
+    if (this.config?.yellow_alerts?.length && overviewAlarm.level !== 'rot') {
+      overviewAlarm.level = warnings.length ? 'gelb' : 'normal';
+      overviewAlarm.reasons = warnings.map(item=>item.name).join(' · ');
+      overviewAlarm.count = warnings.length;
+    }
+    const yellowQuiet = overviewAlarm.level==='gelb' && warnings.length>0 && !warningActive;
+    if (incomingWarning && overviewAlarm.level==='gelb') {
+      this.selectedWarning = newWarnings[0].id;
+      if (!matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        this.animate([{filter:'brightness(1.75) sepia(.7)'},{filter:'none'}],{duration:420});
+      }
+    }
     if (overviewAlarm.level !== this.previousAlarmLevel) {
       this.previousAlarmLevel = overviewAlarm.level;
       if (overviewAlarm.level === 'gelb' || overviewAlarm.level === 'rot') this.page = 1;
@@ -567,11 +662,11 @@ class HausOps extends HTMLElement {
     const deviceLabel = device => device.ready ? (device.on ? 'An' : 'Aus') : 'Keine Daten';
     const coverButtons = `<div class="actions">${['ab', 'auf'].map((action, index) =>
       `<button data-action="cover:${index}" ${this.canMoveCover(index) ? '' : 'disabled'}><span aria-hidden="true">${index ? '↑' : '↓'}</span> Alle ${action}</button>`).join('')}</div>`;
-    if (this.ha) this.syncAlarmSound(overviewAlarm.level);
+    if (this.ha) this.syncAlarmSound(yellowQuiet ? 'normal' : overviewAlarm.level, overviewAlarm.acknowledged);
     if (overviewAlarm.level !== 'rot') this.alarmDetailsPage = undefined;
     const hasAlarm = overviewAlarm.level !== 'normal';
     const alarm = overviewAlarm.level === 'rot' ? redAlarmLabel
-      : overviewAlarm.level === 'gelb' ? 'Alarmstufe Gelb'
+      : overviewAlarm.level === 'gelb' ? yellowQuiet ? (warnings.some(item=>item.status==='stumm') ? 'Gelb · stumm' : 'Gelb · quittiert') : 'Alarmstufe Gelb'
       : complete && !open.length ? 'Gesichert' : 'Kein aktiver Alarm';
     let layout;
     switch (this.page) {
@@ -583,6 +678,10 @@ class HausOps extends HTMLElement {
         layout = lightView.layout;
         break;
       case 1:
+        if (warnings.length && overviewAlarm.level !== 'rot') {
+          layout = this.warningView(warnings);
+          break;
+        }
         layout = `<section class="detail">${band('Sicherheit · Zugänge', '--red')}
           <div class="security-status" data-alert="${overviewAlarm.level}" role="status">${alarm}
             ${hasAlarm && overviewAlarm.reasons ? ' · ' + escape(overviewAlarm.reasons) : ''}</div>
@@ -634,12 +733,14 @@ class HausOps extends HTMLElement {
     alarmLayer.hidden = !showAlarm;
     this.shadowRoot.querySelector('main').inert = showAlarm;
     const frame = this.shadowRoot.querySelector('.frame');
-    frame.dataset.alert = alert;
+    frame.dataset.alert = yellowQuiet ? 'gelb-ruhig' : alert;
+    frame.toggleAttribute('data-yellow-warnings', warnings.length > 0);
     frame.toggleAttribute('data-security-alert', alert === 'gelb' &&
       (open.length > 0 || /tür|tor|fenster|schloss/i.test(overviewAlarm.reasons)));
     const climatePage = this.page === 4;
     this.shadowRoot.querySelector('.frame').classList.toggle('climate-page', climatePage);
     this.shadowRoot.querySelector('header strong').textContent = alert === 'rot' ? (overviewAlarm.acknowledged ? redAlarmLabel + ' · quittiert' : redAlarmLabel)
+      : yellowQuiet ? (warnings.some(item=>item.status==='stumm') ? `${warnings.filter(item=>item.status==='stumm').length} stumm · ${warnings.filter(item=>item.status==='quittiert').length} quittiert` : `${warnings.length} quittiert`)
       : alert === 'gelb' ? `Alarmstufe Gelb · ${overviewAlarm.count} ${overviewAlarm.count === 1 ? 'Meldung' : 'Meldungen'}` : this.page === 9 ? 'Licht' : circuits ? 'Stromkreise' : music ? 'Musik' : water ? 'Wasser' : energy ? 'Energie' : climatePage ? 'Klima' : this.page === 3 ? 'Rollos' : 'HAUS-OPS';
     this.shadowRoot.querySelector('footer .rail').textContent = [
       this.demo ? 'Demo' : '', level >= 0 ? 'Lüftung Stufe ' + levels[level] : 'Haus-Ops'
@@ -686,7 +787,7 @@ class HausOps extends HTMLElement {
       this.layout = layout;
     }
     const dragging = this.page === 3 && this.draggingBlind !== undefined;
-    if (!dragging && !(this.page === 0 && this.overviewLightDrag) && !(lightView && this.lightDrag !== undefined) && this.layout !== layout) {
+    if (!dragging && !(this.page === 1 && this.warningHold) && !(this.page === 0 && this.overviewLightDrag) && !(lightView && this.lightDrag !== undefined) && this.layout !== layout) {
       const focused = this.shadowRoot.activeElement;
       const action = main.contains(focused) && focused.dataset.action;
       const focusedBlind = main.contains(focused) && focused.dataset.blindPosition;
@@ -792,7 +893,7 @@ class HausOps extends HTMLElement {
       return new URL('./sounds/yellow_alert.mp3?v=2', import.meta.url).href;
     }
     if (kind === 'warp' && ['warp_core_loop.wav', 'warp_core.wav', 'warp_core.mp3'].includes(filename)) {
-      return new URL('./sounds/warp_core_loop.wav?v=1.6.22', import.meta.url).href;
+      return new URL('./sounds/warp_core_loop.wav?v=1.6.23', import.meta.url).href;
     }
     if ((kind === 'beep5' || kind === 'beep6') && filename === kind + '.mp3') {
       return new URL('./sounds/' + filename, import.meta.url).href;
@@ -802,8 +903,8 @@ class HausOps extends HTMLElement {
       : '';
   }
 
-  syncAlarmSound(level) {
-    const kind = {rot:'red', gelb:'yellow'}[level];
+  syncAlarmSound(level, acknowledged) {
+    const kind = level === 'rot' && acknowledged ? undefined : {rot:'red', gelb:'yellow'}[level];
     const url = kind && this.soundUrl(kind);
     const next = url && this.touchSoundsEnabled ? url : '';
     const interval = level === 'rot' ? 30000 : 60000;
@@ -927,6 +1028,19 @@ class HausOps extends HTMLElement {
     const i = Number(index);
     this.busy = true;
     try {
+      if (kind.startsWith('yellow-')) {
+        const warning = this.yellowWarnings().find(item=>item.id===index);
+        if (!warning) return;
+        this.selectedWarning = index;
+        if (kind === 'yellow-mute' && warning.status==='neu') {
+          this.yellowMuted.set(index,{since:warning.since,until:Date.now()+1800000});
+          this.selectedWarning = this.yellowWarnings().find(item=>item.status==='neu')?.id ?? index;
+        }
+        if (kind === 'yellow-details') this.dispatchEvent(new CustomEvent('hass-more-info',{
+          detail:{entityId:index},bubbles:true,composed:true,
+        }));
+        return;
+      }
       if (kind.startsWith('light-')) {
         await this.lightsPanel.act(kind.slice(6),index,value);
         return;
@@ -1108,6 +1222,11 @@ class HausOpsSettings {
         ${[['off','Alle aus'],['evening','Abendlicht'],['film','Film'],['hell','Hell']].map(([key,label])=>
           `<label>${label}<input name="light-scene-${key}" value="${escape(config.light_scenes?.[key])}" placeholder="${escape(panel.lightsPanel.sceneId(key))}" spellcheck="false"></label>`).join('')}
       </fieldset>
+      <fieldset><legend>Gelbe Warnungen</legend>
+        <label>Eine alert.*-Entität pro Zeile
+          <textarea name="yellow-alerts" rows="5" spellcheck="false" autocapitalize="none">${escape(config.yellow_alerts?.join('\n'))}</textarea>
+        </label>
+      </fieldset>
       <fieldset><legend>Lichter in der Übersicht</legend>
         <label>Bis zu sechs Entitäts-IDs, eine pro Zeile
           <textarea name="overview-lights" rows="6" spellcheck="false" autocapitalize="none">${escape((config.overview_lights ?? panel.overview.favoriteLights().map(light=>light.id)).join('\n'))}</textarea>
@@ -1223,6 +1342,11 @@ class HausOpsSettings {
     next.light_selection_saved = true;
     if (next.lights.some(id => !circuit(id))) {
       status.textContent = 'Leuchtenfilter · Bitte IDs mit light. oder switch. eingeben.';
+      return;
+    }
+    next.yellow_alerts = [...new Set(data.get('yellow-alerts').split(/[\s,]+/).filter(Boolean))];
+    if (next.yellow_alerts.some(id => !/^alert\.[a-z0-9_]+$/.test(id) || !this.panel.ha.states[id])) {
+      status.textContent = 'Gelbe Warnungen · Bitte vorhandene alert.*-Entitäten eingeben.';
       return;
     }
     next.overview_lights = [...new Set(data.get('overview-lights').split(/[\s,]+/).filter(Boolean))];
