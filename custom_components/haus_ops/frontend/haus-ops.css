@@ -837,3 +837,5 @@ footer .rail[data-music-tone=error]{background:var(--red)}
 .frame:is([data-alert="gelb"],[data-alert="gelb-ruhig"]) > header > time{line-height:18px}
 
 .frame[data-alert="gelb"] :is(header,footer,.brand,.heel,.nav-scroll [data-page="1"],.ops-safety .ops-heading,.ops-contacts .open,.yellow-warnings [data-warning="neu"] b,.yellow-warnings>strong[data-warning="neu"]){animation:none!important}
+
+nav [data-settings]{touch-action:manipulation;position:relative;z-index:1;min-height:44px;-webkit-user-select:none;user-select:none}
