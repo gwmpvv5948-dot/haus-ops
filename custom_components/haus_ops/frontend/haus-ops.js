@@ -1,10 +1,10 @@
-import {loadPV,pvView} from './pv-panel.js?v=1.6.29';
-import { LightPanel } from './light-panel.js?v=1.6.29';
-import { CircuitsPanel } from './circuits-panel.js?v=1.6.29';
-import { OverviewPanel, overviewFields } from './overview-panel.js?v=1.6.29';
-import { MusicPanel, musicFields } from './music-panel.js?v=1.6.29';
-import { WaterPanel, waterFields } from './water-panel.js?v=1.6.29';
-import { energyFields, energyView } from './energy-panel.js?v=1.6.29';
+import {loadPV,pvView} from './pv-panel.js?v=1.6.30';
+import { LightPanel } from './light-panel.js?v=1.6.30';
+import { CircuitsPanel } from './circuits-panel.js?v=1.6.30';
+import { OverviewPanel, overviewFields } from './overview-panel.js?v=1.6.30';
+import { MusicPanel, musicFields } from './music-panel.js?v=1.6.30';
+import { WaterPanel, waterFields } from './water-panel.js?v=1.6.30';
+import { energyFields, energyView } from './energy-panel.js?v=1.6.30';
 import { ClimatePanel, roomNames } from './climate-panel.js';
 const antonio = new FontFace('Antonio', `url("${new URL('./Antonio.ttf', import.meta.url).href}")`, {
   weight: '400 700',
@@ -86,7 +86,7 @@ class HausOps extends HTMLElement {
     if (!this.shadowRoot) {
       this.attachShadow({ mode: 'open' });
       this.shadowRoot.innerHTML = `
-        <link rel="stylesheet" href="${new URL('./haus-ops.css?v=1.6.29', import.meta.url)}">
+        <link rel="stylesheet" href="${new URL('./haus-ops.css?v=1.6.30', import.meta.url)}">
         <div class="stage"><div class="frame">
           <div class="brand">LCARS 77</div>
           <header><span class="rail"></span><span class="overview-data" aria-hidden="true" hidden></span><span class="overview-rail" aria-hidden="true" hidden></span><strong>HAUS-OPS</strong><time></time><span class="cap"></span></header>
@@ -1055,7 +1055,7 @@ class HausOps extends HTMLElement {
       return new URL('./sounds/yellow_alert.mp3?v=2', import.meta.url).href;
     }
     if (kind === 'warp' && ['warp_core_loop.wav', 'warp_core.wav', 'warp_core.mp3'].includes(filename)) {
-      return new URL('./sounds/warp_core_loop.wav?v=1.6.29', import.meta.url).href;
+      return new URL('./sounds/warp_core_loop.wav?v=1.6.30', import.meta.url).href;
     }
     if (['beep3', 'beep5', 'beep6'].includes(kind) && filename === kind + '.mp3') {
       return new URL('./sounds/' + filename, import.meta.url).href;
@@ -1414,7 +1414,7 @@ class HausOpsSettings {
           <input name="display-brightness-action" value="${escape(config.display_brightness_action)}" placeholder="shell_command.walldisplay_helligkeit" spellcheck="false">
         </label>
         <label>Helligkeit bei Benutzung <output for="display-brightness">50 %</output>
-          <input id="display-brightness" type="range" min="5" max="100" step="1" value="50" disabled>
+          <input id="display-brightness" name="display-brightness" type="range" min="5" max="100" step="1" value="50" disabled>
         </label>
         <small>Nach 60 Sekunden ohne Bedienung wird auf 5 % gedimmt. Bei Berührung wird die hier gespeicherte Helligkeit wiederhergestellt. Die Einstellung gilt für diesen Browser.</small>
         ${soundSlots.map(([key,label,defaultFile]) => `<label>${label}<input name="sound-${key}" value="${escape(config.sounds?.[key] ?? defaultFile)}" placeholder="Dateiname, z. B. beep.mp3" spellcheck="false"></label>`).join('')}</fieldset>
@@ -1463,7 +1463,7 @@ class HausOpsSettings {
         ${title === 'Lüftung' ? '<p>Stufensteuerung über Trafo-Helfer</p>' : ''}</fieldset>`).join('')}
       </div><p role="status"></p><div class="controls"><button type="button" data-cancel>Abbrechen</button><button type="submit">OK</button></div></form>`;
     const form = this.dialog.querySelector('form');
-    const brightness = form.elements.namedItem('display-brightness');
+    const brightness = form.querySelector('input[name="display-brightness"]');
     const brightnessAction = config.display_brightness_action;
     const brightnessKey = 'haus-ops.display-brightness.' + brightnessAction;
     if (/^shell_command\.[a-z0-9_]+$/.test(brightnessAction ?? '')) {
