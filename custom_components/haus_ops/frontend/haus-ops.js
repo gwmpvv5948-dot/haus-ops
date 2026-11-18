@@ -1,13 +1,13 @@
-import { setupSettingsLayout } from './settings-layout.js?v=1.6.41';
-import { MobileNotifications } from './mobile-notifications.js?v=1.6.41';
-import { nightDisplayOff } from './display-night.js?v=1.6.41';
-import {loadPV,pvView} from './pv-panel.js?v=1.6.41';
-import { LightPanel } from './light-panel.js?v=1.6.41';
-import { CircuitsPanel } from './circuits-panel.js?v=1.6.41';
-import { OverviewPanel, overviewFields } from './overview-panel.js?v=1.6.41';
-import { MusicPanel, musicFields } from './music-panel.js?v=1.6.41';
-import { WaterPanel, waterFields } from './water-panel.js?v=1.6.41';
-import { energyFields, energyView } from './energy-panel.js?v=1.6.41';
+import { setupSettingsLayout } from './settings-layout.js?v=1.6.42';
+import { MobileNotifications } from './mobile-notifications.js?v=1.6.42';
+import { nightDisplayOff } from './display-night.js?v=1.6.42';
+import {loadPV,pvView} from './pv-panel.js?v=1.6.42';
+import { LightPanel } from './light-panel.js?v=1.6.42';
+import { CircuitsPanel } from './circuits-panel.js?v=1.6.42';
+import { OverviewPanel, overviewFields } from './overview-panel.js?v=1.6.42';
+import { MusicPanel, musicFields } from './music-panel.js?v=1.6.42';
+import { WaterPanel, waterFields } from './water-panel.js?v=1.6.42';
+import { energyFields, energyView } from './energy-panel.js?v=1.6.42';
 import { ClimatePanel, roomNames } from './climate-panel.js';
 const antonio = new FontFace('Antonio', `url("${new URL('./Antonio.ttf', import.meta.url).href}")`, {
   weight: '400 700',
@@ -89,7 +89,7 @@ class HausOps extends HTMLElement {
     if (!this.shadowRoot) {
       this.attachShadow({ mode: 'open' });
       this.shadowRoot.innerHTML = `
-        <link rel="stylesheet" href="${new URL('./haus-ops.css?v=1.6.41', import.meta.url)}">
+        <link rel="stylesheet" href="${new URL('./haus-ops.css?v=1.6.42', import.meta.url)}">
         <div class="stage"><div class="frame">
           <div class="brand">LCARS 77</div>
           <header><span class="rail"></span><span class="overview-data" aria-hidden="true" hidden></span><span class="overview-rail" aria-hidden="true" hidden></span><strong>HAUS-OPS</strong><time></time><span class="cap"></span></header>
@@ -1047,8 +1047,8 @@ class HausOps extends HTMLElement {
     const action = this.config?.display_brightness_action;
     if (!/^shell_command\.[a-z0-9_]+$/.test(action ?? '') || !this.ha) return;
     this.circuits.load();
-    const night = standby && nightDisplayOff(new Date(), this.ha.states, this.circuits.registry, this.config?.display_night_lights);
-    this.displayBrightnessTarget = {action,value:standby ? (night ? 0 : 5) : this.activeDisplayBrightness};
+    const night = standby && nightDisplayOff(new Date(), this.ha.states, this.circuits.registry, this.config?.display_night_lights, this.ha.config?.time_zone || 'Europe/Berlin');
+    this.displayBrightnessTarget = {action,value:standby ? (night ? 0 : 10) : this.activeDisplayBrightness};
     void this.sendDisplayBrightness();
   }
 
@@ -1059,13 +1059,15 @@ class HausOps extends HTMLElement {
       while (this.isConnected && this.displayBrightnessTarget) {
         const target = this.displayBrightnessTarget;
         const key = target.action + '/' + target.value;
-        if (this.displayBrightnessApplied === key) break;
+        // Reassert after a minute in case an external idle process changed the backlight.
+        if (this.displayBrightnessApplied === key && Date.now() - (this.brightnessAppliedAt || 0) < 60000) break;
         const result = await this.ha.callWS({
           type:'call_service',domain:'shell_command',service:target.action.split('.')[1],
           service_data:{brightness:target.value},return_response:true,
         });
         if (result?.response?.returncode !== undefined && result.response.returncode !== 0) throw new Error('SSH fehlgeschlagen');
         this.displayBrightnessApplied = key;
+        this.brightnessAppliedAt = Date.now();
       }
     } catch {
       this.brightnessRetryAt = Date.now() + 10000;
@@ -1103,7 +1105,7 @@ class HausOps extends HTMLElement {
       return new URL('./sounds/yellow_alert.mp3?v=2', import.meta.url).href;
     }
     if (kind === 'warp' && ['warp_core_loop.wav', 'warp_core.wav', 'warp_core.mp3'].includes(filename)) {
-      return new URL('./sounds/warp_core_loop.wav?v=1.6.41', import.meta.url).href;
+      return new URL('./sounds/warp_core_loop.wav?v=1.6.42', import.meta.url).href;
     }
     if (['beep3', 'beep5', 'beep6'].includes(kind) && filename === kind + '.mp3') {
       return new URL('./sounds/' + filename, import.meta.url).href;
@@ -1456,7 +1458,7 @@ class HausOpsSettings {
     this.dialog = document.createElement('dialog');
     this.dialog.className = 'settings';
     this.dialog.setAttribute('aria-labelledby', 'settings-title');
-    this.dialog.innerHTML = `<link rel="stylesheet" href="${new URL('./settings.css?v=1.6.41', import.meta.url)}">
+    this.dialog.innerHTML = `<link rel="stylesheet" href="${new URL('./settings.css?v=1.6.42', import.meta.url)}">
     <form><header class="settings-header"><h2 id="settings-title">HAUS-OPS konfigurieren</h2><p>Bereich wählen · Änderungen mit OK speichern</p></header>
     <nav class="settings-sections" aria-label="Einstellungsbereiche"></nav><div class="fields">
       <fieldset><legend>Display</legend><label><span><input type="checkbox" name="touch-sounds" ${panel.touchSoundsEnabled ? 'checked' : ''}> Star-Trek-Töne auf diesem Display</span></label>

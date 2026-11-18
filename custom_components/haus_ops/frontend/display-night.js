@@ -1,6 +1,8 @@
 // An empty or unavailable group never confirms that the ground floor is dark.
-export function nightDisplayOff(date, states = {}, registry, configured = []) {
-  const hour = date.getHours();
+export function nightDisplayOff(date, states = {}, registry, configured = [], timeZone = 'Europe/Berlin') {
+  const hour = Number(new Intl.DateTimeFormat('en-GB', {
+    timeZone, hour: '2-digit', hourCycle: 'h23',
+  }).format(date));
   if (hour >= 6 && hour < 22) return false;
   let ids = configured;
   if (!ids?.length) {
