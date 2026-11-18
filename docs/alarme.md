@@ -100,7 +100,7 @@ Die Referenz `examples/gelbe-zusatzalarme.yaml` enthält drei weitere Warnungen.
 | --- | --- | --- |
 | `alert.schlafzimmer_temperatur_gelb` | `sensor.sz_temp` unter 16 °C | Temperatur mindestens 16 °C |
 | `alert.terrasse_nacht_gelb` | `binary_sensor.wz_terasse` offen, 00–06 Uhr, mindestens 10 Minuten seit Öffnung bzw. Mitternacht | Kontakt geschlossen oder 06 Uhr |
-| `alert.wama_nicht_abgestellt_gelb` | 60 Minuten nach tatsächlichem Programmende, Leistung weiterhin über 0 W | 0 W oder neuer Waschgang |
+| `alert.wama_nicht_abgestellt_gelb` | 60 Minuten nach tatsächlichem Programmende, Leistung weiterhin über 2 W | höchstens 2 W oder neuer Waschgang |
 
 Die Zeitprüfung erfolgt im Minutentakt. Nichtnumerische Temperatur- und Leistungswerte lösen keine neue Warnung aus. Die Alerts erlauben das Quittieren nach dem oben beschriebenen Ablauf. Nach dem Laden der HA-Regeln die drei Alert-IDs unter **Gelbe Warnungen** ergänzen und mit **OK** speichern.
 
@@ -134,7 +134,7 @@ end_custom_actions:
           entity_id: input_boolean.wama_abstellen_ausstehend
 ```
 
-Fertig-Zeit und ausstehende Erinnerung werden in HA-Helfern gespeichert und überstehen Neustarts. Die zusätzliche Rücksetz-Automation im Beispiel beendet die Erinnerung bei 0 W. Nach der erstmaligen Einrichtung beginnt die Überwachung mit dem nächsten vom Blueprint erkannten Programmende.
+Fertig-Zeit und ausstehende Erinnerung werden in HA-Helfern gespeichert und überstehen Neustarts. Die zusätzliche Rücksetz-Automation im Beispiel beendet die Erinnerung bei höchstens 2 W. Nach der erstmaligen Einrichtung beginnt die Überwachung mit dem nächsten vom Blueprint erkannten Programmende.
 
 ## Mobile Alarmmeldungen
 

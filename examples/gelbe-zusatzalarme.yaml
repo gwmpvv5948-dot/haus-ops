@@ -33,7 +33,7 @@ template:
         availability: "{{ is_number(states('sensor.tasmota_wama_plug_energy_power')) }}"
         state: >-
           {{ is_state('input_boolean.wama_abstellen_ausstehend', 'on')
-             and states('sensor.tasmota_wama_plug_energy_power') | float(0) > 0
+             and states('sensor.tasmota_wama_plug_energy_power') | float(0) > 2
              and as_timestamp(states('input_datetime.wama_programmende'), none) is not none
              and as_timestamp(now()) - as_timestamp(states('input_datetime.wama_programmende'), as_timestamp(now())) >= 3600 }}
 
@@ -70,7 +70,7 @@ automation:
         event: start
     conditions:
       - condition: template
-        value_template: "{{ is_number(states('sensor.tasmota_wama_plug_energy_power')) and states('sensor.tasmota_wama_plug_energy_power') | float(1) <= 0 }}"
+        value_template: "{{ is_number(states('sensor.tasmota_wama_plug_energy_power')) and states('sensor.tasmota_wama_plug_energy_power') | float(3) <= 2 }}"
       - condition: state
         entity_id: input_boolean.wama_abstellen_ausstehend
         state: "on"
