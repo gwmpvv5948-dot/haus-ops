@@ -869,3 +869,17 @@ nav,:host([data-tall-landscape]) nav{grid-template-rows:minmax(0,1fr)}
 .music-room-list button{touch-action:pan-y}
 .music-room-list::-webkit-scrollbar{display:none}
 .music-group-members{max-height:100px;overflow-y:auto;touch-action:pan-y;scrollbar-width:none}
+
+/* Keep playback content within its grid column on the wall display. */
+.music-play{min-width:0;max-width:100%;overflow:hidden}
+.music-play>.music-now,.music-play>.music-controls,.music-play>.music-volume{flex-shrink:0;max-width:100%;box-sizing:border-box}
+.music-now{min-width:0;width:100%;overflow:hidden}
+.music-meta{width:100%;max-width:100%;overflow:hidden}
+.music-meta>*{min-width:0;max-width:100%;box-sizing:border-box}
+.music-volume{overflow:hidden}
+.music-volume>*{min-width:0;max-width:100%;box-sizing:border-box}
+.music-volume>button{padding-inline:3px}
+.music-volume-segments{width:100%;overflow:hidden}
+.music-controls{grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(0,1.6fr) minmax(0,1fr) minmax(0,1fr)}
+.music-controls.is-live{grid-template-columns:repeat(3,minmax(0,1fr))}
+.music-radio{font-size:21px}

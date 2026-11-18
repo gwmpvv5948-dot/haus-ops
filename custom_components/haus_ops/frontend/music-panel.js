@@ -142,7 +142,7 @@ export class MusicPanel {
               ${supported(item,item?.state==='playing'?1:16384)?'':'disabled'}>${transportIcon(item?.state==='playing'?'pause':'play')}</button></div>`).join('')}
           </div>
           <div class="music-shortcut-heading">${band('Shortcut','--pink')}</div>
-          <button class="music-radio ${flash?.radio?'flashing':''}" data-action="music-radio" ${this.panel.demo || available(this.panel.state(radio))?'':'disabled'}>Radio<small>in Küche</small></button>
+          <button class="music-radio ${flash?.radio?'flashing':''}" data-action="music-radio" ${this.panel.demo || available(this.panel.state(radio))?'':'disabled'}>RadioEins<small>in Küche</small></button>
           <button class="music-group" data-action="music-group" aria-expanded="${Boolean(this.groupEditor)}"
             ${available(player)?'':'disabled'}>Räume gruppieren</button>
           ${this.groupEditor?`<div class="music-group-members">${players.map((item,i)=>i===index?'':`<button data-action="music-member:${encodeURIComponent(rooms[i])}"
