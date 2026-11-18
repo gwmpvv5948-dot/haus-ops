@@ -507,11 +507,9 @@ footer .rail[data-music-tone=error]{background:var(--red)}
 }
 .frame[data-security-alert] .nav-scroll button[data-page="1"]{background:#fc3!important}
 .frame[data-security-alert] .ops-safety .ops-heading{--card-color:#fc3!important;animation:ops-alert 2s infinite alternate}
-.frame[data-alert=rot] .nav-scroll button{background:#e4685c!important}
-.frame[data-alert=rot] .nav-scroll button:nth-child(even){background:#c64b42!important}
 .frame[data-alert=rot] :is([data-settings],[data-nav-spacer]){background:#e4685c}
 .frame[data-alert=rot] :is(header,footer) .rail{border-color:#e4685c}
-.frame[data-alert=rot] .brand,.frame[data-alert=rot] .heel,.frame[data-alert=rot] nav{animation:ops-alert 1.6s infinite alternate}
+.frame[data-alert=rot] .brand,.frame[data-alert=rot] .heel{animation:ops-alert 1.6s infinite alternate}
 .frame:has(.alarm-layer:not([hidden])) main{opacity:.2}
 .ops-alarm-overlay{z-index:2;background:#0008;gap:4px;grid-template-columns:auto auto;justify-content:center}
 .ops-alarm-overlay :is(strong,p,.ops-red-bars){grid-column:1/-1}
@@ -802,7 +800,6 @@ footer .rail[data-music-tone=error]{background:var(--red)}
 .frame[data-overview] .overview-rail{background:var(--peach);height:14px;flex:2}
 .frame[data-overview] header strong{font-size:19px}
 .frame[data-overview] [data-page="9"]{--gold:#fa0}
-.nav-scroll [data-page="9"]{background:#fa0!important}
 .nav-scroll button[aria-current=true]>small::after{content:" ◀"}
 @media(prefers-reduced-motion:no-preference){.ops-overview .ops-heading i{animation:light-scan 6s linear infinite}}
 @media(prefers-reduced-motion:reduce){.ops-blind-frame i{transition:none}}
@@ -933,3 +930,34 @@ main{grid-template-columns:minmax(0,1fr)}
 /* Energy frequency shares the fixed heel, never an implicit navigation row. */
 .heel [data-frequency]{margin:0;flex:1;min-width:0;padding:0 9px 5px;display:flex;align-items:flex-end;justify-content:flex-end;color:#000;font-size:14px}
 .heel [data-frequency][hidden]{display:none}
+
+/* Four contiguous navigation groups. Only the normal 3px row gap is used. */
+.frame .nav-scroll { gap:3px; margin-inline-end:-23px; padding-inline-end:23px; }
+.frame .nav-scroll > [data-page] { background:var(--nav-color)!important; }
+.frame .nav-scroll > [data-page][aria-current="true"] {
+  background:var(--nav-active,#ffbc94)!important;
+}
+.nav-scroll > [data-nav-group="supply"] { --nav-active:#ffe0bb; }
+.nav-scroll > [data-nav-group="comfort"] { --nav-active:#e6c6e8; }
+.nav-scroll > [data-nav-group="protection"] { --nav-active:#c3beff; }
+.nav-group-label {
+  position:absolute; left:calc(100% + 13px); top:50%; transform:translateY(-50%);
+  writing-mode:vertical-rl; font:400 8px/9px Antonio,"Arial Narrow",sans-serif;
+  letter-spacing:.12em; color:var(--nav-color); white-space:nowrap; pointer-events:none;
+}
+.frame > header .rail { background:var(--page-color,var(--peach)); }
+.frame > header > strong { color:var(--page-color,var(--peach)); }
+.frame[data-alert="normal"]:not([data-overview]) main .band { --band:var(--page-color)!important; color:var(--page-color); }
+.frame[data-alert="normal"]:not([data-overview]) main .ops-heading { --card-color:var(--page-color)!important; }
+.ops-overview > .ops-light-card { --card-color:var(--pink); }
+.frame[data-alert="gelb"] .nav-scroll > button[data-page="1"] {
+  background:#fc3!important; animation:nav-alarm-pulse 1.1s 6 alternate!important;
+}
+.frame[data-alert="gelb-ruhig"] .nav-scroll > button[data-page="1"] { background:var(--nav-color)!important; box-shadow:inset -4px 0 #fc3; }
+.frame[data-alert="gelb-ruhig"] .nav-scroll > button[data-page="1"][aria-current="true"] { background:var(--nav-active)!important; }
+.frame[data-alert="rot"] .nav-scroll > button[data-page="1"] {
+  background:#e4685c!important; animation:nav-alarm-pulse .65s infinite alternate!important;
+}
+.frame:is([data-alert="gelb"],[data-alert="gelb-ruhig"]) > header .rail { background:#fc3; }
+.frame[data-alert="rot"] > header .rail { background:#e4685c; }
+@keyframes nav-alarm-pulse { from {filter:brightness(.65)} to {filter:brightness(1.2)} }

@@ -1,14 +1,14 @@
-import {loadPVActual,pvDayView,bindPVDay} from './pv-day-panel.js?v=1.6.53';
-import { setupSettingsLayout } from './settings-layout.js?v=1.6.53';
-import { MobileNotifications } from './mobile-notifications.js?v=1.6.53';
-import { nightDisplayOff } from './display-night.js?v=1.6.53';
-import {loadPV,pvView} from './pv-panel.js?v=1.6.53';
-import { LightPanel } from './light-panel.js?v=1.6.53';
-import { CircuitsPanel } from './circuits-panel.js?v=1.6.53';
-import { OverviewPanel, overviewFields } from './overview-panel.js?v=1.6.53';
-import { MusicPanel, musicFields } from './music-panel.js?v=1.6.53';
-import { WaterPanel, waterFields } from './water-panel.js?v=1.6.53';
-import { energyFields, energyView } from './energy-panel.js?v=1.6.53';
+import {loadPVActual,pvDayView,bindPVDay} from './pv-day-panel.js?v=1.6.54';
+import { setupSettingsLayout } from './settings-layout.js?v=1.6.54';
+import { MobileNotifications } from './mobile-notifications.js?v=1.6.54';
+import { nightDisplayOff } from './display-night.js?v=1.6.54';
+import {loadPV,pvView} from './pv-panel.js?v=1.6.54';
+import { LightPanel } from './light-panel.js?v=1.6.54';
+import { CircuitsPanel } from './circuits-panel.js?v=1.6.54';
+import { OverviewPanel, overviewFields } from './overview-panel.js?v=1.6.54';
+import { MusicPanel, musicFields } from './music-panel.js?v=1.6.54';
+import { WaterPanel, waterFields } from './water-panel.js?v=1.6.54';
+import { energyFields, energyView } from './energy-panel.js?v=1.6.54';
 import { ClimatePanel, roomNames } from './climate-panel.js';
 const antonio = new FontFace('Antonio', `url("${new URL('./Antonio.ttf', import.meta.url).href}")`, {
   weight: '400 700',
@@ -20,18 +20,19 @@ const energyPageIndex = 6;
 const waterPageIndex = 7;
 const musicPageIndex = 8;
 const circuitsPageIndex = 10;
+// Keep page IDs stable: HA actions and saved links use these IDs.
 const navigation = [
-  [0, 'Übersicht', '01-47', '--sand'],
-  [circuitsPageIndex, 'Stromkreise', '03-318', '--purple'],
-  [energyPageIndex, 'Energie', '02-112', '--sand'],
-  [waterPageIndex, 'Wasser', '03-309', '--blue'],
-  [9, 'Licht', '10-301', '--sand'],
-  [musicPageIndex, 'Musik', '04-415', '--pink'],
-  [1, 'Sicherheit', '05-88', '--red'],
-  [2, 'Lüftung', '06-260', '--pink'],
-  [3, 'Rollos', '07-384', '--purple'],
-  [4, 'Klima', '08-517', '--sand'],
-  [5, 'Garten', '09-642', '--pink'],
+  [0, 'Übersicht', '01-01', '--peach', 'overview', ''],
+  [circuitsPageIndex, 'Stromkreise', '02-11', '--sand', 'supply', ''],
+  [energyPageIndex, 'Energie', '02-12', '--sand', 'supply', 'Versorgung'],
+  [waterPageIndex, 'Wasser', '02-13', '--sand', 'supply', ''],
+  [9, 'Licht', '03-21', '--pink', 'comfort', ''],
+  [4, 'Klima', '03-22', '--pink', 'comfort', ''],
+  [2, 'Lüftung', '03-23', '--pink', 'comfort', 'Komfort'],
+  [3, 'Rollos', '03-24', '--pink', 'comfort', ''],
+  [musicPageIndex, 'Musik', '03-25', '--pink', 'comfort', ''],
+  [1, 'Sicherheit', '04-31', '--purple', 'protection', 'Schutz · Außen'],
+  [5, 'Garten', '04-32', '--purple', 'protection', ''],
 ];
 const redAlarmLabel = 'Roter Alarm';
 const redAlarmFile = 'red_alert.mp3';
@@ -92,13 +93,13 @@ class HausOps extends HTMLElement {
     if (!this.shadowRoot) {
       this.attachShadow({ mode: 'open' });
       this.shadowRoot.innerHTML = `
-        <link rel="stylesheet" href="${new URL('./haus-ops.css?v=1.6.53', import.meta.url)}">
+        <link rel="stylesheet" href="${new URL('./haus-ops.css?v=1.6.54', import.meta.url)}">
         <div class="stage"><div class="frame">
           <div class="brand">LCARS 77</div>
           <header><span class="rail"></span><span class="overview-data" aria-hidden="true" hidden></span><span class="overview-rail" aria-hidden="true" hidden></span><strong>HAUS-OPS</strong><time></time><span class="cap"></span></header>
           <nav aria-label="Ansichten"><div class="nav-scroll">
-            ${navigation.map(([page, name, code, color]) =>
-              `<button data-page="${page}" style="background:var(${color})"><small aria-hidden="true">${code}</small><span>${name}</span></button>`
+            ${navigation.map(([page, name, code, color, group, label]) =>
+              `<button data-page="${page}" data-nav-group="${group}" style="--nav-color:var(${color})"><small aria-hidden="true">${code}</small><span>${name}</span>${label ? `<em class="nav-group-label" aria-hidden="true">${label}</em>` : ''}</button>`
             ).join('')}
           </div></nav>
           <main></main><div class="alarm-layer" hidden></div><div class="heel"><p data-frequency hidden></p><button data-settings aria-label="82873.4 – Konfiguration" hidden>82873.4</button><button data-nav-spacer aria-label="82873.4 – Konfiguration, Administrator erforderlich">82873.4</button></div>
@@ -210,14 +211,19 @@ class HausOps extends HTMLElement {
       this.style.setProperty('--scale', scale);
       this.style.setProperty('--stage-width', (width / scale) + 'px');
       this.style.setProperty('--stage-height', (height / scale) + 'px');
+      requestAnimationFrame(() => this.fitNavigation?.());
     });
     this.resize.observe(this);
     const navigationViewport = this.shadowRoot.querySelector('.nav-scroll');
-    this.navigationResize = new ResizeObserver(() => {
+    this.fitNavigation = () => {
       const height = navigationViewport.clientHeight;
-      const count = Math.max(1,Math.floor((height+3)/57));
+      const touchHeight = navigationViewport.getBoundingClientRect().height;
+      // Show every group on the 10-inch panel while retaining large physical targets.
+      const count = touchHeight >= navigation.length * 49
+        ? navigation.length : Math.max(1, Math.floor((height + 3) / 49));
       navigationViewport.style.setProperty('--nav-block', ((height-(count-1)*3)/count)+'px');
-    });
+    };
+    this.navigationResize = new ResizeObserver(this.fitNavigation);
     this.navigationResize.observe(navigationViewport);
     this.render();
     this.tick();
@@ -824,6 +830,9 @@ class HausOps extends HTMLElement {
     this.shadowRoot.querySelector('main').inert = showAlarm;
     const frame = this.shadowRoot.querySelector('.frame');
     frame.toggleAttribute('data-overview', this.page === 0);
+    const currentNavigation = navigation.find(([page]) => page === this.page) ?? navigation[0];
+    frame.style.setProperty('--page-color', `var(${currentNavigation[3]})`);
+    frame.dataset.navGroup = currentNavigation[4];
     frame.querySelectorAll('.overview-data,.overview-rail').forEach(node => { node.hidden = this.page !== 0 || alert === 'gelb'; });
     const appearance = yellowQuiet ? 'gelb-ruhig' : alert;
     const entering = this.pageEntry?.page === this.page && appearance === frame.dataset.alert;
@@ -1115,10 +1124,10 @@ class HausOps extends HTMLElement {
   soundUrl(kind) {
     const filename = this.config?.sounds?.[kind] || soundSlots.find(([key]) => key === kind)?.[2];
     if (kind === 'beep1' && ['beep1.mp3','computerbeep_1.mp3'].includes(filename)) {
-      return new URL('./sounds/beep1.mp3?v=1.6.53', import.meta.url).href;
+      return new URL('./sounds/beep1.mp3?v=1.6.54', import.meta.url).href;
     }
     if (kind === 'error' && filename === 'error.mp3') {
-      return new URL('./sounds/error.mp3?v=1.6.53', import.meta.url).href;
+      return new URL('./sounds/error.mp3?v=1.6.54', import.meta.url).href;
     }
     if (kind === 'red' && filename === redAlarmFile) {
       return new URL('./sounds/' + redAlarmFile, import.meta.url).href;
@@ -1127,7 +1136,7 @@ class HausOps extends HTMLElement {
       return new URL('./sounds/yellow_alert.mp3?v=2', import.meta.url).href;
     }
     if (kind === 'warp' && ['warp_core_loop.wav', 'warp_core.wav', 'warp_core.mp3'].includes(filename)) {
-      return new URL('./sounds/warp_core_loop.wav?v=1.6.53', import.meta.url).href;
+      return new URL('./sounds/warp_core_loop.wav?v=1.6.54', import.meta.url).href;
     }
     if (['beep3', 'beep5', 'beep6', 'beep7'].includes(kind) && filename === kind + '.mp3') {
       return new URL('./sounds/' + filename, import.meta.url).href;
@@ -1512,7 +1521,7 @@ class HausOpsSettings {
     this.dialog = document.createElement('dialog');
     this.dialog.className = 'settings';
     this.dialog.setAttribute('aria-labelledby', 'settings-title');
-    this.dialog.innerHTML = `<link rel="stylesheet" href="${new URL('./settings.css?v=1.6.53', import.meta.url)}">
+    this.dialog.innerHTML = `<link rel="stylesheet" href="${new URL('./settings.css?v=1.6.54', import.meta.url)}">
     <form><header class="settings-header"><h2 id="settings-title">HAUS-OPS konfigurieren</h2><p>Bereich wählen · Änderungen mit OK speichern</p></header>
     <nav class="settings-sections" aria-label="Einstellungsbereiche"></nav><div class="fields">
       <fieldset><legend>Display</legend><label><span><input type="checkbox" name="touch-sounds" ${panel.touchSoundsEnabled ? 'checked' : ''}> Star-Trek-Töne auf diesem Display</span></label>

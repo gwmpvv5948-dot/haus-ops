@@ -196,13 +196,13 @@ export class OverviewPanel {
         </div>
         ${actions(...levels.map((name,i)=>action('08-0'+i,escapeHtml(name),`data-action="vent:${i}" aria-pressed="${i===level}"`,panel.canSetLevel(i)?'':'disabled')))}
       </section>
-      <section data-card-page="4">${heading('Klima · Quartiere','blue',temperatures.length+' Räume',4)}
+      <section data-card-page="4">${heading('Klima · Quartiere','pink',temperatures.length+' Räume',4)}
         <div class="ops-climate">${temperatures.map(room=>`<div style="--reading:var(--${room.value<20?'blue':'peach'})">
           <span>${escape(room.name)} ${room.stale?'<small class="warn">· Still</small>':''}</span>${bars(10,Math.max(0,(room.value-15)/10))}<strong>${room.display}</strong></div>`).join('')}</div>
         <div class="ops-card-actions"><div><small>Außen</small><span>${format(outside,1)}°</span></div>
           <div><small>Ø Innen</small><span>${format(inside,1)}°</span></div>${action('05-20','Heizung ▶','data-page="4"')}</div>
       </section>
-      <section class="ops-blinds" data-card-page="3">${heading('Rollos','sand',blinds.some(blind=>blind.movement)?'Fährt':blinds.every(blind=>blind.position===0)?'Alle zu':blinds.filter(blind=>blind.position===100).length+' offen',3)}
+      <section class="ops-blinds" data-card-page="3">${heading('Rollos','pink',blinds.some(blind=>blind.movement)?'Fährt':blinds.every(blind=>blind.position===0)?'Alle zu':blinds.filter(blind=>blind.position===100).length+' offen',3)}
         <div class="ops-blind-windows">${blinds.map(blind=>`<div class="blind-position ops-blind-position">
           <b data-overview-position>${blind.position===null?'—':blind.position+' %'}</b>
           <span class="blind-window ops-blind-frame"><i data-slats="${escape(blind.key)}" style="height:${blind.position===null?0:100-blind.position}%"></i>
@@ -214,9 +214,9 @@ export class OverviewPanel {
           action('07-02','Stop','data-action="ops-blind-stop"',blinds.some(blind=>blind.available&&(blind.features&8))?'':'disabled'),
           action('07-03','↑ Alle auf','data-action="cover:1"',panel.canMoveCover(1)?'':'disabled'))}
       </section>
-      <section class="ops-utilities ${overviewAlarm.leak?'ops-leak':''}">${heading('Versorgung',overviewAlarm.leak?'red':'peach','Strom · Wasser',6)}${this.supply(energy,overviewAlarm)}
+      <section class="ops-utilities ${overviewAlarm.leak?'ops-leak':''}">${heading('Versorgung',overviewAlarm.leak?'red':'sand','Strom · Wasser',6)}${this.supply(energy,overviewAlarm)}
         ${actions(action('02-112','Energie ▶','data-page="6"'),action('03-309','Wasser ▶','data-page="7"'),action('02-3','PV-Ausblick ▶','data-action="ops-pv"'))}</section>
-      <section class="ops-light-card">${heading('Licht','gold',lights.filter(light=>light.on).length+' an',9)}${this.lightControls(lights)}</section>
+      <section class="ops-light-card">${heading('Licht','pink',lights.filter(light=>light.on).length+' an',9)}${this.lightControls(lights)}</section>
     </div>`;
   }
 }
