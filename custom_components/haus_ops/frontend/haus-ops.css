@@ -968,3 +968,14 @@ main{grid-template-columns:minmax(0,1fr)}
 
 /* Navigation arrows are SVG paths, never emoji-capable text glyphs. */
 .ops-triangle {display:inline-block;width:.75em;height:.75em;fill:currentColor;vertical-align:-.04em;flex:none;pointer-events:none;}
+
+/* Alarm state overrides every navigation group, including the active page. */
+.frame[data-alert="gelb"] {--nav-alarm:#ffcc33;}
+.frame[data-alert="rot"] {--nav-alarm:#e4685c;}
+.frame:is([data-alert="gelb"],[data-alert="rot"]) .nav-scroll > button[data-page] {
+  background:var(--nav-alarm)!important;
+  animation:none!important;
+}
+.frame:is([data-alert="gelb"],[data-alert="rot"]) .nav-group-label {color:var(--nav-alarm);}
+/* Yellow already pulses with the whole frame exactly three times on arrival. */
+.frame[data-alert="rot"] .nav-scroll {animation:nav-alarm-pulse .65s infinite alternate;}

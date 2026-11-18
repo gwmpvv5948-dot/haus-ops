@@ -63,3 +63,5 @@ Der Garten ist nicht Teil des mitgelieferten Haus-Schnitts. Die Zeichnung ist zw
 Im Bad zeigt eine Waschtrommel den Betrieb bei mehr als 3 W über `sensor.tasmota_wama_plug_energy_power`. Bei fehlenden Messwerten erscheint „Keine Daten“ und die Animation steht still. Optional lässt sich im eigenen Zeichnungs-JSON `washer_power_entity` auf einen anderen Leistungssensor setzen (W oder kW). Stromsensoren in Ampere werden nicht als Watt interpretiert.
 
 Im Arbeitszimmer ist `switch.schreibtisch` als Tischlampe zugeordnet. Ein vorhandener Schalter wird auch bei einer zuvor gespeicherten leeren Arbeitszimmer-Liste aufgenommen.
+
+Der Dachspitz zeigt **Warp-Kern-Temp.** aus `sensor.inverter_interne_temperatur`. Die Ausgabe erfolgt in °C; Fahrenheit wird mit `(°F − 32) × 5 / 9` umgerechnet, Kelvin mit `K − 273,15`. Diese Gerätetemperatur wird nicht im Innenraum-Mittelwert berücksichtigt.

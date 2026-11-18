@@ -93,3 +93,16 @@
 .house-washer.running .house-washer-drum {animation:house-wash 2s linear infinite;}
 .house-washer.offline {opacity:.4;}
 @keyframes house-wash {to {transform:rotate(360deg);}}
+
+.house-devices {pointer-events:none;}
+.house-overlay .house-devices {animation:house-detail-in .7s .65s ease-out both;}
+.house-mini-core-energy {transform-origin:640px 276.5px;animation:house-core-pulse 2.2s ease-in-out infinite;}
+.house-mini-core-aura {animation:house-core-aura 2.2s ease-in-out infinite;}
+.house-core-coil {animation:house-core-coil 1.8s ease-in-out infinite;animation-delay:var(--coil-delay);}
+.house-server-led {animation:house-server-led var(--led-period,1.5s) steps(1,end) infinite;animation-delay:var(--led-delay);}
+@keyframes house-core-pulse {0%,100% {opacity:.65;transform:scaleY(.97);}50% {opacity:1;transform:scaleY(1.04);}}
+@keyframes house-core-aura {0%,100% {opacity:.3;}50% {opacity:.9;}}
+@keyframes house-core-coil {0%,100% {fill-opacity:.45;}50% {fill-opacity:1;}}
+@keyframes house-server-led {0%,48%,78% {opacity:1;}24%,62%,92% {opacity:.15;}}
+
+.house-section [data-house-roof] {font-size:32px;}

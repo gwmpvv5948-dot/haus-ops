@@ -26,10 +26,11 @@
         ]
       ],
       "anchor": [
-        640,
-        285
+        607,
+        295
       ],
-      "lamps": []
+      "lamps": [],
+      "temperature_entity": "sensor.inverter_interne_temperatur"
     },
     {
       "key": "office",
@@ -109,8 +110,8 @@
         ]
       ],
       "anchor": [
-        664,
-        387
+        630,
+        370
       ],
       "lamps": []
     },

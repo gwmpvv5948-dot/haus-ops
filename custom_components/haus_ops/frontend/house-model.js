@@ -38,7 +38,8 @@ export function resolveHouseData(config, registry = {}, states = {}, connected =
     const source = states[id];
     if (!validNumber(source)) return NaN;
     const value = Number(source.state);
-    return source.attributes?.unit_of_measurement==='°F' ? (value-32)*5/9 : value;
+    const unit=String(source.attributes?.unit_of_measurement ?? '°C').trim().toUpperCase();
+    return ['°F','F','FAHRENHEIT'].includes(unit)?(value-32)*5/9:unit==='K'?value-273.15:value;
   };
   const rooms = config.rooms.map(room=>{
     const aliases = new Set([room.name,...(room.aliases ?? [])].map(normalizeHouseName));
