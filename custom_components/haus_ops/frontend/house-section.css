@@ -83,3 +83,6 @@
 
 .house-group-divider {fill:none;stroke:#cc99cc;stroke-opacity:.24;stroke-width:1;pointer-events:none;}
 .house-title {font-size:36px;}
+
+.house-room-label {font-size:18px;}
+.house-lamp-label,.house-unmapped {font-size:15px;}

@@ -1,5 +1,5 @@
 import { roomNames } from './climate-panel.js';
-import {resolveHouseData, validateHouseConfig, houseTemperatureColor, normalizeHouseName} from './house-model.js?v=1.6.57&r=9';
+import {resolveHouseData, validateHouseConfig, houseTemperatureColor, normalizeHouseName} from './house-model.js?v=1.6.58&r=10';
 export const housePageIndex = 11;
 const esc = value => String(value ?? '').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
 const fmt = value => Number.isFinite(value) ? value.toLocaleString('de-DE',{minimumFractionDigits:1,maximumFractionDigits:1})+'°' : '—';
@@ -15,7 +15,7 @@ export class HouseSection {
   constructor(panel) { this.panel=panel; this.selected=null; this.pending=new Set(); }
 
   load() {
-    const path=this.panel.config?.house_section_config || new URL('./house-section.json?v=1.6.57&r=9',import.meta.url).href;
+    const path=this.panel.config?.house_section_config || new URL('./house-section.json?v=1.6.58&r=10',import.meta.url).href;
     if (this.path===path) return;
     this.path=path; this.config=null; this.current=null; this.error=''; this.layoutKey='';
     fetch(path,{credentials:'same-origin'}).then(response=>{
@@ -97,7 +97,7 @@ export class HouseSection {
       const start=side==='left'?112:190;
       const available=680-start;
       const groupGap=28;
-      const lineHeight=Math.max(14,Math.min(19,(available-group.length*24-Math.max(0,group.length-1)*groupGap)/Math.max(1,rows)));
+      const lineHeight=Math.max(16,Math.min(21,(available-group.length*24-Math.max(0,group.length-1)*groupGap)/Math.max(1,rows)));
       const blockHeights=group.map(room=>24+(room.key==='roof'?0:Math.max(1,room.lamps.length)*lineHeight));
       const gap=Math.max(groupGap,(available-blockHeights.reduce((a,b)=>a+b,0))/Math.max(1,group.length-1));
       let y=start;
@@ -137,10 +137,10 @@ export class HouseSection {
       ${rooms.map(room=>`<g data-house-room="${room.key}" data-outdoor="${!!room.outdoor}" data-house-owner="${room.key}" ${attrs('house-room:'+room.key)} aria-label="${esc(room.name)} · Raum auswählen"><polygon class="house-room-fill" points="${points(room)}"/><polygon class="house-room-glow" points="${points(room)}"/></g>`).join('')}
       ${lamps.map((lamp,i)=>{
         const [x,y]=lamp.position;
-        const spot=lamp.type==='spot', sphere=lamp.type==='kugel', cabinet=lamp.type==='schrank', stripe=lamp.type==='streifen';
-        const cy=y+(spot?-60:sphere?0:stripe?18:cabinet?28:47);
+        const spot=lamp.type==='spot', sphere=lamp.type==='kugel', cabinet=lamp.type==='schrank', stripe=lamp.type==='streifen', indirect=lamp.type==='kommode';
+        const cy=y+(indirect?-15:spot?-60:sphere?0:stripe?18:cabinet?28:47);
         const cone=cabinet?`M${x-20} ${y+3}L${x-36} ${y+85}H${x+36}L${x+20} ${y+3}Z`:`M${x-3} ${y+5}L${x-23} ${y+105}H${x+23}L${x+3} ${y+5}Z`;
-        return `<g class="house-lamp-light" data-house-glow="${esc(lamp.id)}" clip-path="url(#house-room-${lamp.room})" style="--lamp-order:${i}"><ellipse cx="${x}" cy="${cy}" rx="${sphere?42:stripe?88:cabinet?65:55}" ry="${sphere?36:stripe?45:cabinet?50:92}" fill="url(#house-halo)"/>${!lamp.outdoor&&!sphere&&!stripe?`<path d="${cone}" fill="url(#house-cone)" ${spot?`transform="rotate(180 ${x} ${y})"`:  ''}/>`:''}</g>`;
+        return `<g class="house-lamp-light" data-house-glow="${esc(lamp.id)}" clip-path="url(#house-room-${lamp.room})" style="--lamp-order:${i}"><ellipse cx="${x}" cy="${cy}" rx="${indirect?65:sphere?42:stripe?88:cabinet?65:55}" ry="${indirect?45:sphere?36:stripe?45:cabinet?50:92}" fill="url(#house-halo)"/>${!lamp.outdoor&&!indirect&&!sphere&&!stripe?`<path d="${cone}" fill="url(#house-cone)" ${spot?`transform="rotate(180 ${x} ${y})"`:  ''}/>`:''}</g>`;
       }).join('')}
       ${rooms.some(room=>room.outdoor)?`<g class="house-garden-tree" aria-label="Garten · schematischer Baum"><path class="garden-ground" d="M85 644H415"/><path class="garden-trunk" d="M202 642l6-63-18-24m18 24 21-36m-21 48-32-22m32 35 31-23m-37 61-16 3m16-3 20 3"/><path class="garden-crown" d="M149 575C105 567 107 522 147 512C138 473 197 456 216 482C245 453 285 485 277 513C320 524 302 573 271 573C252 601 220 587 210 578C188 595 158 594 149 575Z"/></g>`:''}
       <g class="house-structure" transform="translate(55 0)">
@@ -158,6 +158,8 @@ export class HouseSection {
           ? ` ${lamp.outdoor?'':`<path class="house-lamp-furniture" d="M${x-15} ${y+10}h30v3h-30ZM${x-11} ${y+13}v17m22-17v17"/>`}<circle class="house-bulb" cx="${x}" cy="${y}" r="7.5"/><path d="M${x-4} ${y+8}h8" stroke="#cc99cc"/>`
           : lamp.type==='spot'
           ? `<path class="house-lamp-furniture" d="M${x-9} ${y+5}h18m-9 0v-7"/><path class="house-bulb" d="M${x-7} ${y}l3-6h8l3 6Z"/>`
+          : lamp.type==='kommode'
+          ? `<path class="house-bulb" d="M${x-24} ${y}H${x+24}" stroke-width="3"/><path class="house-lamp-furniture" d="M${x-27} ${y+4}h54v14h-54ZM${x} ${y+4}v14m-23 0v4m46-4v4"/>`
           : lamp.type==='schrank'
           ? `<rect class="house-lamp-furniture" x="${x-25}" y="${y-23}" width="50" height="20" rx="1"/><path class="house-lamp-furniture" d="M${x} ${y-23}v20m-4-10v3m8-3v3"/><path class="house-bulb" d="M${x-23} ${y}H${x+23}" stroke-width="4" stroke-linecap="round"/>`
           : lamp.type==='streifen'

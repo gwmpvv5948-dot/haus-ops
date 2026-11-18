@@ -2,6 +2,9 @@ export const normalizeHouseName = value => String(value ?? '').toLowerCase().nor
 export const houseTemperatureColor = value => !Number.isFinite(value) ? '#777' : value < 19 ? '#99ccff' : value <= 20.5 ? '#9999ff' : '#ff9966';
 export function houseLampType(name, fallback='decke') {
   const normalized=normalizeHouseName(name);
+  if (normalized.includes('wzfernseh')) return 'kommode';
+  if (normalized.includes('shellyeztisch')) return 'decke';
+  if (normalized.includes('stehlampe')) return 'stehlampe';
   if (normalized.includes('fado')) return 'kugel';
   if (normalized.includes('schrank')) return 'schrank';
   if (normalized.includes('stripe') || normalized.includes('strip') || normalized.includes('rope')) return 'streifen';
@@ -19,7 +22,7 @@ export function validateHouseConfig(config) {
     keys.add(room.key);
     if (room.temperature_entity && !/^sensor\.[a-z0-9_]+$/.test(room.temperature_entity)) throw Error('Hausschnitt: Ungültiger Temperatursensor.');
     for (const lamp of room.lamps ?? []) {
-      if (!['decke','stehlampe','streifen','kugel','schrank','spot'].includes(lamp.type) || !point(lamp.position) || lamp.entity_id && !/^(light|switch)\.[a-z0-9_]+$/.test(lamp.entity_id)) throw Error('Hausschnitt: Ungültige Lampenzuordnung.');
+      if (!['decke','stehlampe','streifen','kugel','schrank','spot','kommode'].includes(lamp.type) || !point(lamp.position) || lamp.entity_id && !/^(light|switch)\.[a-z0-9_]+$/.test(lamp.entity_id)) throw Error('Hausschnitt: Ungültige Lampenzuordnung.');
     }
   }
   return config;
@@ -92,6 +95,9 @@ export function resolveHouseData(config, registry = {}, states = {}, connected =
       const type = room.outdoor && /spots?/i.test(name) ? 'spot' : houseLampType(name,slot?.type ?? 'decke');
       const position = [...(slot?.position ?? [x,Math.min(...ys)+12+Math.floor(index/4)*24])];
       if (type==='kugel' && slot?.type!=='kugel') position[1]=Math.max(...ys)-30;
+      if (!room.outdoor && type==='kommode') position[1]=Math.max(...ys)-22;
+      if (!room.outdoor && type==='stehlampe') position[1]=Math.max(...ys)-30;
+      if (normalizeHouseName(name).includes('shellyeztisch')) position[1]=Math.min(...ys)+10;
       const available = connected && ['on','off'].includes(state?.state);
       const on = available && state.state==='on';
       const brightness = on ? Number.isFinite(state.attributes?.brightness) ? Math.max(0,Math.min(100,state.attributes.brightness/255*100)) : 100 : 0;

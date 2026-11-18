@@ -962,3 +962,6 @@ main{grid-template-columns:minmax(0,1fr)}
 .frame:is([data-alert="gelb"],[data-alert="gelb-ruhig"]) > header .rail { background:#fc3; }
 .frame[data-alert="rot"] > header .rail { background:#e4685c; }
 @keyframes nav-alarm-pulse { from {filter:brightness(.65)} to {filter:brightness(1.2)} }
+
+/* Pointer interaction does not leave keyboard focus frames on the wall display. */
+:host([data-pointer-mode]) :is(button,a,[role="button"]):is(:focus,:focus-visible) {outline:none!important;}
