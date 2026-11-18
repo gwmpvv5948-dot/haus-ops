@@ -22,6 +22,14 @@ function points(panel,day,zone){
   }
   return [...result.values()].sort((a,b)=>a.t-b.t);
 }
+export function normalizePVHistory(row, fallbackUnit) {
+  const rawTime = row.lu ?? row.lc ?? row.last_updated ?? row.last_changed;
+  const t = typeof rawTime === 'number' ? rawTime * 1000 : Date.parse(rawTime);
+  const value = numeric(row.s ?? row.state);
+  const unit = row.a?.unit_of_measurement ?? row.attributes?.unit_of_measurement ?? fallbackUnit;
+  return {t, p: value === null || value < 0 ? null : unit === 'W' ? value / 1000 : unit === 'kW' ? value : null};
+}
+
 export async function loadPVActual(panel){
   const source=sources(panel).power, now=Date.now(), zone=panel.ha?.config?.time_zone||'Europe/Berlin';
   const day=dateKey(now,zone), key=source+'|'+day;
@@ -30,18 +38,21 @@ export async function loadPVActual(panel){
   panel.pvActualAt=now;
   try{
     const history=await panel.ha.callWS({type:'history/history_during_period',start_time:new Date(now-26*3600000).toISOString(),end_time:new Date(now).toISOString(),entity_ids:[source],minimal_response:false,no_attributes:false});
-    panel.pvActual=(history[source]||[]).filter(row=>dateKey(row.last_updated||row.last_changed,zone)===day);
+    const unit=panel.ha.states[source]?.attributes?.unit_of_measurement;
+    panel.pvActual=(history[source]||[]).map(row=>normalizePVHistory(row,unit))
+      .filter(row=>Number.isFinite(row.t)&&dateKey(row.t,zone)===day);
+    panel.pvActualError='';
     panel.pvActualKey=key;
-  }catch{panel.pvActual=[];panel.pvActualKey=key;}
+  }catch{panel.pvActual=[];panel.pvActualKey=key;panel.pvActualError='PV-Ist-Historie konnte nicht geladen werden';}
   finally{panel.pvActualLoading=false;panel.render();}
 }
 function actualPoints(panel,day,zone){
   const source=sources(panel).power, live=panel.ha?.states?.[source];
   if(panel.pvActualKey!==source+'|'+day)return [];
-  return [...panel.pvActual||[],...live?[live]:[]].map(row=>{
-    const value=numeric(row.state),unit=row.attributes?.unit_of_measurement||live?.attributes?.unit_of_measurement;
-    return {t:Date.parse(row.last_updated||row.last_changed),p:value===null?null:unit==='W'?value/1000:unit==='kW'?value:null};
-  }).filter(row=>dateKey(row.t,zone)===day).sort((a,b)=>a.t-b.t);
+  const current=live?normalizePVHistory(live,live.attributes?.unit_of_measurement):null;
+  return [...panel.pvActual||[],...current?[current]:[]]
+    .filter(row=>Number.isFinite(row.t)&&dateKey(row.t,zone)===day)
+    .sort((a,b)=>a.t-b.t);
 }
 function pathSegments(rows,x,y){
   let last=null;
@@ -102,7 +113,7 @@ export function pvDayView(panel){
     <div>${days.map((_,i)=>`<button data-pv-date="${i}" aria-label="Tag ${i+1}" aria-pressed="${i===index}">●</button>`).join('')}</div><button data-pv-day-shift="1" ${index===6?'disabled':''}>▶</button><button data-pv-week>7-Tage-Ausblick ▶</button></div>
     <div class="pv-daily-metrics">${metric('Dach-Ertrag heute',produced,'#ffaa00')}${metric('Prognose P50',p50,'#cc99cc')}${metric('Vorsichtig P10',p10,'#9999ff')}${metric('Rest P50',remaining,'#ffcc99')}</div>
     <div class="pv-analysis"><aside><b>Analyse</b><b>P50</b><b>P10</b><b>PV-Ist</b></aside><div class="pv-daily-chart">${chart(rows,actual,index===0?now:NaN,zone)}</div></div>
-    <div class="pv-daily-legend"><span>PV-Ist · ${current&&now-current.t<900000?fmt(current.p,2):'—'} kW</span><span>P50 · erwartet</span><span>P10 · vorsichtig</span><small>Solcast · Originalraster 30 min · Ist aus HA-Historie</small></div>
+    <div class="pv-daily-legend"><span>PV-Ist · ${current&&now-current.t<900000?fmt(current.p,2):'—'} kW</span><span>P50 · erwartet</span><span>P10 · vorsichtig</span><small>${panel.pvActualError||'Solcast · Originalraster 30 min · Ist aus HA-Historie'}</small></div>
     <div class="pv-daily-goal"><b>Prognose P50</b><div>${Array.from({length:40},(_,i)=>`<i class="${progress!==null&&i<Math.min(40,progress/2.5)?'produced':'forecast'}"></i>`).join('')}</div><strong>${fmt(progress,0)} %</strong></div>
   </section>`};
 }
