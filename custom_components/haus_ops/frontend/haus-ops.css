@@ -929,3 +929,7 @@ main{grid-template-columns:minmax(0,1fr)}
 .energy-heading-actions{display:flex;align-items:stretch;gap:5px;flex:none}
 .energy-heading-rail .energy-heading-actions button{border-radius:0;min-height:32px}
 .energy-heading-rail .energy-heading-actions button:last-child{border-radius:0 20px 20px 0}
+
+/* Energy frequency shares the fixed heel, never an implicit navigation row. */
+.heel [data-frequency]{margin:0;flex:1;min-width:0;padding:0 9px 5px;display:flex;align-items:flex-end;justify-content:flex-end;color:#000;font-size:14px}
+.heel [data-frequency][hidden]{display:none}
