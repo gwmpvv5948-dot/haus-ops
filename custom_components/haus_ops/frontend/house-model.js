@@ -105,7 +105,7 @@ export function resolveHouseData(config, registry = {}, states = {}, connected =
       const dim = state?.attributes?.supported_color_modes?.some(mode=>!['onoff','unknown'].includes(mode));
       if (room.outdoor && type==='kugel') {position[0]=150;position[1]=636;}
       if (room.outdoor && type==='spot') {position[0]=275;position[1]=638;}
-      return {id,name,type,position,outdoor:!!room.outdoor,on,available,brightness,dim};
+      return {id,name,type,position,onDresser:slot?.furniture==='kommode',outdoor:!!room.outdoor,on,available,brightness,dim};
     });
     const areaFloors = [...new Set(matches.map(area=>floors.find(floor=>floor.floor_id===area.floor_id)?.level).filter(level=>[0,1,2,3].includes(level)))];
     const floor = areaFloors.length===1 ? areaFloors[0] : room.floor;

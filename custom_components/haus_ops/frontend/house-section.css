@@ -106,3 +106,11 @@
 @keyframes house-server-led {0%,48%,78% {opacity:1;}24%,62%,92% {opacity:.15;}}
 
 .house-section [data-house-roof] {font-size:32px;}
+
+.house-sonos-effects {display:none;pointer-events:none;}
+.house-sonos-effects.playing {display:block;}
+.house-music-note {animation:house-note-flight var(--note-duration) linear infinite;animation-delay:var(--note-delay);}
+.house-music-wave {transform-origin:664px 585px;animation:house-wave-flight 3.3s ease-out infinite;animation-delay:var(--wave-delay);}
+.house-cpu text {font-size:18px;}
+@keyframes house-note-flight {0%{opacity:0;transform:translate(0,0);}15%{opacity:.9;}80%{opacity:.7;}100%{opacity:0;transform:translate(155px,var(--note-y));}}
+@keyframes house-wave-flight {0%{opacity:0;transform:translateX(0) scale(.5);}20%{opacity:.6;}100%{opacity:0;transform:translateX(130px) scale(1.4);}}

@@ -1,5 +1,6 @@
+import {groundFloorSonosPlaying,cpuValue,cpuSparkline,inverterReading} from './house-telemetry.js?v=1.6.61&r=17';
 import { roomNames } from './climate-panel.js';
-import {resolveHouseData, validateHouseConfig, houseTemperatureColor, normalizeHouseName, houseWasher} from './house-model.js?v=1.6.60&r=16';
+import {resolveHouseData, validateHouseConfig, houseTemperatureColor, normalizeHouseName, houseWasher} from './house-model.js?v=1.6.61&r=17';
 export const housePageIndex = 11;
 const esc = value => String(value ?? '').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
 const fmt = value => Number.isFinite(value) ? value.toLocaleString('de-DE',{minimumFractionDigits:1,maximumFractionDigits:1})+'°' : '—';
@@ -15,7 +16,7 @@ export class HouseSection {
   constructor(panel) { this.panel=panel; this.selected=null; this.pending=new Set(); }
 
   load() {
-    const path=this.panel.config?.house_section_config || new URL('./house-section.json?v=1.6.60&r=16',import.meta.url).href;
+    const path=this.panel.config?.house_section_config || new URL('./house-section.json?v=1.6.61&r=17',import.meta.url).href;
     if (this.path===path) return;
     this.path=path; this.config=null; this.current=null; this.error=''; this.layoutKey='';
     fetch(path,{credentials:'same-origin'}).then(response=>{
@@ -73,6 +74,10 @@ export class HouseSection {
     if (!this.config) return `<svg class="house-section" viewBox="0 0 1280 800" aria-label="Hausschnitt"><text x="60" y="110" fill="#ffcc99" font-size="30">${esc(this.error || 'HA-Bereiche und Hausschnitt laden …')}</text><g ${attrs('house-back')}><rect x="60" y="160" width="400" height="70" fill="#cc99cc"/><text x="90" y="205" fill="#000" font-size="26">Schließen ×</text></g></svg>`;
     const data=this.data();
     data.washer=houseWasher(this.panel.demo?{state:'85',attributes:{unit_of_measurement:'W'}}:this.panel.state(this.config.washer_power_entity || 'sensor.tasmota_wama_plug_energy_power'));
+    this.refreshCPU();
+    data.cpu=cpuValue(this.panel.state?.('sensor.ap_dg_cpu_utilization'));
+    data.cpuRows=[...(this.cpuRows ?? []),...(this.panel.state?.('sensor.ap_dg_cpu_utilization')?[this.panel.state('sensor.ap_dg_cpu_utilization')]:[])];
+    data.musicPlaying=this.panel.demo || groundFloorSonosPlaying(this.panel.circuits.registry,this.panel.ha?.states);
     const key=JSON.stringify([this.path,data.rooms.map(room=>[room.key,room.floor,room.lamps.map(lamp=>[lamp.id,lamp.type,lamp.position])])]);
     if (key!==this.layoutKey) {
       this.layoutKey=key; this.geometry=data; this.markup=this.build(data);
@@ -96,7 +101,7 @@ export class HouseSection {
     };
     const labels=['left','right'].map(side=>{
       const group=rooms.filter(room=>room.side===side).sort((a,b)=>a.anchor[1]-b.anchor[1]);
-      const rowCount=room=>(room.key==='roof'?0:Math.max(1,room.lamps.length))+(room.key==='bath'?1:0);
+      const rowCount=room=>(room.key==='roof'?1:Math.max(1,room.lamps.length))+(room.key==='bath'?1:0)+(room.key==='utility'&&room.lamps.length?1:0);
       const rows=group.reduce((sum,room)=>sum+rowCount(room),0);
       const start=side==='left'?112:190;
       const available=700-start;
@@ -110,11 +115,13 @@ export class HouseSection {
         let markup=lead(room,room.key,y,room.anchor);
         if(index) markup+=`<path class="house-group-divider" d="M${left?160:958} ${y-27}h178"/>`;
         markup+=`<g class="house-room-label" data-house-owner="${room.key}" ${attrs('house-room:'+room.key)} aria-label="${esc(room.name)} · Raum auswählen"><rect x="${left?55:950}" y="${y-20}" width="305" height="28" fill="transparent"/><text ${room.key==='living'?'textLength="290" lengthAdjust="spacingAndGlyphs"':''} x="${x}" y="${y}" text-anchor="${left?'end':'start'}"><tspan fill="#cc99cc">${room.outdoor?'Außen':`E<tspan data-house-room-floor="${room.key}">${room.floor}</tspan>`} · </tspan><tspan>${esc(room.key==='roof'?'Warp-Kern-Temp.':room.name)} · </tspan><tspan data-house-room-temp="${room.key}">—</tspan></text></g>`;
-        if (!room.lamps.length && room.key!=='roof') markup+=`<text data-house-room-missing="${room.key}" class="house-unmapped" x="${x}" y="${y+26}" text-anchor="${left?'end':'start'}">Licht · nicht erfasst</text>`;
+        if (!room.lamps.length && !['roof','utility'].includes(room.key)) markup+=`<text data-house-room-missing="${room.key}" class="house-unmapped" x="${x}" y="${y+26}" text-anchor="${left?'end':'start'}">Licht · nicht erfasst</text>`;
         (room.lamps ?? []).forEach((lamp,i)=>{
           const ly=y+(i+1)*lineHeight;
           markup+=`<g class="house-lamp-label" data-house-lamp-label="${esc(lamp.id)}" data-house-owner="${room.key}" ${attrs('house-light:'+lamp.id)}><rect x="${left?55:950}" y="${ly-22}" width="305" height="26" fill="transparent"/><text data-house-lamp-text="${esc(lamp.id)}" x="${x}" y="${ly}" text-anchor="${left?'end':'start'}">${esc(lamp.name)} · —</text></g>`;
         });
+        if(room.key==='roof') markup+=`<text class="house-lamp-label" data-house-inverter-output x="${x}" y="${y+lineHeight}" text-anchor="${left?'end':'start'}">Leistung · — · Heute · —</text>`;
+        if(room.key==='utility') markup+=`<g class="house-cpu" aria-label="CPU-Auslastung AP DG · letzte 30 Minuten"><text class="house-lamp-label" data-house-cpu-value x="${x}" y="${y+(room.lamps.length+1)*lineHeight}">CPU · —</text><g transform="translate(${x+105} ${y+(room.lamps.length+1)*lineHeight-19})"><path d="M0 0V26H170" fill="none" stroke="#474052"/><path data-house-cpu-path fill="none" stroke="#99ccff" stroke-width="1.5"/></g></g>`;
         if(room.key==='bath') {
           const wy=y+(Math.max(1,room.lamps.length)+1)*lineHeight;
           markup+=`<text class="house-lamp-label" data-house-washer-status x="${x}" y="${wy}" text-anchor="${left?'end':'start'}">Waschmaschine · —</text>`;
@@ -158,12 +165,12 @@ export class HouseSection {
         <path class="house-inner house-stairs" d="${stair(534,624,false)} ${stair(426,516,true)} ${stair(320,408,false)}" stroke-width="1.5"/>
         <path d="M330 642H430M850 642H950" stroke="#cc99cc" stroke-dasharray="10 5"/>
       </g>
-      <g class="house-furniture" transform="translate(0 0)"><path d="M467 391h54v7h-54v-7m5 7v11m43-11v11 M759 394v-8h16v8h52v11h-68Z M460 513v-14h43v14m-43-14v-8h16v8 M628 499h49a11 11 0 0 1 0 22h-49a11 11 0 0 1 0-22Z M634 456h14v28h-14Z M766 515v-15h39v15m-39-15v-7h13v7 M457 626v-26h45v26m-45-61h30v9h-30Z M635 629v-28h38v28 M765 601h34v5h-34m17 5v18 M807 612q-19-12-19 8v8h31v-8q0-20-12-8Z"/></g>
+      <g class="house-furniture" transform="translate(0 0)"><path d="M467 391h54v7h-54v-7m5 7v11m43-11v11 M760 408h67 M460 513v-14h43v14m-43-14v-8h16v8 M628 499h49a11 11 0 0 1 0 22h-49a11 11 0 0 1 0-22Z M634 456h14v28h-14Z M766 515v-15h39v15m-39-15v-7h13v7 M457 626v-26h45v26m-45-61h30v9h-30Z M635 629v-28h38v28 M765 601h34v5h-34m17 5v18 M807 612q-19-12-19 8v8h31v-8q0-20-12-8Z"/></g>
       <g class="house-windows" transform="translate(0 0)"><path d="M435 439h10v49h-10Z M435 555h10v52h-10Z M835 440h10v48h-10Z M835 553h10v54h-10Z"/><path d="M463 365l29-25l4 5l-29 25Z M785 340l28 24l-4 5l-28-24Z"/></g>
       ${lamps.map(lamp=>{
         const [x,y]=lamp.position;
         const glyph=lamp.type==='kugel'
-          ? ` ${lamp.outdoor?'':`<path class="house-lamp-furniture" d="M${x-15} ${y+10}h30v3h-30ZM${x-11} ${y+13}v17m22-17v17"/>`}<circle class="house-bulb" cx="${x}" cy="${y}" r="7.5"/><path d="M${x-4} ${y+8}h8" stroke="#cc99cc"/>`
+          ? ` ${lamp.outdoor?'':lamp.onDresser?`<path class="house-lamp-furniture" d="M${x-24} ${y+10}h48v17h-48ZM${x} ${y+10}v17m-20 0v3m40-3v3"/>`:`<path class="house-lamp-furniture" d="M${x-15} ${y+10}h30v3h-30ZM${x-11} ${y+13}v17m22-17v17"/>`}<circle class="house-bulb" cx="${x}" cy="${y}" r="7.5"/><path d="M${x-4} ${y+8}h8" stroke="#cc99cc"/>`
           : lamp.type==='spot'
           ? `<path class="house-lamp-furniture" d="M${x-9} ${y+5}h18m-9 0v-7"/><path class="house-bulb" d="M${x-7} ${y}l3-6h8l3 6Z"/>`
           : lamp.type==='tischlampe'
@@ -180,6 +187,10 @@ export class HouseSection {
         return `<g class="house-lamp" data-house-lamp="${esc(lamp.id)}" data-house-lamp-type="${lamp.type}" data-house-owner="${lamp.room}" ${attrs('house-light:'+lamp.id)}><title>${esc(lamp.name)}</title><circle cx="${x}" cy="${y+8}" r="24" fill="transparent"/>${glyph}</g>`;
       }).join('')}
       <g clip-path="url(#house-outline)" class="house-scan"><rect x="400" y="-40" width="480" height="40" fill="url(#house-scan)"/></g>
+      <g class="house-sonos-effects" data-house-sonos clip-path="url(#house-room-living)" aria-label="Sonos-Wiedergabe im Erdgeschoss">
+        ${Array.from({length:7},(_,i)=>`<g class="house-music-note" style="--note-delay:${-i*.9}s;--note-duration:${4+i*.37}s;--note-y:${-15-i%3*12}px"><path d="M650 601v-15l10-3v15m-10-8 10-3" fill="none" stroke="#cc99cc" stroke-width="1.8"/><ellipse cx="647" cy="602" rx="3" ry="2" fill="#cc99cc"/><ellipse cx="657" cy="599" rx="3" ry="2" fill="#cc99cc"/></g>`).join('')}
+        ${Array.from({length:3},(_,i)=>`<path class="house-music-wave" style="--wave-delay:${-i*1.1}s" d="M669 573q14 12 0 24m7-29q21 17 0 34" fill="none" stroke="#99ccff" stroke-width="1.6"/>`).join('')}
+      </g>
       <g class="house-devices">
         ${rooms.some(room=>room.key==='roof')?`<g class="house-mini-core" clip-path="url(#house-room-roof)" aria-label="Dachspitz · kleiner pulsierender Warp-Kern"><ellipse class="house-mini-core-aura" cx="640" cy="275" rx="31" ry="35" fill="url(#house-core-aura)"/><path d="M632 245v58m16-58v58" stroke="#547695" stroke-width="1.5"/><rect x="636" y="245" width="8" height="58" rx="4" fill="#18293a"/><g class="house-mini-core-energy">${Array.from({length:6},(_,i)=>`<rect class="house-core-coil" style="--coil-delay:${i*-.22}s" x="629" y="${249+i*9}" width="22" height="6" rx="3" fill="${i%2?'#d8efff':'#99ccff'}"/>`).join('')}<rect x="623" y="273" width="34" height="7" rx="2" fill="#ffcc99"/><circle cx="640" cy="276.5" r="7" fill="#111" stroke="#ff9966" stroke-width="2"/><circle cx="640" cy="276.5" r="3" fill="#99ccff"/></g><path d="M631 245h18m-18 58h18" stroke="#cc99cc" stroke-width="3" stroke-linecap="round"/></g>`:''}
         ${rooms.some(room=>room.key==='utility')?`<g class="house-server-rack" aria-label="Technikraum · Serverschrank mit dekorativen Statuslämpchen"><rect x="644" y="328" width="47" height="79" rx="2" fill="#0c1018" stroke="#cc99cc" stroke-width="1.5"/><path d="M649 331v72m37-72v72" stroke="#4c435b"/>${Array.from({length:5},(_,i)=>`<g><rect x="650" y="${335+i*12}" width="35" height="9" rx="1" fill="#202432" stroke="#6f6682" stroke-width=".7"/><path d="M653 ${338+i*12}h15m-15 3h15" stroke="#74859c" stroke-width=".8"/><circle class="house-server-led" style="--led-delay:${i*-.37}s;--led-period:${1.1+i*.23}s" cx="675" cy="${339.5+i*12}" r="1.6" fill="#99ccff"/><circle class="house-server-led" style="--led-delay:${i*-.61-.4}s;--led-period:${1.9-i*.16}s" cx="681" cy="${339.5+i*12}" r="1.5" fill="${i%2?'#ff9966':'#cc99cc'}"/></g>`).join('')}<text x="667.5" y="403" text-anchor="middle" fill="#cc99cc" font-size="6">SERVER</text></g>`:''}
@@ -204,6 +215,10 @@ export class HouseSection {
     this.svg=svg;
     const data=this.current;
     const text=(selector,value)=>svg.querySelectorAll(selector).forEach(node=>{if(node.textContent!==value)node.textContent=value;});
+    svg.querySelector('[data-house-sonos]')?.classList.toggle('playing',!!data.musicPlaying);
+    text('[data-house-cpu-value]',Number.isFinite(data.cpu)?'CPU · '+Math.round(data.cpu)+' %':'CPU · —');
+    svg.querySelector('[data-house-cpu-path]')?.setAttribute('d',cpuSparkline(data.cpuRows ?? []));
+    text('[data-house-inverter-output]','Leistung · '+inverterReading(this.panel.state?.('sensor.inverter_wirkleistung'))+' · Heute · '+inverterReading(this.panel.state?.('sensor.inverter_tagesertrag')));
     const washer=data.washer ?? {available:false,running:false};
     svg.querySelector('[data-house-washer]')?.classList.toggle('running',washer.running);
     svg.querySelector('[data-house-washer]')?.classList.toggle('offline',!washer.available);
@@ -247,6 +262,14 @@ export class HouseSection {
         event.preventDefault();target.dispatchEvent(new MouseEvent('click',{bubbles:true,composed:true}));
       });
     }
+  }
+
+  refreshCPU() {
+    if(this.panel.demo || !this.panel.ha?.callApi || this.cpuPending || Date.now()<(this.nextCPUFetch ?? 0))return;
+    this.nextCPUFetch=Date.now()+5*60000;
+    const start=new Date(Date.now()-30*60000).toISOString();
+    this.cpuPending=true;
+    this.panel.ha.callApi('GET',`history/period/${start}?filter_entity_id=sensor.ap_dg_cpu_utilization&minimal_response=1&no_attributes=1&significant_changes_only=0`).then(([rows])=>{this.cpuRows=rows ?? [];}).catch(()=>{}).finally(()=>{this.cpuPending=false;if(this.opened)this.panel.render();});
   }
 
   open() {

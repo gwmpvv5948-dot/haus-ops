@@ -150,7 +150,21 @@
         780,
         389
       ],
-      "lamps": [],
+      "lamps": [
+        {
+          "entity_id": "light.sz_fado",
+          "aliases": [
+            "Schlafzimmerlicht",
+            "Fado Schlafzimmer"
+          ],
+          "type": "kugel",
+          "furniture": "kommode",
+          "position": [
+            787,
+            384
+          ]
+        }
+      ],
       "temperature_entity": "sensor.sz_temp"
     },
     {
