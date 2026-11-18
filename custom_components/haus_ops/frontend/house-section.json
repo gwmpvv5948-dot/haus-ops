@@ -67,7 +67,19 @@
         505,
         385
       ],
-      "lamps": []
+      "lamps": [
+        {
+          "entity_id": "switch.schreibtisch",
+          "aliases": [
+            "Schreibtisch"
+          ],
+          "type": "tischlampe",
+          "position": [
+            492,
+            380
+          ]
+        }
+      ]
     },
     {
       "key": "utility",
@@ -407,42 +419,6 @@
           ]
         }
       ]
-    },
-    {
-      "key": "garden",
-      "name": "Garten",
-      "aliases": [
-        "Garten",
-        "Außen",
-        "Aussen",
-        "Außenbereich"
-      ],
-      "outdoor": true,
-      "floor": 0,
-      "side": "left",
-      "polygon": [
-        [
-          85,
-          495
-        ],
-        [
-          400,
-          495
-        ],
-        [
-          400,
-          648
-        ],
-        [
-          85,
-          648
-        ]
-      ],
-      "anchor": [
-        235,
-        623
-      ],
-      "lamps": []
     }
   ]
 }

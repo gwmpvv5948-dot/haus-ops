@@ -1,7 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import {resolveHouseData,validateHouseConfig,houseTemperatureColor,houseLampType} from '../custom_components/haus_ops/frontend/house-model.js';
+import {resolveHouseData,validateHouseConfig,houseTemperatureColor,houseLampType,houseWasher} from '../custom_components/haus_ops/frontend/house-model.js';
 const config=JSON.parse(fs.readFileSync(new URL('../custom_components/haus_ops/frontend/house-section.json',import.meta.url)));
 const registry={areas:[{area_id:'wz',name:'Wohnzimmer',floor_id:'eg'},{area_id:'roof',name:'Dachspitz',floor_id:'roof'}],floors:[{floor_id:'eg',level:0},{floor_id:'roof',level:3}],devices:[{id:'lamp-device',area_id:'wz'}],labels:[{label_id:'light-label',name:'Licht'}],entities:[
   {entity_id:'sensor.wz_temp',area_id:'wz'}, {entity_id:'sensor.roof_temperature',area_id:'roof'},
@@ -9,14 +9,14 @@ const registry={areas:[{area_id:'wz',name:'Wohnzimmer',floor_id:'eg'},{area_id:'
   {entity_id:'switch.power',area_id:'wz'}, {entity_id:'light.offline',area_id:'wz'},
 ]};
 const states={'sensor.wz_temp':{state:'68',attributes:{device_class:'temperature',unit_of_measurement:'°F'}},'sensor.roof_temperature':{state:'12',attributes:{device_class:'temperature'}},'light.fado':{state:'on',attributes:{friendly_name:'Fado WZ',brightness:128,supported_color_modes:['brightness']}},'switch.licht':{state:'off',attributes:{friendly_name:'Lichtschalter'}},'switch.power':{state:'on',attributes:{}},'light.offline':{state:'unavailable',attributes:{friendly_name:'Offline'}}};
-test('Default house has ten valid rooms and four floors',()=>{assert.equal(validateHouseConfig(config).rooms.length,10);assert.deepEqual([...new Set(config.rooms.map(r=>r.floor))].sort(),[0,1,2,3]);});
+test('Default house has nine valid rooms and four floors',()=>{assert.equal(validateHouseConfig(config).rooms.length,9);assert.deepEqual([...new Set(config.rooms.map(r=>r.floor))].sort(),[0,1,2,3]);});
 test('Area temperature and Fahrenheit conversion',()=>{assert.equal(resolveHouseData(config,registry,states).rooms.find(r=>r.key==='living').temperature,20);});
 test('Only lights and switches carrying the licht label are included',()=>{const ids=resolveHouseData(config,registry,states).lamps.map(l=>l.id);assert.ok(ids.includes('light.fado'));assert.ok(ids.includes('switch.licht'));assert.ok(!ids.includes('switch.power'));});
 test('Roof temperature is excluded from inside mean',()=>{const data=resolveHouseData(config,registry,states);assert.equal(data.roof,12);assert.equal(data.inside,20);});
 test('Dimming controls the room glow',()=>{const room=resolveHouseData(config,registry,states).rooms.find(r=>r.key==='living');assert.equal(room.lamps.find(l=>l.id==='light.fado').brightness,128/255*100);assert.equal(room.glow,128/255*.13);});
 test('Unavailable lamps never turn on or illuminate a room',()=>{const lamp=resolveHouseData(config,registry,states).lamps.find(l=>l.id==='light.offline');assert.equal(lamp.available,false);assert.equal(lamp.on,false);assert.equal(lamp.brightness,0);});
 test('Known lamp aliases keep their configured geometry',()=>{const lamp=resolveHouseData(config,registry,states).lamps.find(l=>l.id==='light.fado');assert.deepEqual(lamp.position,[678,600]);});
-test('No guessed temperatures or lamps without HA areas',()=>{const data=resolveHouseData(config,{},{});assert.equal(data.lamps.length,0);assert.ok(Number.isNaN(data.inside));assert.ok(data.rooms.every(r=>Number.isNaN(r.temperature)&&!r.matched));});
+test('No guessed temperatures or lamps without HA areas',()=>{const data=resolveHouseData(config,{},{});assert.deepEqual(data.lamps.map(l=>l.id),['switch.schreibtisch']);assert.equal(data.lamps[0].available,false);assert.ok(Number.isNaN(data.inside));assert.ok(data.rooms.every(r=>Number.isNaN(r.temperature)&&!r.matched));});
 test('Disconnected HA disables all light controls',()=>{assert.ok(resolveHouseData(config,registry,states,false).lamps.every(l=>!l.available));});
 test('Temperature colors use the specified boundaries',()=>{assert.equal(houseTemperatureColor(18.9),'#99ccff');assert.equal(houseTemperatureColor(19),'#9999ff');assert.equal(houseTemperatureColor(20.5),'#9999ff');assert.equal(houseTemperatureColor(20.6),'#ff9966');assert.equal(houseTemperatureColor(NaN),'#777');});
 test('Unsafe geometry is rejected',()=>{assert.throws(()=>validateHouseConfig({...config,rooms:[{...config.rooms[0],key:'"><script>'}]}));});
@@ -52,8 +52,12 @@ test('Kitchen, bath and bedroom have the supplied explicit sensors',()=>{
 });
 
 test('Lamp names select sphere, cabinet and strip glyphs',()=>{assert.equal(houseLampType('Carla Fado'),'kugel');assert.equal(houseLampType('Alwin Schrank Stripe'),'schrank');assert.equal(houseLampType('Neon Rope Lights'),'streifen');assert.equal(houseLampType('Carla Stripe'),'streifen');});
-test('Alwin is left and Carla right, garden stays outdoors',()=>{assert.equal(config.rooms.find(r=>r.key==='alwin').side,'left');assert.equal(config.rooms.find(r=>r.key==='carla').side,'right');assert.equal(config.rooms.find(r=>r.key==='garden').outdoor,true);});
+test('Alwin is left and Carla right, garden is absent',()=>{assert.equal(config.rooms.find(r=>r.key==='alwin').side,'left');assert.equal(config.rooms.find(r=>r.key==='carla').side,'right');assert.ok(!config.rooms.some(r=>r.key==='garden'));});
 
-test('Garden Fado sits on the ground and spots point up',()=>{const c={...config,rooms:config.rooms.map(r=>r.key==='garden'?{...r,light_entities:['light.garden_fado','light.garden_spots']}:r)};const data=resolveHouseData(c,{}, {'light.garden_fado':{state:'on',attributes:{friendly_name:'Garten Fado'}},'light.garden_spots':{state:'on',attributes:{friendly_name:'Garten Spots'}}});const garden=data.rooms.find(r=>r.key==='garden');assert.equal(garden.lamps[0].position[1],636);assert.equal(garden.lamps[0].outdoor,true);assert.equal(garden.lamps[1].type,'spot');assert.equal(garden.lamps[1].position[1],638);});
+test('Garden Fado sits on the ground and spots point up',()=>{const c={...config,rooms:[...config.rooms,{key:'garden',outdoor:true,floor:0,side:'left',polygon:[[85,495],[400,495],[400,648],[85,648]],anchor:[235,623],light_entities:['light.garden_fado','light.garden_spots']}]};const data=resolveHouseData(c,{}, {'light.garden_fado':{state:'on',attributes:{friendly_name:'Garten Fado'}},'light.garden_spots':{state:'on',attributes:{friendly_name:'Garten Spots'}}});const garden=data.rooms.find(r=>r.key==='garden');assert.equal(garden.lamps[0].position[1],636);assert.equal(garden.lamps[0].outdoor,true);assert.equal(garden.lamps[1].type,'spot');assert.equal(garden.lamps[1].position[1],638);});
 
 test('Living room lamps use the specified fixtures',()=>{assert.equal(houseLampType('WZ Fernseher'),'kommode');assert.equal(houseLampType('WZ Fernsehr'),'kommode');assert.equal(houseLampType('WZ Sofa Stehlampe'),'stehlampe');assert.equal(houseLampType('Shelly EZ-Tisch','stehlampe'),'decke');});
+
+test('Washer uses watts with a strict 3 W threshold and rejects amperes',()=>{assert.equal(houseWasher({state:'3',attributes:{unit_of_measurement:'W'}}).running,false);assert.equal(houseWasher({state:'3.1',attributes:{unit_of_measurement:'W'}}).running,true);assert.equal(houseWasher({state:'0.004',attributes:{unit_of_measurement:'kW'}}).running,true);assert.equal(houseWasher({state:'4',attributes:{unit_of_measurement:'A'}}).available,false);assert.equal(houseWasher({state:'unavailable',attributes:{unit_of_measurement:'W'}}).running,false);});
+
+test('Configured desk switch lights the office only when on',()=>{for(const on of [false,true]){const data=resolveHouseData(config,{}, {'switch.schreibtisch':{state:on?'on':'off',attributes:{friendly_name:'Schreibtisch'}}});const lamp=data.rooms.find(r=>r.key==='office').lamps.find(l=>l.id==='switch.schreibtisch');assert.equal(lamp.on,on);assert.equal(lamp.type,'tischlampe');}});

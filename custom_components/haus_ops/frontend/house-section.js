@@ -1,5 +1,5 @@
 import { roomNames } from './climate-panel.js';
-import {resolveHouseData, validateHouseConfig, houseTemperatureColor, normalizeHouseName} from './house-model.js?v=1.6.58&r=10';
+import {resolveHouseData, validateHouseConfig, houseTemperatureColor, normalizeHouseName, houseWasher} from './house-model.js?v=1.6.59&r=14';
 export const housePageIndex = 11;
 const esc = value => String(value ?? '').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
 const fmt = value => Number.isFinite(value) ? value.toLocaleString('de-DE',{minimumFractionDigits:1,maximumFractionDigits:1})+'°' : '—';
@@ -15,7 +15,7 @@ export class HouseSection {
   constructor(panel) { this.panel=panel; this.selected=null; this.pending=new Set(); }
 
   load() {
-    const path=this.panel.config?.house_section_config || new URL('./house-section.json?v=1.6.58&r=10',import.meta.url).href;
+    const path=this.panel.config?.house_section_config || new URL('./house-section.json?v=1.6.59&r=14',import.meta.url).href;
     if (this.path===path) return;
     this.path=path; this.config=null; this.current=null; this.error=''; this.layoutKey='';
     fetch(path,{credentials:'same-origin'}).then(response=>{
@@ -61,8 +61,10 @@ export class HouseSection {
       }
     }
     const selections = this.panel.config?.house_section_lights ?? {};
-    const configured = {...this.config,rooms:this.config.rooms.map(room=>
-      Object.prototype.hasOwnProperty.call(selections,room.key) ? {...room,light_entities:selections[room.key]} : room)};
+    const configured = {...this.config,rooms:this.config.rooms.map(room=> {
+      const selected=Object.prototype.hasOwnProperty.call(selections,room.key)?{...room,light_entities:selections[room.key]}:room;
+      return room.key==='office' && this.panel.ha?.states?.['switch.schreibtisch'] ? {...selected, light_entities:[...new Set([...(selected.light_entities ?? room.lamps.filter(lamp=>lamp.entity_id).map(lamp=>lamp.entity_id)),'switch.schreibtisch'])]} : selected;
+    })};
     return resolveHouseData(configured,this.panel.circuits.registry,this.panel.ha?.states,this.panel.ha?.connection?.connected!==false,overrides);
   }
 
@@ -70,6 +72,7 @@ export class HouseSection {
     this.load();
     if (!this.config) return `<svg class="house-section" viewBox="0 0 1280 800" aria-label="Hausschnitt"><text x="60" y="110" fill="#ffcc99" font-size="30">${esc(this.error || 'HA-Bereiche und Hausschnitt laden …')}</text><g ${attrs('house-back')}><rect x="60" y="160" width="400" height="70" fill="#cc99cc"/><text x="90" y="205" fill="#000" font-size="26">Schließen ×</text></g></svg>`;
     const data=this.data();
+    data.washer=houseWasher(this.panel.demo?{state:'85',attributes:{unit_of_measurement:'W'}}:this.panel.state(this.config.washer_power_entity || 'sensor.tasmota_wama_plug_energy_power'));
     const key=JSON.stringify([this.path,data.rooms.map(room=>[room.key,room.floor,room.lamps.map(lamp=>[lamp.id,lamp.type,lamp.position])])]);
     if (key!==this.layoutKey) {
       this.layoutKey=key; this.geometry=data; this.markup=this.build(data);
@@ -79,8 +82,8 @@ export class HouseSection {
   }
 
   build(data) {
-    // Shift only the house, keeping garden, labels and dashboard chrome fixed.
-    const shift=55;
+    // Center the house between two clear room-information columns.
+    const shift=0;
     const rooms=data.rooms.map(room=>room.outdoor?room:{...room,
       polygon:room.polygon.map(([x,y])=>[x+shift,y]),anchor:[room.anchor[0]+shift,room.anchor[1]],
       lamps:room.lamps.map(lamp=>({...lamp,position:[lamp.position[0]+shift,lamp.position[1]]}))});
@@ -92,26 +95,30 @@ export class HouseSection {
       return `<g class="house-leader ${lamp?'lamp-leader':'room-leader'}" data-house-leader="${esc(id)}" data-house-owner="${room.key}" style="--lead-delay:${Math.min(lineOrder++,35)*70}ms"><path d="M${origin} ${labelY-5}H${bus}V${anchor[1]}H${anchor[0]}"/><circle cx="${origin}" cy="${labelY-5}" r="3"/><circle cx="${anchor[0]}" cy="${anchor[1]}" r="2.5"/></g>`;
     };
     const labels=['left','right'].map(side=>{
-      const group=rooms.filter(room=>room.side===side);
-      const rows=group.reduce((sum,room)=>sum+(room.key==='roof'?0:Math.max(1,room.lamps.length)),0);
+      const group=rooms.filter(room=>room.side===side).sort((a,b)=>a.anchor[1]-b.anchor[1]);
+      const rowCount=room=>(room.key==='roof'?0:Math.max(1,room.lamps.length))+(room.key==='bath'?1:0);
+      const rows=group.reduce((sum,room)=>sum+rowCount(room),0);
       const start=side==='left'?112:190;
-      const available=680-start;
-      const groupGap=28;
-      const lineHeight=Math.max(16,Math.min(21,(available-group.length*24-Math.max(0,group.length-1)*groupGap)/Math.max(1,rows)));
-      const blockHeights=group.map(room=>24+(room.key==='roof'?0:Math.max(1,room.lamps.length)*lineHeight));
+      const available=700-start;
+      const groupGap=24;
+      const lineHeight=Math.max(26,Math.min(28,(available-group.length*24-Math.max(0,group.length-1)*groupGap)/Math.max(1,rows)));
+      const blockHeights=group.map(room=>24+rowCount(room)*lineHeight);
       const gap=Math.max(groupGap,(available-blockHeights.reduce((a,b)=>a+b,0))/Math.max(1,group.length-1));
       let y=start;
       return group.map((room,index)=>{
         const x=side==='left'?338:958, left=side==='left';
         let markup=lead(room,room.key,y,room.anchor);
         if(index) markup+=`<path class="house-group-divider" d="M${left?160:958} ${y-27}h178"/>`;
-        markup+=`<g class="house-room-label" data-house-owner="${room.key}" ${attrs('house-room:'+room.key)} aria-label="${esc(room.name)} · Raum auswählen"><rect x="${left?55:950}" y="${y-20}" width="305" height="28" fill="transparent"/><text x="${x}" y="${y}" text-anchor="${left?'end':'start'}"><tspan fill="#cc99cc">${room.outdoor?'Außen':`E<tspan data-house-room-floor="${room.key}">${room.floor}</tspan>`} · </tspan><tspan>${esc(room.name)} · </tspan><tspan data-house-room-temp="${room.key}">—</tspan></text></g>`;
-        if (!room.lamps.length && room.key!=='roof') markup+=`<text data-house-room-missing="${room.key}" class="house-unmapped" x="${x}" y="${y+19}" text-anchor="${left?'end':'start'}">Licht · nicht erfasst</text>`;
+        markup+=`<g class="house-room-label" data-house-owner="${room.key}" ${attrs('house-room:'+room.key)} aria-label="${esc(room.name)} · Raum auswählen"><rect x="${left?55:950}" y="${y-20}" width="305" height="28" fill="transparent"/><text ${room.key==='living'?'textLength="290" lengthAdjust="spacingAndGlyphs"':''} x="${x}" y="${y}" text-anchor="${left?'end':'start'}"><tspan fill="#cc99cc">${room.outdoor?'Außen':`E<tspan data-house-room-floor="${room.key}">${room.floor}</tspan>`} · </tspan><tspan>${esc(room.name)} · </tspan><tspan data-house-room-temp="${room.key}">—</tspan></text></g>`;
+        if (!room.lamps.length && room.key!=='roof') markup+=`<text data-house-room-missing="${room.key}" class="house-unmapped" x="${x}" y="${y+26}" text-anchor="${left?'end':'start'}">Licht · nicht erfasst</text>`;
         (room.lamps ?? []).forEach((lamp,i)=>{
           const ly=y+(i+1)*lineHeight;
-          markup+=lead(room,lamp.id,ly,lamp.position,true);
-          markup+=`<g class="house-lamp-label" data-house-lamp-label="${esc(lamp.id)}" data-house-owner="${room.key}" ${attrs('house-light:'+lamp.id)}><rect x="${left?55:950}" y="${ly-15}" width="305" height="19" fill="transparent"/><text data-house-lamp-text="${esc(lamp.id)}" x="${x}" y="${ly}" text-anchor="${left?'end':'start'}">${esc(lamp.name)} · —</text></g>`;
+          markup+=`<g class="house-lamp-label" data-house-lamp-label="${esc(lamp.id)}" data-house-owner="${room.key}" ${attrs('house-light:'+lamp.id)}><rect x="${left?55:950}" y="${ly-22}" width="305" height="26" fill="transparent"/><text data-house-lamp-text="${esc(lamp.id)}" x="${x}" y="${ly}" text-anchor="${left?'end':'start'}">${esc(lamp.name)} · —</text></g>`;
         });
+        if(room.key==='bath') {
+          const wy=y+(Math.max(1,room.lamps.length)+1)*lineHeight;
+          markup+=`<text class="house-lamp-label" data-house-washer-status x="${x}" y="${wy}" text-anchor="${left?'end':'start'}">Waschmaschine · —</text>`;
+        }
         y+=blockHeights[index]+gap;
         return markup;
       }).join('');
@@ -123,7 +130,7 @@ export class HouseSection {
         <linearGradient id="house-cone" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#fff0d8" stop-opacity=".95"/><stop offset="1" stop-color="#ffcc99" stop-opacity=".05"/></linearGradient>
         <radialGradient id="house-halo"><stop stop-color="#ffe9c8" stop-opacity=".85"/><stop offset=".45" stop-color="#ffcc99" stop-opacity=".4"/><stop offset="1" stop-color="#ffcc99" stop-opacity="0"/></radialGradient>
         <linearGradient id="house-scan" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#99ccff" stop-opacity="0"/><stop offset=".5" stop-color="#cdeaff" stop-opacity=".4"/><stop offset="1" stop-color="#99ccff" stop-opacity="0"/></linearGradient>
-        <clipPath id="house-outline"><path transform="translate(55 0)" d="M438 414L640 222L842 414V650H438Z"/></clipPath>
+        <clipPath id="house-outline"><path transform="translate(0 0)" d="M438 414L640 222L842 414V650H438Z"/></clipPath>
         ${rooms.map(room=>`<clipPath id="house-room-${room.key}"><polygon points="${points(room)}"/></clipPath>`).join('')}
       </defs>
       <rect width="1280" height="800" fill="#000"/><rect x="470" y="85" width="95" height="610" fill="#1c1426"/>
@@ -142,22 +149,24 @@ export class HouseSection {
         const cone=cabinet?`M${x-20} ${y+3}L${x-36} ${y+85}H${x+36}L${x+20} ${y+3}Z`:`M${x-3} ${y+5}L${x-23} ${y+105}H${x+23}L${x+3} ${y+5}Z`;
         return `<g class="house-lamp-light" data-house-glow="${esc(lamp.id)}" clip-path="url(#house-room-${lamp.room})" style="--lamp-order:${i}"><ellipse cx="${x}" cy="${cy}" rx="${indirect?65:sphere?42:stripe?88:cabinet?65:55}" ry="${indirect?45:sphere?36:stripe?45:cabinet?50:92}" fill="url(#house-halo)"/>${!lamp.outdoor&&!indirect&&!sphere&&!stripe?`<path d="${cone}" fill="url(#house-cone)" ${spot?`transform="rotate(180 ${x} ${y})"`:  ''}/>`:''}</g>`;
       }).join('')}
-      ${rooms.some(room=>room.outdoor)?`<g class="house-garden-tree" aria-label="Garten · schematischer Baum"><path class="garden-ground" d="M85 644H415"/><path class="garden-trunk" d="M202 642l6-63-18-24m18 24 21-36m-21 48-32-22m32 35 31-23m-37 61-16 3m16-3 20 3"/><path class="garden-crown" d="M149 575C105 567 107 522 147 512C138 473 197 456 216 482C245 453 285 485 277 513C320 524 302 573 271 573C252 601 220 587 210 578C188 595 158 594 149 575Z"/></g>`:''}
-      <g class="house-structure" transform="translate(55 0)">
+
+      <g class="house-structure" transform="translate(0 0)">
         <path d="M402 414L640 212L878 414V430L640 230L402 430Z" fill="url(#house-hatch)"/><path d="M640 212V201" stroke-width="7"/>
         <path d="M438 414h8v216h-8Z M834 414h8v216h-8Z M438 414h404v8H438Z M438 522h404v8H438Z M430 630h420v20H430Z" fill="url(#house-deck)"/>
         <path d="M540 308H740" stroke-width="4"/><path class="house-inner" d="M558 310V630M618 310V630M700 310V522"/>
         <path class="house-inner house-stairs" d="${stair(534,624,false)} ${stair(426,516,true)} ${stair(320,408,false)}" stroke-width="1.5"/>
         <path d="M330 642H430M850 642H950" stroke="#cc99cc" stroke-dasharray="10 5"/>
       </g>
-      <g class="house-furniture" transform="translate(55 0)"><path d="M467 391h54v7h-54v-7m5 7v11m43-11v11 M629 352h24v60m-5-40h44v40h-44Zm36 22a8 8 0 1 1-16 0a8 8 0 1 1 16 0 M759 394v-8h16v8h52v11h-68Z M460 513v-14h43v14m-43-14v-8h16v8 M628 499h49a11 11 0 0 1 0 22h-49a11 11 0 0 1 0-22Z M634 456h14v28h-14Z M766 515v-15h39v15m-39-15v-7h13v7 M457 626v-26h45v26m-45-61h30v9h-30Z M635 629v-28h38v28 M765 601h34v5h-34m17 5v18 M807 612q-19-12-19 8v8h31v-8q0-20-12-8Z"/></g>
-      <g class="house-windows" transform="translate(55 0)"><path d="M435 439h10v49h-10Z M435 555h10v52h-10Z M835 440h10v48h-10Z M835 553h10v54h-10Z"/><path d="M463 365l29-25l4 5l-29 25Z M785 340l28 24l-4 5l-28-24Z"/></g>
+      <g class="house-furniture" transform="translate(0 0)"><path d="M467 391h54v7h-54v-7m5 7v11m43-11v11 M629 352h24v60m-5-40h44v40h-44Zm36 22a8 8 0 1 1-16 0a8 8 0 1 1 16 0 M759 394v-8h16v8h52v11h-68Z M460 513v-14h43v14m-43-14v-8h16v8 M628 499h49a11 11 0 0 1 0 22h-49a11 11 0 0 1 0-22Z M634 456h14v28h-14Z M766 515v-15h39v15m-39-15v-7h13v7 M457 626v-26h45v26m-45-61h30v9h-30Z M635 629v-28h38v28 M765 601h34v5h-34m17 5v18 M807 612q-19-12-19 8v8h31v-8q0-20-12-8Z"/></g>
+      <g class="house-windows" transform="translate(0 0)"><path d="M435 439h10v49h-10Z M435 555h10v52h-10Z M835 440h10v48h-10Z M835 553h10v54h-10Z"/><path d="M463 365l29-25l4 5l-29 25Z M785 340l28 24l-4 5l-28-24Z"/></g>
       ${lamps.map(lamp=>{
         const [x,y]=lamp.position;
         const glyph=lamp.type==='kugel'
           ? ` ${lamp.outdoor?'':`<path class="house-lamp-furniture" d="M${x-15} ${y+10}h30v3h-30ZM${x-11} ${y+13}v17m22-17v17"/>`}<circle class="house-bulb" cx="${x}" cy="${y}" r="7.5"/><path d="M${x-4} ${y+8}h8" stroke="#cc99cc"/>`
           : lamp.type==='spot'
           ? `<path class="house-lamp-furniture" d="M${x-9} ${y+5}h18m-9 0v-7"/><path class="house-bulb" d="M${x-7} ${y}l3-6h8l3 6Z"/>`
+          : lamp.type==='tischlampe'
+          ? `<path class="house-lamp-furniture" d="M${x} ${y}v11m-8 0h16"/><path class="house-bulb" d="M${x-8} ${y}l4-8h8l4 8Z"/>`
           : lamp.type==='kommode'
           ? `<path class="house-bulb" d="M${x-24} ${y}H${x+24}" stroke-width="3"/><path class="house-lamp-furniture" d="M${x-27} ${y+4}h54v14h-54ZM${x} ${y+4}v14m-23 0v4m46-4v4"/>`
           : lamp.type==='schrank'
@@ -169,8 +178,9 @@ export class HouseSection {
           : `<path d="M${x} ${y-6}v6" stroke="#cc99cc"/><rect class="house-bulb" x="${x-5}" y="${y}" width="10" height="5" rx="2"/>`;
         return `<g class="house-lamp" data-house-lamp="${esc(lamp.id)}" data-house-lamp-type="${lamp.type}" data-house-owner="${lamp.room}" ${attrs('house-light:'+lamp.id)}><title>${esc(lamp.name)}</title><circle cx="${x}" cy="${y+8}" r="24" fill="transparent"/>${glyph}</g>`;
       }).join('')}
-      <g clip-path="url(#house-outline)" class="house-scan"><rect x="455" y="-40" width="480" height="40" fill="url(#house-scan)"/></g>
-      <g class="house-floor-labels" transform="translate(55 0)">${[0,1,2,3].map((floor,i)=>`<text x="590" y="${[618,510,404,301][floor]}" text-anchor="middle">Etage ${floor}</text>`).join('')}</g>
+      <g clip-path="url(#house-outline)" class="house-scan"><rect x="400" y="-40" width="480" height="40" fill="url(#house-scan)"/></g>
+      <g class="house-floor-labels" transform="translate(0 0)">${[0,1,2,3].map((floor,i)=>`<text x="590" y="${[618,510,404,301][floor]}" text-anchor="middle">Etage ${floor}</text>`).join('')}</g>
+      <g class="house-washer" transform="translate(-55 0)" data-house-washer aria-label="Waschmaschine"><rect x="700" y="467" width="36" height="43" rx="2"/><path d="M700 475h36m-30-4h4m5 0h3"/><circle cx="718" cy="491" r="13"/><g class="house-washer-drum"><path d="M709 486q6-7 10 0t8 3q-1 9-8 8t-10-11Z"/><path d="M711 495q6-9 12-9"/></g></g>
       ${labels}
       <g class="house-metrics"><text x="75" y="730" fill="#e8806a">Etagen: 4</text><text x="333" y="730" fill="#ffcc99" data-house-lights-count>Lichter: —</text><text x="655" y="730" fill="#99ccff" data-house-roof>Dachspitz: —</text><text x="1000" y="730" fill="#ff9966" data-house-inside>Ø Innen: —</text></g>
       <path d="M65 754H29a16 16 0 0 0 0 32h36Z M1235 754h10a16 16 0 0 1 0 32h-10Z" fill="#cc99cc"/><rect x="72" y="754" width="1156" height="32" fill="#cc99cc"/>
@@ -189,6 +199,10 @@ export class HouseSection {
     this.svg=svg;
     const data=this.current;
     const text=(selector,value)=>svg.querySelectorAll(selector).forEach(node=>{if(node.textContent!==value)node.textContent=value;});
+    const washer=data.washer ?? {available:false,running:false};
+    svg.querySelector('[data-house-washer]')?.classList.toggle('running',washer.running);
+    svg.querySelector('[data-house-washer]')?.classList.toggle('offline',!washer.available);
+    text('[data-house-washer-status]','Waschmaschine · '+(!washer.available?'Keine Daten':washer.running?'Läuft':'Ruhe'));
     data.rooms.forEach(room=>{
       const group=svg.querySelector(`[data-house-room="${room.key}"]`);
       if (!group) return;

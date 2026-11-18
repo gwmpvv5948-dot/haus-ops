@@ -22,7 +22,7 @@ export function validateHouseConfig(config) {
     keys.add(room.key);
     if (room.temperature_entity && !/^sensor\.[a-z0-9_]+$/.test(room.temperature_entity)) throw Error('Hausschnitt: Ungültiger Temperatursensor.');
     for (const lamp of room.lamps ?? []) {
-      if (!['decke','stehlampe','streifen','kugel','schrank','spot','kommode'].includes(lamp.type) || !point(lamp.position) || lamp.entity_id && !/^(light|switch)\.[a-z0-9_]+$/.test(lamp.entity_id)) throw Error('Hausschnitt: Ungültige Lampenzuordnung.');
+      if (!['decke','stehlampe','streifen','kugel','schrank','spot','kommode','tischlampe'].includes(lamp.type) || !point(lamp.position) || lamp.entity_id && !/^(light|switch)\.[a-z0-9_]+$/.test(lamp.entity_id)) throw Error('Hausschnitt: Ungültige Lampenzuordnung.');
     }
   }
   return config;
@@ -120,4 +120,11 @@ export function resolveHouseData(config, registry = {}, states = {}, connected =
   return {rooms,floors:floorData,lamps:allLamps,active:allLamps.filter(lamp=>lamp.on).length,
     inside:mean(rooms.filter(room=>!room.outdoor && room.floor!==3).map(room=>room.temperature).filter(Number.isFinite)),
     roof:rooms.find(room=>room.key==='roof')?.temperature ?? NaN};
+}
+
+export function houseWasher(state) {
+ const value=Number(state?.state), unit=state?.attributes?.unit_of_measurement;
+ const available=!!state && !['unknown','unavailable',''].includes(state.state) && Number.isFinite(value) && ['W','kW'].includes(unit);
+ const watts=available?value*(unit==='kW'?1000:1):NaN;
+ return {available,watts,running:available && watts>3};
 }

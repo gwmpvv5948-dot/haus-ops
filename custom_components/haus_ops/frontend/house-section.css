@@ -78,11 +78,18 @@
 /* Keep the house offset throughout entry animations (CSS transforms replace SVG transforms). */
 .house-overlay .house-structure {animation-name:house-build-shift;}
 .house-overlay .house-furniture,.house-overlay .house-windows {animation-name:house-detail-shift;}
-@keyframes house-build-shift {from {opacity:0;transform:translateX(55px) scaleY(.04);}to {opacity:1;transform:translateX(55px) scaleY(1);}}
-@keyframes house-detail-shift {from {opacity:0;transform:translate(55px,5px);}to {opacity:1;transform:translate(55px,0);}}
+@keyframes house-build-shift {from {opacity:0;transform:translateX(0px) scaleY(.04);}to {opacity:1;transform:translateX(0px) scaleY(1);}}
+@keyframes house-detail-shift {from {opacity:0;transform:translate(0px,5px);}to {opacity:1;transform:translate(0px,0);}}
 
 .house-group-divider {fill:none;stroke:#cc99cc;stroke-opacity:.24;stroke-width:1;pointer-events:none;}
 .house-title {font-size:36px;}
 
-.house-room-label {font-size:18px;}
-.house-lamp-label,.house-unmapped {font-size:15px;}
+
+.house-room-label {font-size:26px;}
+.house-lamp-label,.house-unmapped {font-size:22px;}
+.house-washer {fill:#13131b;stroke:#cc99cc;stroke-width:1.4;pointer-events:none;}
+.house-washer-drum {transform-origin:718px 491px;fill:#9999ff;stroke:#cc99cc;}
+.house-washer.running {stroke:#ffcc99;}
+.house-washer.running .house-washer-drum {animation:house-wash 2s linear infinite;}
+.house-washer.offline {opacity:.4;}
+@keyframes house-wash {to {transform:rotate(360deg);}}

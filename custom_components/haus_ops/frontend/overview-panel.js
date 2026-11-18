@@ -112,7 +112,7 @@ export class OverviewPanel {
       action('10-01','Alle aus','data-action="ops-off" class="ops-off"',lights.some(light=>light.on&&light.ready)?'':'disabled'),
       action('10-02','Abend','data-action="light-scene:evening"',sceneReady('evening')?'':'disabled'),
       action('10-03','Film','data-action="light-scene:film"',sceneReady('film')?'':'disabled'),
-      action('10-30','Licht ▶','data-page="9"'))}`;
+      action('10-30','Licht <svg class="ops-triangle" viewBox="0 0 10 10" aria-hidden="true" focusable="false"><path d="M2 1L9 5L2 9Z"/></svg>','data-page="9"'))}`;
 
   }
 
@@ -178,7 +178,7 @@ export class OverviewPanel {
         ${latest?`<small class="ops-caption">Zuletzt geändert · ${escape(latest.name)} ${new Date(latest.changed).toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'})}</small>`:''}
         ${actions(action('06-11','Verriegeln','data-action="ops-lock"',lockReady?'':'disabled'),
           action('06-12','Kameras','data-action="ops-camera"',camera&&enabled(panel.state(camera))?'':'disabled'),
-          action('06-40','Details ▶','data-page="1"'))}
+          action('06-40','Details <svg class="ops-triangle" viewBox="0 0 10 10" aria-hidden="true" focusable="false"><path d="M2 1L9 5L2 9Z"/></svg>','data-page="1"'))}
       </section>
       <section class="ops-vent">${heading('Hauslüftung','pink',level===4?'Boost':level>0?'Aktiv':level===0?'Aus':'—',2)}
         <div class="ops-air">
@@ -200,7 +200,7 @@ export class OverviewPanel {
         <div class="ops-climate">${temperatures.map(room=>`<div style="--reading:var(--${room.value<20?'blue':'peach'})">
           <span>${escape(room.name)} ${room.stale?'<small class="warn">· Still</small>':''}</span>${bars(10,Math.max(0,(room.value-15)/10))}<strong>${room.display}</strong></div>`).join('')}</div>
         <div class="ops-card-actions"><div><small>Außen</small><span>${format(outside,1)}°</span></div>
-          <div><small>Ø Innen</small><span>${format(inside,1)}°</span></div>${action('05-20','Heizung ▶','data-page="4"')}</div>
+          <div><small>Ø Innen</small><span>${format(inside,1)}°</span></div>${action('05-20','Heizung <svg class="ops-triangle" viewBox="0 0 10 10" aria-hidden="true" focusable="false"><path d="M2 1L9 5L2 9Z"/></svg>','data-page="4"')}</div>
       </section>
       <section class="ops-blinds" data-card-page="3">${heading('Rollos','pink',blinds.some(blind=>blind.movement)?'Fährt':blinds.every(blind=>blind.position===0)?'Alle zu':blinds.filter(blind=>blind.position===100).length+' offen',3)}
         <div class="ops-blind-windows">${blinds.map(blind=>`<div class="blind-position ops-blind-position">
@@ -215,7 +215,7 @@ export class OverviewPanel {
           action('07-03','↑ Alle auf','data-action="cover:1"',panel.canMoveCover(1)?'':'disabled'))}
       </section>
       <section class="ops-utilities ${overviewAlarm.leak?'ops-leak':''}">${heading('Versorgung',overviewAlarm.leak?'red':'sand','Strom · Wasser',6)}${this.supply(energy,overviewAlarm)}
-        ${actions(action('02-112','Energie ▶','data-page="6"'),action('03-309','Wasser ▶','data-page="7"'),action('02-3','PV-Ausblick ▶','data-action="ops-pv"'))}</section>
+        ${actions(action('02-112','Energie <svg class="ops-triangle" viewBox="0 0 10 10" aria-hidden="true" focusable="false"><path d="M2 1L9 5L2 9Z"/></svg>','data-page="6"'),action('03-309','Wasser <svg class="ops-triangle" viewBox="0 0 10 10" aria-hidden="true" focusable="false"><path d="M2 1L9 5L2 9Z"/></svg>','data-page="7"'),action('02-3','PV-Ausblick <svg class="ops-triangle" viewBox="0 0 10 10" aria-hidden="true" focusable="false"><path d="M2 1L9 5L2 9Z"/></svg>','data-action="ops-pv"'))}</section>
       <section class="ops-light-card">${heading('Licht','pink',lights.filter(light=>light.on).length+' an',9)}${this.lightControls(lights)}</section>
     </div>`;
   }

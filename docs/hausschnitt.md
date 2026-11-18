@@ -4,7 +4,7 @@ Die Navigation öffnet über **Haus · Schnitt** ein Vollbild-Overlay über der 
 
 ## Daten und Bedienung
 
-- Neun gezeichnete Innenräume auf vier Etagen und ein Garten. Räume werden über HA-Areas zugeordnet. Die HA-Floor-Ebene 0–3 wird verwendet, sofern sie vorhanden ist; andernfalls gilt die Etage aus der Zeichnungskonfiguration.
+- Neun gezeichnete Innenräume auf vier Etagen. Räume werden über HA-Areas zugeordnet. Die HA-Floor-Ebene 0–3 wird verwendet, sofern sie vorhanden ist; andernfalls gilt die Etage aus der Zeichnungskonfiguration.
 - Temperaturquellen sind der Area zugeordnete Sensoren mit `device_class: temperature`. Sensoren mit der Endung `_temperature`, `_temperatur` oder `_temp` werden bevorzugt. Bereits konfigurierte Raumtemperaturen aus Heizungsmanager/HAUS-OPS haben Vorrang. Ein expliziter `temperature_entity` in der JSON-Datei hat die höchste Priorität. Mehrere passende Area-Werte werden gemittelt. Ohne Area-Wert können eindeutig nach dem Raum benannte Temperatursensoren verwendet werden. Fahrenheit wird umgerechnet. Der Innenmittelwert enthält den Dachspitz nicht.
 - `light.*` und mit **licht** beschriftete `switch.*` werden aus der Area übernommen. Diagnose-/Konfigurations-LEDs, einzelne Segmente mit vorhandener übergeordneter Lampe und doppelt repräsentierte HA-Lichtgruppen werden automatisch ausgelassen. Eine explizite JSON-Lampenzuordnung kann sie gezielt aufnehmen. Die direkte Area-Zuordnung einer Entität hat Vorrang vor der Gerätezuordnung. Der Lichtfilter der normalen Licht-Seite begrenzt den Hausschnitt nicht.
 - Für das gemeinsame Wohn- und Esszimmer können mehrere Areas verwendet werden.
@@ -53,6 +53,13 @@ Ein Raumeintrag sieht beispielsweise so aus (als Teil der vollständigen `rooms`
 
 Lichtquellen und Lichtkegel werden auf das jeweilige Polygon beschnitten. Geometrie und Leitungen werden bei Zustandsänderungen nicht neu erstellt. Ändert sich dagegen die Raum-/Lampenzuordnung, wird das Layout neu aufgebaut.
 
-Der Haus-Schnitt öffnet sich als Overlay über der aktuellen Seite. Beim Öffnen werden Haus, Einrichtung, Leitungen und Beschriftungen nacheinander aufgebaut. „Schließen“ oder Escape blendet das Overlay aus. Lampennamen bestimmen die Symbole: Fado als Kugel auf einem Tisch (im Garten direkt auf dem Boden), Schrank als Unterbauleuchte, Stripe/Rope als Lichtband. Garten ist ein eigener konfigurierbarer Außenraum mit transparentem Baum und zählt nicht zur Innentemperatur.
+Der Haus-Schnitt öffnet sich als Overlay über der aktuellen Seite. Beim Öffnen werden Haus, Einrichtung, Leitungen und Beschriftungen nacheinander aufgebaut. „Schließen“ oder Escape blendet das Overlay aus. Lampennamen bestimmen die Symbole: Fado als Kugel auf einem Tisch (im Garten direkt auf dem Boden), Schrank als Unterbauleuchte, Stripe/Rope als Lichtband.
 
-Garten-Spots stehen auf dem Boden und richten ihre Lichtkegel nach oben auf den Baum.
+
+Der Garten ist nicht Teil des mitgelieferten Haus-Schnitts. Die Zeichnung ist zwischen zwei Informationsspalten zentriert. Pro Raum wird eine Verbindungslinie gezeigt; Lampendetails stehen gesammelt unter dem jeweiligen Raum, ohne zusätzliche kreuzende Einzelleitungen.
+
+## Waschmaschine und Schreibtisch
+
+Im Bad zeigt eine Waschtrommel den Betrieb bei mehr als 3 W über `sensor.tasmota_wama_plug_energy_power`. Bei fehlenden Messwerten erscheint „Keine Daten“ und die Animation steht still. Optional lässt sich im eigenen Zeichnungs-JSON `washer_power_entity` auf einen anderen Leistungssensor setzen (W oder kW). Stromsensoren in Ampere werden nicht als Watt interpretiert.
+
+Im Arbeitszimmer ist `switch.schreibtisch` als Tischlampe zugeordnet. Ein vorhandener Schalter wird auch bei einer zuvor gespeicherten leeren Arbeitszimmer-Liste aufgenommen.
