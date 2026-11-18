@@ -77,7 +77,7 @@
         "Technik"
       ],
       "floor": 2,
-      "side": "left",
+      "side": "right",
       "polygon": [
         [
           618,
@@ -191,7 +191,7 @@
         "Badezimmer"
       ],
       "floor": 1,
-      "side": "left",
+      "side": "right",
       "polygon": [
         [
           618,

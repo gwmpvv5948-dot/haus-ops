@@ -71,3 +71,12 @@
 
 .frame[data-house-overlay] > .alarm-layer {z-index:30;}
 .frame[data-house-overlay]:is([data-alert="gelb"],[data-alert="gelb-ruhig"]) > header {position:absolute;top:0;left:0;right:0;z-index:25;background:#000;}
+
+/* Outdoor illumination comes exclusively from the soft lamp halos. */
+.house-section [data-house-room][data-outdoor="true"] .house-room-fill {fill-opacity:0;}
+.house-section [data-house-room][data-outdoor="true"] .house-room-glow {opacity:0!important;}
+/* Keep the house offset throughout entry animations (CSS transforms replace SVG transforms). */
+.house-overlay .house-structure {animation-name:house-build-shift;}
+.house-overlay .house-furniture,.house-overlay .house-windows {animation-name:house-detail-shift;}
+@keyframes house-build-shift {from {opacity:0;transform:translateX(55px) scaleY(.04);}to {opacity:1;transform:translateX(55px) scaleY(1);}}
+@keyframes house-detail-shift {from {opacity:0;transform:translate(55px,5px);}to {opacity:1;transform:translate(55px,0);}}

@@ -1,5 +1,5 @@
 import { roomNames } from './climate-panel.js';
-import {resolveHouseData, validateHouseConfig, houseTemperatureColor, normalizeHouseName} from './house-model.js?v=1.6.55&r=7';
+import {resolveHouseData, validateHouseConfig, houseTemperatureColor, normalizeHouseName} from './house-model.js?v=1.6.56&r=8';
 export const housePageIndex = 11;
 const esc = value => String(value ?? '').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
 const fmt = value => Number.isFinite(value) ? value.toLocaleString('de-DE',{minimumFractionDigits:1,maximumFractionDigits:1})+'°' : '—';
@@ -15,7 +15,7 @@ export class HouseSection {
   constructor(panel) { this.panel=panel; this.selected=null; this.pending=new Set(); }
 
   load() {
-    const path=this.panel.config?.house_section_config || new URL('./house-section.json?v=1.6.55&r=7',import.meta.url).href;
+    const path=this.panel.config?.house_section_config || new URL('./house-section.json?v=1.6.56&r=8',import.meta.url).href;
     if (this.path===path) return;
     this.path=path; this.config=null; this.current=null; this.error=''; this.layoutKey='';
     fetch(path,{credentials:'same-origin'}).then(response=>{
@@ -79,7 +79,11 @@ export class HouseSection {
   }
 
   build(data) {
-    const rooms=data.rooms;
+    // Shift only the house, keeping garden, labels and dashboard chrome fixed.
+    const shift=55;
+    const rooms=data.rooms.map(room=>room.outdoor?room:{...room,
+      polygon:room.polygon.map(([x,y])=>[x+shift,y]),anchor:[room.anchor[0]+shift,room.anchor[1]],
+      lamps:room.lamps.map(lamp=>({...lamp,position:[lamp.position[0]+shift,lamp.position[1]]}))});
     const floorSummary=[3,2,1,0].map((level,index)=>`<g transform="translate(0 ${index*18})"><text x="90" y="128" class="house-floor-name">Etage ${level} · ${['EG','OG','DG','Dachspitz'][level]}</text>${Array.from({length:10},(_,i)=>`<rect data-house-floor-temp="${level}" data-segment="${i}" x="${220+i*12}" y="115" width="10" height="13"/>`).join('')}<text data-house-floor-value="${level}" x="365" y="128"/><text data-house-floor-lights="${level}" x="415" y="128"/>${Array.from({length:data.floors.find(floor=>floor.level===level)?.lamps.length ?? 0},(_,i)=>{const count=data.floors.find(floor=>floor.level===level).lamps.length;const step=Math.min(10,62/count);return `<rect data-house-floor-lamp="${level}" data-segment="${i}" x="${485+i*step}" y="118" width="${Math.max(2,step-2)}" height="10" rx="1"/>`;}).join('')}</g>`).join('');
     const lamps=rooms.flatMap(room=>room.lamps.map(lamp=>({...lamp,room:room.key})));
     let lineOrder=0;
@@ -115,7 +119,7 @@ export class HouseSection {
         <linearGradient id="house-cone" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#fff0d8" stop-opacity=".95"/><stop offset="1" stop-color="#ffcc99" stop-opacity=".05"/></linearGradient>
         <radialGradient id="house-halo"><stop stop-color="#ffe9c8" stop-opacity=".85"/><stop offset=".45" stop-color="#ffcc99" stop-opacity=".4"/><stop offset="1" stop-color="#ffcc99" stop-opacity="0"/></radialGradient>
         <linearGradient id="house-scan" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#99ccff" stop-opacity="0"/><stop offset=".5" stop-color="#cdeaff" stop-opacity=".4"/><stop offset="1" stop-color="#99ccff" stop-opacity="0"/></linearGradient>
-        <clipPath id="house-outline"><path d="M438 414L640 222L842 414V650H438Z"/></clipPath>
+        <clipPath id="house-outline"><path transform="translate(55 0)" d="M438 414L640 222L842 414V650H438Z"/></clipPath>
         ${rooms.map(room=>`<clipPath id="house-room-${room.key}"><polygon points="${points(room)}"/></clipPath>`).join('')}
       </defs>
       <rect width="1280" height="800" fill="#000"/><rect x="470" y="85" width="95" height="610" fill="#1c1426"/>
@@ -126,24 +130,24 @@ export class HouseSection {
       <path d="M78 187V88H558V187" fill="none" stroke="#cc99cc" stroke-width="6"/><text class="house-status-title" x="90" y="106">Etagen-Status · Temperatur / Licht</text>${floorSummary}
       <path d="M590 84V168H842V84" fill="none" stroke="#cc99cc" stroke-width="7"/>
       ${Array.from({length:16},(_,i)=>`<g transform="translate(${602+(i%4)*59} ${94+Math.floor(i/4)*16})"><rect width="44" height="11" rx="6" fill="${['#ff9966','#cc99cc','#ffcc99','#9999ff'][i%4]}"/><text data-house-number x="49" y="10">${(i*17+23)%100}</text></g>`).join('')}
-      ${rooms.map(room=>`<g data-house-room="${room.key}" data-house-owner="${room.key}" ${attrs('house-room:'+room.key)} aria-label="${esc(room.name)} · Raum auswählen"><polygon class="house-room-fill" points="${points(room)}"/><polygon class="house-room-glow" points="${points(room)}"/></g>`).join('')}
+      ${rooms.map(room=>`<g data-house-room="${room.key}" data-outdoor="${!!room.outdoor}" data-house-owner="${room.key}" ${attrs('house-room:'+room.key)} aria-label="${esc(room.name)} · Raum auswählen"><polygon class="house-room-fill" points="${points(room)}"/><polygon class="house-room-glow" points="${points(room)}"/></g>`).join('')}
       ${lamps.map((lamp,i)=>{
         const [x,y]=lamp.position;
         const spot=lamp.type==='spot', sphere=lamp.type==='kugel', cabinet=lamp.type==='schrank', stripe=lamp.type==='streifen';
         const cy=y+(spot?-60:sphere?0:stripe?18:cabinet?28:47);
         const cone=cabinet?`M${x-20} ${y+3}L${x-36} ${y+85}H${x+36}L${x+20} ${y+3}Z`:`M${x-3} ${y+5}L${x-23} ${y+105}H${x+23}L${x+3} ${y+5}Z`;
-        return `<g class="house-lamp-light" data-house-glow="${esc(lamp.id)}" clip-path="url(#house-room-${lamp.room})" style="--lamp-order:${i}"><ellipse cx="${x}" cy="${cy}" rx="${sphere?42:stripe?88:cabinet?65:55}" ry="${sphere?36:stripe?45:cabinet?50:92}" fill="url(#house-halo)"/>${!sphere&&!stripe?`<path d="${cone}" fill="url(#house-cone)" ${spot?`transform="rotate(180 ${x} ${y})"`:  ''}/>`:''}</g>`;
+        return `<g class="house-lamp-light" data-house-glow="${esc(lamp.id)}" clip-path="url(#house-room-${lamp.room})" style="--lamp-order:${i}"><ellipse cx="${x}" cy="${cy}" rx="${sphere?42:stripe?88:cabinet?65:55}" ry="${sphere?36:stripe?45:cabinet?50:92}" fill="url(#house-halo)"/>${!lamp.outdoor&&!sphere&&!stripe?`<path d="${cone}" fill="url(#house-cone)" ${spot?`transform="rotate(180 ${x} ${y})"`:  ''}/>`:''}</g>`;
       }).join('')}
       ${rooms.some(room=>room.outdoor)?`<g class="house-garden-tree" aria-label="Garten · schematischer Baum"><path class="garden-ground" d="M85 644H415"/><path class="garden-trunk" d="M202 642l6-63-18-24m18 24 21-36m-21 48-32-22m32 35 31-23m-37 61-16 3m16-3 20 3"/><path class="garden-crown" d="M149 575C105 567 107 522 147 512C138 473 197 456 216 482C245 453 285 485 277 513C320 524 302 573 271 573C252 601 220 587 210 578C188 595 158 594 149 575Z"/></g>`:''}
-      <g class="house-structure">
+      <g class="house-structure" transform="translate(55 0)">
         <path d="M402 414L640 212L878 414V430L640 230L402 430Z" fill="url(#house-hatch)"/><path d="M640 212V201" stroke-width="7"/>
         <path d="M438 414h8v216h-8Z M834 414h8v216h-8Z M438 414h404v8H438Z M438 522h404v8H438Z M430 630h420v20H430Z" fill="url(#house-deck)"/>
         <path d="M540 308H740" stroke-width="4"/><path class="house-inner" d="M558 310V630M618 310V630M700 310V522"/>
         <path class="house-inner house-stairs" d="${stair(534,624,false)} ${stair(426,516,true)} ${stair(320,408,false)}" stroke-width="1.5"/>
         <path d="M330 642H430M850 642H950" stroke="#cc99cc" stroke-dasharray="10 5"/>
       </g>
-      <g class="house-furniture"><path d="M467 391h54v7h-54v-7m5 7v11m43-11v11 M629 352h24v60m-5-40h44v40h-44Zm36 22a8 8 0 1 1-16 0a8 8 0 1 1 16 0 M759 394v-8h16v8h52v11h-68Z M460 513v-14h43v14m-43-14v-8h16v8 M628 499h49a11 11 0 0 1 0 22h-49a11 11 0 0 1 0-22Z M634 456h14v28h-14Z M766 515v-15h39v15m-39-15v-7h13v7 M457 626v-26h45v26m-45-61h30v9h-30Z M635 629v-28h38v28 M765 601h34v5h-34m17 5v18 M807 612q-19-12-19 8v8h31v-8q0-20-12-8Z"/></g>
-      <g class="house-windows"><path d="M435 439h10v49h-10Z M435 555h10v52h-10Z M835 440h10v48h-10Z M835 553h10v54h-10Z"/><path d="M463 365l29-25l4 5l-29 25Z M785 340l28 24l-4 5l-28-24Z"/></g>
+      <g class="house-furniture" transform="translate(55 0)"><path d="M467 391h54v7h-54v-7m5 7v11m43-11v11 M629 352h24v60m-5-40h44v40h-44Zm36 22a8 8 0 1 1-16 0a8 8 0 1 1 16 0 M759 394v-8h16v8h52v11h-68Z M460 513v-14h43v14m-43-14v-8h16v8 M628 499h49a11 11 0 0 1 0 22h-49a11 11 0 0 1 0-22Z M634 456h14v28h-14Z M766 515v-15h39v15m-39-15v-7h13v7 M457 626v-26h45v26m-45-61h30v9h-30Z M635 629v-28h38v28 M765 601h34v5h-34m17 5v18 M807 612q-19-12-19 8v8h31v-8q0-20-12-8Z"/></g>
+      <g class="house-windows" transform="translate(55 0)"><path d="M435 439h10v49h-10Z M435 555h10v52h-10Z M835 440h10v48h-10Z M835 553h10v54h-10Z"/><path d="M463 365l29-25l4 5l-29 25Z M785 340l28 24l-4 5l-28-24Z"/></g>
       ${lamps.map(lamp=>{
         const [x,y]=lamp.position;
         const glyph=lamp.type==='kugel'
@@ -159,8 +163,8 @@ export class HouseSection {
           : `<path d="M${x} ${y-6}v6" stroke="#cc99cc"/><rect class="house-bulb" x="${x-5}" y="${y}" width="10" height="5" rx="2"/>`;
         return `<g class="house-lamp" data-house-lamp="${esc(lamp.id)}" data-house-lamp-type="${lamp.type}" data-house-owner="${lamp.room}" ${attrs('house-light:'+lamp.id)}><title>${esc(lamp.name)}</title><circle cx="${x}" cy="${y+8}" r="24" fill="transparent"/>${glyph}</g>`;
       }).join('')}
-      <g clip-path="url(#house-outline)" class="house-scan"><rect x="400" y="-40" width="480" height="40" fill="url(#house-scan)"/></g>
-      <g class="house-floor-labels">${[0,1,2,3].map((floor,i)=>`<text x="590" y="${[618,510,404,301][floor]}" text-anchor="middle">Etage ${floor}</text>`).join('')}</g>
+      <g clip-path="url(#house-outline)" class="house-scan"><rect x="455" y="-40" width="480" height="40" fill="url(#house-scan)"/></g>
+      <g class="house-floor-labels" transform="translate(55 0)">${[0,1,2,3].map((floor,i)=>`<text x="590" y="${[618,510,404,301][floor]}" text-anchor="middle">Etage ${floor}</text>`).join('')}</g>
       ${labels}
       <g class="house-metrics"><text x="75" y="730" fill="#e8806a">Etagen: 4</text><text x="333" y="730" fill="#ffcc99" data-house-lights-count>Lichter: —</text><text x="655" y="730" fill="#99ccff" data-house-roof>Dachspitz: —</text><text x="1000" y="730" fill="#ff9966" data-house-inside>Ø Innen: —</text></g>
       <path d="M65 754H29a16 16 0 0 0 0 32h36Z M1235 754h10a16 16 0 0 1 0 32h-10Z" fill="#cc99cc"/><rect x="72" y="754" width="1156" height="32" fill="#cc99cc"/>
@@ -184,7 +188,7 @@ export class HouseSection {
       if (!group) return;
       const color=houseTemperatureColor(room.temperature);
       group.querySelector('.house-room-fill').setAttribute('fill',color);
-      group.querySelector('.house-room-glow').style.opacity=String(room.glow);
+      group.querySelector('.house-room-glow').style.opacity=String(room.outdoor?0:room.glow);
       svg.querySelectorAll(`[data-house-owner="${room.key}"]`).forEach(node=>node.classList.toggle('selected',this.selected===room.key));
       text(`[data-house-room-temp="${room.key}"]`,fmt(room.temperature));
       svg.querySelectorAll(`[data-house-room-temp="${room.key}"]`).forEach(node=>node.setAttribute('fill',color));
