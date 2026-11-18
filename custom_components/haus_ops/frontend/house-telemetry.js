@@ -1,4 +1,4 @@
-import {normalizeHouseName} from './house-model.js?v=1.6.62&r=17';
+import {normalizeHouseName} from './house-model.js?v=1.6.63&r=17';
 export function groundFloorSonosPlaying(registry={},states={}) {
  const devices=new Map((registry.devices ?? []).map(d=>[d.id,d]));
  const areas=new Map((registry.areas ?? []).map(a=>[a.area_id,a]));

@@ -1,4 +1,4 @@
-import {normalizeHouseName} from './house-model.js?v=1.6.62&r=18';
+import {normalizeHouseName} from './house-model.js?v=1.6.63&r=18';
 const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
 export function livingLampLayout(lamps,config={}) {
  const used=new Set();

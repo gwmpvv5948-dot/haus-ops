@@ -1,7 +1,7 @@
-import {livingMarkup,livingSonos,LivingAcoustics} from './house-living.js?v=1.6.62&r=18';
-import {groundFloorSonosPlaying,cpuValue,cpuSparkline,inverterReading} from './house-telemetry.js?v=1.6.62&r=18';
+import {livingMarkup,livingSonos,LivingAcoustics} from './house-living.js?v=1.6.63&r=18';
+import {groundFloorSonosPlaying,cpuValue,cpuSparkline,inverterReading} from './house-telemetry.js?v=1.6.63&r=18';
 import { roomNames } from './climate-panel.js';
-import {resolveHouseData, validateHouseConfig, houseTemperatureColor, normalizeHouseName, houseWasher} from './house-model.js?v=1.6.62&r=18';
+import {resolveHouseData, validateHouseConfig, houseTemperatureColor, normalizeHouseName, houseWasher} from './house-model.js?v=1.6.63&r=18';
 export const housePageIndex = 11;
 const esc = value => String(value ?? '').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
 const fmt = value => Number.isFinite(value) ? value.toLocaleString('de-DE',{minimumFractionDigits:1,maximumFractionDigits:1})+'°' : '—';
@@ -17,7 +17,7 @@ export class HouseSection {
   constructor(panel) { this.panel=panel; this.acoustics=new LivingAcoustics(); this.selected=null; this.pending=new Set(); }
 
   load() {
-    const path=this.panel.config?.house_section_config || new URL('./house-section.json?v=1.6.62&r=18',import.meta.url).href;
+    const path=this.panel.config?.house_section_config || new URL('./house-section.json?v=1.6.63&r=18',import.meta.url).href;
     if (this.path===path) return;
     this.path=path; this.config=null; this.current=null; this.error=''; this.layoutKey='';
     fetch(path,{credentials:'same-origin'}).then(response=>{

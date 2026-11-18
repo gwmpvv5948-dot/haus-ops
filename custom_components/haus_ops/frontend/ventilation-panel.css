@@ -1,0 +1,16 @@
+.ventilation-page{display:block;width:100%;height:100%;background:#000;font-family:Antonio,'Arial Narrow',sans-serif;font-weight:600;letter-spacing:.04em;text-transform:uppercase;touch-action:manipulation;user-select:none;-webkit-user-select:none;overflow:hidden}
+.ventilation-page text{pointer-events:none}
+.vent-title{font-size:37px;fill:#ff9966}
+.vent-building{stroke:#cc99cc;stroke-opacity:.55;stroke-width:1.4;fill:none;pointer-events:none}
+.ventilation-page [data-vent-path]{fill:none;stroke:#99ccff;stroke-opacity:.6;stroke-width:9;stroke-linejoin:round;stroke-linecap:round;pointer-events:none}
+.ventilation-page .vent-duct-inner{fill:none;stroke:#000;stroke-width:5;stroke-linejoin:round;stroke-linecap:round;pointer-events:none}
+.vent-small-rotor{color:#ffcc99;pointer-events:none}.vent-large-rotor{color:#ff9966;pointer-events:none}.vent-stage-icon{color:#000;pointer-events:none}
+.vent-button{cursor:pointer;outline:none}.vent-button:active{filter:brightness(1.3)}
+.vent-button[aria-disabled=true]{cursor:default;opacity:.45}.vent-button[aria-disabled=true]:active{filter:none}
+.vent-button:focus-visible>rect:first-child{stroke:#fff;stroke-width:2}
+.vent-warning{animation:vent-warning 1.1s ease-in-out infinite alternate}.vent-warning rect{fill:#ffcc33}.vent-warning text{fill:#ffcc33}.vent-warning rect+text{fill:#000}
+.vent-timer-current{animation:vent-timer 1s steps(1,end) infinite}
+@keyframes vent-warning{from{opacity:1}to{opacity:.45}}@keyframes vent-timer{0%,49%{fill:#ff9966}50%,100%{fill:#ffcc99}}
+
+/* Rotate three cached layers rather than repainting all ring segments. */
+.ventilation-page [data-vent-small] [data-vent-rotor],.ventilation-page [data-vent-large] [data-vent-rotor],.ventilation-page [data-vent-ring-highlight]{transform-origin:0 0;transform-box:view-box;will-change:transform}

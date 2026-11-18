@@ -1,15 +1,16 @@
-import { HouseSection, housePageIndex } from './house-section.js?v=1.6.62&r=18';
-import {loadPVActual,pvDayView,bindPVDay} from './pv-day-panel.js?v=1.6.62&r=alarm-nav';
-import { setupSettingsLayout } from './settings-layout.js?v=1.6.62';
-import { MobileNotifications } from './mobile-notifications.js?v=1.6.62';
-import { nightDisplayOff } from './display-night.js?v=1.6.62';
-import {loadPV,pvView} from './pv-panel.js?v=1.6.62&r=alarm-nav';
-import { LightPanel } from './light-panel.js?v=1.6.62';
-import { CircuitsPanel } from './circuits-panel.js?v=1.6.62';
-import { OverviewPanel, overviewFields } from './overview-panel.js?v=1.6.62&r=alarm-nav';
-import { MusicPanel, musicFields } from './music-panel.js?v=1.6.62';
-import { WaterPanel, waterFields } from './water-panel.js?v=1.6.62';
-import { energyFields, energyView } from './energy-panel.js?v=1.6.62';
+import {VentilationPanel,ventilationFields,ventilationCharacteristics,validateVentilationCharacteristics} from './ventilation-panel.js?v=1.6.63&r=3';
+import { HouseSection, housePageIndex } from './house-section.js?v=1.6.63&r=18';
+import {loadPVActual,pvDayView,bindPVDay} from './pv-day-panel.js?v=1.6.63&r=alarm-nav';
+import { setupSettingsLayout } from './settings-layout.js?v=1.6.63';
+import { MobileNotifications } from './mobile-notifications.js?v=1.6.63';
+import { nightDisplayOff } from './display-night.js?v=1.6.63';
+import {loadPV,pvView} from './pv-panel.js?v=1.6.63&r=alarm-nav';
+import { LightPanel } from './light-panel.js?v=1.6.63';
+import { CircuitsPanel } from './circuits-panel.js?v=1.6.63';
+import { OverviewPanel, overviewFields } from './overview-panel.js?v=1.6.63&r=alarm-nav';
+import { MusicPanel, musicFields } from './music-panel.js?v=1.6.63';
+import { WaterPanel, waterFields } from './water-panel.js?v=1.6.63';
+import { energyFields, energyView } from './energy-panel.js?v=1.6.63';
 import { ClimatePanel, roomNames } from './climate-panel.js';
 const antonio = new FontFace('Antonio', `url("${new URL('./Antonio.ttf', import.meta.url).href}")`, {
   weight: '400 700',
@@ -86,6 +87,7 @@ class HausOps extends HTMLElement {
   music = new MusicPanel(this);
   climatePanel = new ClimatePanel(this);
   house = new HouseSection(this);
+  ventPanel = new VentilationPanel(this);
 
   set hass(value) { this.ha = value; this.settings.load(value); this.render(); }
   set panel(value) { this.yamlConfig = value?.config; this.render(); }
@@ -96,8 +98,9 @@ class HausOps extends HTMLElement {
     if (!this.shadowRoot) {
       this.attachShadow({ mode: 'open' });
       this.shadowRoot.innerHTML = `
-        <link rel="stylesheet" href="${new URL('./haus-ops.css?v=1.6.62&r=alarm-nav', import.meta.url)}">
-        <link rel="stylesheet" href="${new URL('./house-section.css?v=1.6.62&r=18', import.meta.url)}">
+        <link rel="stylesheet" href="${new URL('./haus-ops.css?v=1.6.63&r=alarm-nav', import.meta.url)}">
+        <link rel="stylesheet" href="${new URL('./house-section.css?v=1.6.63&r=18', import.meta.url)}">
+        <link rel="stylesheet" href="${new URL('./ventilation-panel.css?v=1.6.63&r=3', import.meta.url)}">
         <div class="stage"><div class="frame">
           <div class="brand">LCARS 77</div>
           <header><span class="rail"></span><span class="overview-data" aria-hidden="true" hidden></span><span class="overview-rail" aria-hidden="true" hidden></span><strong>HAUS-OPS</strong><time></time><span class="cap"></span></header>
@@ -450,6 +453,7 @@ class HausOps extends HTMLElement {
   }
 
   disconnectedCallback() {
+    this.ventPanel.stop();
     clearInterval(this.houseDataClock);
     clearInterval(this.overviewDataClock);
     this.pageEntry = undefined;
@@ -550,6 +554,10 @@ class HausOps extends HTMLElement {
     const offline = this.page === 4 && !this.demo && this.ha?.connection?.connected === false;
     clock.classList.toggle('offline', offline);
     clock.textContent = offline ? 'Offline' : new Date().toLocaleTimeString('de-DE');
+    if (this.demo && this.demoBaseLevel !== undefined && this.demoEnd <= Date.now()) {
+      this.demoLevel = this.demoBaseLevel; this.demoBaseLevel = undefined; this.render(); return;
+    }
+    this.ventPanel.tick();
     const seconds = this.remaining;
     const formatted = `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`;
     this.shadowRoot.querySelectorAll('[data-countdown]').forEach(node => { node.textContent = formatted; });
@@ -796,11 +804,7 @@ class HausOps extends HTMLElement {
             <span><strong>${escape(item.name)}</strong><small>${accessLabel(item)}</small></span></button>`).join('')}</div></section>`;
         break;
       case 2:
-        layout = `<section class="detail">${band(voltage ? 'Hauslüftung · ' + voltage : 'Hauslüftung · Stufe', '--pink')}
-          <div class="levels">${levels.map((name, i) => `<button data-action="vent:${i}" aria-pressed="${i === level}" ${this.canSetLevel(i) ? '' : 'disabled'}>${icon(fanIcon + (i === 0 ? 'M3 3l18 18' : ''))}<span>${name}</span></button>`).join('')}</div>
-          ${band('Stoßlüftung · Timer', '--peach')}<div class="timer-row"><strong class="big" data-countdown></strong>
-          <div data-timer-bar>${segments(Array(20).fill(null))}</div>
-          <div class="actions">${['+10 min', 'Stop'].map((label, i) => `<button data-action="timer:${i}" ${this.demo || valid(this.timer) ? '' : 'disabled'}>${label}</button>`).join('')}</div></div></section>`;
+        layout = this.ventPanel.view();
         break;
       case 3:
         layout = this.renderBlinds(devices);
@@ -969,6 +973,7 @@ class HausOps extends HTMLElement {
       main.querySelector(`[data-slats="${blind.key}"]`)
       ?.style.setProperty('height', `${blind.position === null ? 0 : 100 - blind.position}%`);
     });
+    this.ventPanel.update(main);
     this.house.syncOverlay();
     this.shadowRoot.querySelectorAll('nav [data-page]').forEach(button =>
       button.setAttribute('aria-current', Number(button.dataset.page) === this.page));
@@ -1136,10 +1141,10 @@ class HausOps extends HTMLElement {
   soundUrl(kind) {
     const filename = this.config?.sounds?.[kind] || soundSlots.find(([key]) => key === kind)?.[2];
     if (kind === 'beep1' && ['beep1.mp3','computerbeep_1.mp3'].includes(filename)) {
-      return new URL('./sounds/beep1.mp3?v=1.6.62', import.meta.url).href;
+      return new URL('./sounds/beep1.mp3?v=1.6.63', import.meta.url).href;
     }
     if (kind === 'error' && filename === 'error.mp3') {
-      return new URL('./sounds/error.mp3?v=1.6.62', import.meta.url).href;
+      return new URL('./sounds/error.mp3?v=1.6.63', import.meta.url).href;
     }
     if (kind === 'red' && filename === redAlarmFile) {
       return new URL('./sounds/' + redAlarmFile, import.meta.url).href;
@@ -1148,7 +1153,7 @@ class HausOps extends HTMLElement {
       return new URL('./sounds/yellow_alert.mp3?v=2', import.meta.url).href;
     }
     if (kind === 'warp' && ['warp_core_loop.wav', 'warp_core.wav', 'warp_core.mp3'].includes(filename)) {
-      return new URL('./sounds/warp_core_loop.wav?v=1.6.62', import.meta.url).href;
+      return new URL('./sounds/warp_core_loop.wav?v=1.6.63', import.meta.url).href;
     }
     if (['beep3', 'beep5', 'beep6', 'beep7'].includes(kind) && filename === kind + '.mp3') {
       return new URL('./sounds/' + filename, import.meta.url).href;
@@ -1263,10 +1268,10 @@ class HausOps extends HTMLElement {
     if (event.target.closest('.ops-blind-windows [data-blind-position]')) return;
 
     const playedAlarm = this.playPendingAlarm();
-    const button = event.target.closest('button, .house-section [data-action], .circuits-wheel path[data-action^="circuit-room:"]') ??
+    const button = event.target.closest('button, .house-section [data-action], .ventilation-page [data-action], .circuits-wheel path[data-action^="circuit-room:"]') ??
       event.target.closest('[data-pv-card]')?.querySelector('[data-pv-open]') ??
       event.target.closest('[data-card-page]')?.querySelector('button[data-page]');
-    if (button?.hasAttribute('data-swiped')) return;
+    if (button?.hasAttribute('data-swiped') || button?.getAttribute('aria-disabled') === 'true') return;
     if (!button || button.disabled || !button.matches('[data-page], [data-action], [data-settings], [data-energy-mode], [data-pv-open], [data-pv-back], [data-pv-day], [data-pv-daily], [data-pv-week], [data-pv-date], [data-pv-day-shift]')) {
       const interactive = event.target.closest('a, input, select, textarea, label, summary, [contenteditable], .pv-daily-chart, [data-blind-position], [data-overview-dimmer], [data-warning-hold]');
       if (!interactive && !playedAlarm && this.alarmAudio?.paused !== false && performance.now()-(this.lastErrorTap ?? -Infinity)>800) this.playTouchSound('error');
@@ -1357,8 +1362,13 @@ class HausOps extends HTMLElement {
           else await this.call(item.entity, item.open ? 'lock' : 'unlock');
           break;
         }
+        case 'vent-auto':
+        case 'vent-night':
+          await this.ventPanel.toggle(kind.slice(5));
+          break;
         case 'vent':
-          if (this.demo) this.demoLevel = i;
+          if (!this.demo && this.remaining > 0 && this.config?.timer) await this.call(this.config.timer,'cancel');
+          if (this.demo) { this.demoLevel = i; this.demoEnd = 0; this.demoBaseLevel = undefined; }
           else if (valid(this.state(trafo.buttons[i]))) await this.call(trafo.buttons[i], 'press');
           else if (this.canSetLevel(i)) await this.call(this.legacyVent.entity, 'select_option',
             { option: this.legacyVent.options[i] });
@@ -1396,9 +1406,11 @@ class HausOps extends HTMLElement {
           break;
         case 'ops-timer':
         case 'timer': {
-          const seconds = kind === 'ops-timer' ? Math.min(10800,this.remaining+900) : this.remaining+600;
+          const seconds = kind === 'ops-timer' ? Math.min(10800,this.remaining+900) : Math.min(10800,this.remaining+600);
           if (this.demo) {
             this.demoDuration = seconds;
+            if (!i) { this.demoBaseLevel ??= this.demoLevel; this.demoLevel = 4; }
+            else { this.demoLevel = this.demoBaseLevel ?? this.demoLevel; this.demoBaseLevel = undefined; }
             this.demoEnd = i ? 0 : Date.now() + seconds * 1000;
           } else {
             await this.call(this.config.timer, i ? 'cancel' : 'start', i ? {} : { duration: seconds });
@@ -1470,6 +1482,7 @@ const entityFields = [
   ]],
   ['Lüftung', [
     ['timer', 'Stoßlüftungstimer', ['timer']],
+    ...ventilationFields,
   ]],
   ['Rollos und Strom', [
     ['cover_down', 'Alle Rollos ab', ['cover', 'button', 'input_button', 'script', 'scene', 'switch']],
@@ -1530,7 +1543,7 @@ class HausOpsSettings {
     const existing = key => {
       const [group, index] = key.split('.');
       const field = config[group];
-      if (['energy', 'water', 'music', 'overview'].includes(group)) return field?.[index];
+      if (['energy', 'water', 'music', 'overview', 'vent'].includes(group)) return field?.[index];
       if (group === 'blinds') return field?.find(item => item.key === index)?.entity;
       if (group === 'valves') return field?.[roomNames[index]]?.join(', ');
       if (index !== undefined) {
@@ -1542,7 +1555,7 @@ class HausOpsSettings {
     this.dialog = document.createElement('dialog');
     this.dialog.className = 'settings';
     this.dialog.setAttribute('aria-labelledby', 'settings-title');
-    this.dialog.innerHTML = `<link rel="stylesheet" href="${new URL('./settings.css?v=1.6.62', import.meta.url)}">
+    this.dialog.innerHTML = `<link rel="stylesheet" href="${new URL('./settings.css?v=1.6.63', import.meta.url)}">
     <form><header class="settings-header"><h2 id="settings-title">HAUS-OPS konfigurieren</h2><p>Bereich wählen · Änderungen mit OK speichern</p></header>
     <nav class="settings-sections" aria-label="Einstellungsbereiche"></nav><div class="fields">
       <fieldset><legend>Display</legend><label><span><input type="checkbox" name="touch-sounds" ${panel.touchSoundsEnabled ? 'checked' : ''}> Star-Trek-Töne auf diesem Display</span></label>
@@ -1617,7 +1630,7 @@ class HausOpsSettings {
           `<label>Anzeigename · ${label}<input name="blind-name.${key}" maxlength="24" value="${escape(config.blinds?.find(item => item.key === key)?.name || label)}"></label>`).join('') +
           blindCommands.slice(3).map(([label], index) =>
             `<label>${label} · % geschlossen<input type="number" min="0" max="100" name="blind-preset.${index}" value="${escape(config.blind_presets?.[index] ?? [0, 50, 80][index])}"></label>`).join('') : ''}
-        ${title === 'Lüftung' ? '<p>Stufensteuerung über Trafo-Helfer</p>' : ''}</fieldset>`).join('')}
+        ${title === 'Lüftung' ? `<p>Stufensteuerung über vorhandene Trafo-Helfer. Leere Raumsensor-Felder verwenden die HA-Bereichszuordnung. Automatik-Schalter benötigen HA-Helfer mit passenden Automationen.</p><label>Stufenkennwerte (AUS, LOW, 1, 2, MAX)<textarea name="vent-characteristics" rows="9" spellcheck="false">${escape(JSON.stringify(config.vent?.characteristics ?? ventilationCharacteristics,null,2))}</textarea></label><small>flow: m³/h · voltage: V · rpm: U/min. Sensorwerte haben Vorrang. Stoßlüftung und Rückkehr zur Grundstufe werden durch die bestehende Timer-Automation in HA ausgeführt.</small>` : ''}</fieldset>`).join('')}
       </div><p role="status"></p><div class="controls"><button type="button" data-cancel>Abbrechen</button><button type="submit">OK</button></div></form>`;
     setupSettingsLayout(this.dialog);
     const form = this.dialog.querySelector('form');
@@ -1689,7 +1702,7 @@ class HausOpsSettings {
     const data = new FormData(form);
     const submit = form.querySelector('[type=submit]');
     const status = form.querySelector('[role=status]');
-    const next = { energy: {}, overview: {}, music: {}, water: {
+    const next = { energy: {}, overview: {}, music: {}, vent: {}, water: {
       leak_minutes: Number(data.get('water-leak-minutes')) || 30,
       leak_liters: Number(data.get('water-leak-liters')) || 300,
     }, ventilation: this.panel.config?.ventilation, blinds: blindFields.map(([key, label]) => ({ key, name: data.get(`blind-name.${key}`)?.trim() || label })),
@@ -1708,12 +1721,14 @@ class HausOpsSettings {
           return;
         }
         if (group === 'valves') next.valves[name] = ids;
-        else if (['energy', 'water', 'music', 'overview'].includes(group)) next[group][index] = entity;
+        else if (['energy', 'water', 'music', 'overview', 'vent'].includes(group)) next[group][index] = entity;
         else if (group === 'blinds') next.blinds.find(blind => blind.key === index).entity = entity;
         else if (index !== undefined) next[group].push({ name, entity });
         else next[group] = entity;
       }
     }
+    try { next.vent.characteristics = validateVentilationCharacteristics(JSON.parse(data.get('vent-characteristics'))); }
+    catch(error) { status.textContent = error.message || 'Ungültige Lüftungskennwerte.'; return; }
     const list = name => [...new Set(data.get(name).split(',').map(id => id.trim()).filter(Boolean))];
     next.circuits = {
       ...this.panel.config?.circuits,
