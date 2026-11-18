@@ -1,14 +1,14 @@
-import {loadPVActual,pvDayView,bindPVDay} from './pv-day-panel.js?v=1.6.50';
-import { setupSettingsLayout } from './settings-layout.js?v=1.6.50';
-import { MobileNotifications } from './mobile-notifications.js?v=1.6.50';
-import { nightDisplayOff } from './display-night.js?v=1.6.50';
-import {loadPV,pvView} from './pv-panel.js?v=1.6.50';
-import { LightPanel } from './light-panel.js?v=1.6.50';
-import { CircuitsPanel } from './circuits-panel.js?v=1.6.50';
-import { OverviewPanel, overviewFields } from './overview-panel.js?v=1.6.50';
-import { MusicPanel, musicFields } from './music-panel.js?v=1.6.50';
-import { WaterPanel, waterFields } from './water-panel.js?v=1.6.50';
-import { energyFields, energyView } from './energy-panel.js?v=1.6.50';
+import {loadPVActual,pvDayView,bindPVDay} from './pv-day-panel.js?v=1.6.51';
+import { setupSettingsLayout } from './settings-layout.js?v=1.6.51';
+import { MobileNotifications } from './mobile-notifications.js?v=1.6.51';
+import { nightDisplayOff } from './display-night.js?v=1.6.51';
+import {loadPV,pvView} from './pv-panel.js?v=1.6.51';
+import { LightPanel } from './light-panel.js?v=1.6.51';
+import { CircuitsPanel } from './circuits-panel.js?v=1.6.51';
+import { OverviewPanel, overviewFields } from './overview-panel.js?v=1.6.51';
+import { MusicPanel, musicFields } from './music-panel.js?v=1.6.51';
+import { WaterPanel, waterFields } from './water-panel.js?v=1.6.51';
+import { energyFields, energyView } from './energy-panel.js?v=1.6.51';
 import { ClimatePanel, roomNames } from './climate-panel.js';
 const antonio = new FontFace('Antonio', `url("${new URL('./Antonio.ttf', import.meta.url).href}")`, {
   weight: '400 700',
@@ -91,7 +91,7 @@ class HausOps extends HTMLElement {
     if (!this.shadowRoot) {
       this.attachShadow({ mode: 'open' });
       this.shadowRoot.innerHTML = `
-        <link rel="stylesheet" href="${new URL('./haus-ops.css?v=1.6.50', import.meta.url)}">
+        <link rel="stylesheet" href="${new URL('./haus-ops.css?v=1.6.51', import.meta.url)}">
         <div class="stage"><div class="frame">
           <div class="brand">LCARS 77</div>
           <header><span class="rail"></span><span class="overview-data" aria-hidden="true" hidden></span><span class="overview-rail" aria-hidden="true" hidden></span><strong>HAUS-OPS</strong><time></time><span class="cap"></span></header>
@@ -104,6 +104,18 @@ class HausOps extends HTMLElement {
           <footer><span class="rail">${this.demo ? 'Demo · System bereit' : 'System bereit'}</span><span class="cap"></span></footer>
         </div><div class="notice" role="status"></div></div>`;
       this.shadowRoot.addEventListener('click', event => this.click(event));
+      this.shadowRoot.addEventListener('pointerdown', event => {
+        if (event.isPrimary) this.errorTapStart = {id:event.pointerId,x:event.clientX,y:event.clientY};
+      }, {capture:true});
+      this.shadowRoot.addEventListener('pointercancel', () => { this.errorTapStart = undefined; }, {capture:true});
+      this.shadowRoot.addEventListener('pointerup', event => {
+        const start = this.errorTapStart;
+        this.errorTapStart = undefined;
+        if (!start || start.id !== event.pointerId || Math.hypot(event.clientX-start.x,event.clientY-start.y)>8) return;
+        if (!this.isInactiveTap(event.target) || this.alarmAudio?.paused === false) return;
+        this.lastErrorTap = performance.now();
+        this.playTouchSound('error');
+      }, {capture:true});
       this.bindNavigationSwipe();
     }
     this.blindInputEvents = new AbortController();
@@ -1102,10 +1114,10 @@ class HausOps extends HTMLElement {
   soundUrl(kind) {
     const filename = this.config?.sounds?.[kind] || soundSlots.find(([key]) => key === kind)?.[2];
     if (kind === 'beep1' && ['beep1.mp3','computerbeep_1.mp3'].includes(filename)) {
-      return new URL('./sounds/beep1.mp3?v=1.6.50', import.meta.url).href;
+      return new URL('./sounds/beep1.mp3?v=1.6.51', import.meta.url).href;
     }
     if (kind === 'error' && filename === 'error.mp3') {
-      return new URL('./sounds/error.mp3?v=1.6.50', import.meta.url).href;
+      return new URL('./sounds/error.mp3?v=1.6.51', import.meta.url).href;
     }
     if (kind === 'red' && filename === redAlarmFile) {
       return new URL('./sounds/' + redAlarmFile, import.meta.url).href;
@@ -1114,7 +1126,7 @@ class HausOps extends HTMLElement {
       return new URL('./sounds/yellow_alert.mp3?v=2', import.meta.url).href;
     }
     if (kind === 'warp' && ['warp_core_loop.wav', 'warp_core.wav', 'warp_core.mp3'].includes(filename)) {
-      return new URL('./sounds/warp_core_loop.wav?v=1.6.50', import.meta.url).href;
+      return new URL('./sounds/warp_core_loop.wav?v=1.6.51', import.meta.url).href;
     }
     if (['beep3', 'beep5', 'beep6'].includes(kind) && filename === kind + '.mp3') {
       return new URL('./sounds/' + filename, import.meta.url).href;
@@ -1213,6 +1225,14 @@ class HausOps extends HTMLElement {
     this.warpAudio.play().catch(() => {});
   }
 
+  isInactiveTap(target) {
+    if (target.closest('a, input, select, textarea, label, summary, [contenteditable], .pv-daily-chart, [data-blind-position], [data-overview-dimmer], [data-warning-hold]')) return false;
+    const button = target.closest('button, [data-action], [data-page]');
+    if (button?.disabled) return true;
+    if (button?.matches('[data-page], [data-action], [data-settings], [data-energy-mode], [data-pv-open], [data-pv-back], [data-pv-day], [data-pv-daily], [data-pv-week], [data-pv-date], [data-pv-day-shift]')) return false;
+    return !target.closest('[data-pv-card], [data-card-page]');
+  }
+
   async click(event) {
     if (event.target.closest('[data-nav-spacer]')) {
       this.notify('Einstellungen benötigen einen Home-Assistant-Administrator.');
@@ -1227,7 +1247,7 @@ class HausOps extends HTMLElement {
     if (button?.hasAttribute('data-swiped')) return;
     if (!button || button.disabled || !button.matches('[data-page], [data-action], [data-settings], [data-energy-mode], [data-pv-open], [data-pv-back], [data-pv-day], [data-pv-daily], [data-pv-week], [data-pv-date], [data-pv-day-shift]')) {
       const interactive = event.target.closest('a, input, select, textarea, label, summary, [contenteditable], .pv-daily-chart, [data-blind-position], [data-overview-dimmer], [data-warning-hold]');
-      if (!interactive && !playedAlarm && this.alarmAudio?.paused !== false) this.playTouchSound('error');
+      if (!interactive && !playedAlarm && this.alarmAudio?.paused !== false && performance.now()-(this.lastErrorTap ?? -Infinity)>800) this.playTouchSound('error');
       return;
     }
     const beeps = soundSlots.map(([kind]) => kind).filter(kind => kind.startsWith('beep') && this.soundUrl(kind));
@@ -1491,7 +1511,7 @@ class HausOpsSettings {
     this.dialog = document.createElement('dialog');
     this.dialog.className = 'settings';
     this.dialog.setAttribute('aria-labelledby', 'settings-title');
-    this.dialog.innerHTML = `<link rel="stylesheet" href="${new URL('./settings.css?v=1.6.50', import.meta.url)}">
+    this.dialog.innerHTML = `<link rel="stylesheet" href="${new URL('./settings.css?v=1.6.51', import.meta.url)}">
     <form><header class="settings-header"><h2 id="settings-title">HAUS-OPS konfigurieren</h2><p>Bereich wählen · Änderungen mit OK speichern</p></header>
     <nav class="settings-sections" aria-label="Einstellungsbereiche"></nav><div class="fields">
       <fieldset><legend>Display</legend><label><span><input type="checkbox" name="touch-sounds" ${panel.touchSoundsEnabled ? 'checked' : ''}> Star-Trek-Töne auf diesem Display</span></label>
