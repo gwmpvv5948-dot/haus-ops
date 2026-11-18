@@ -883,3 +883,10 @@ nav,:host([data-tall-landscape]) nav{grid-template-rows:minmax(0,1fr)}
 .music-controls{grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(0,1.6fr) minmax(0,1fr) minmax(0,1fr)}
 .music-controls.is-live{grid-template-columns:repeat(3,minmax(0,1fr))}
 .music-radio{font-size:21px}
+
+/* Long media text must not enlarge the LCARS frame or its implicit main track. */
+.frame{grid-template-columns:109px minmax(0,1fr)}
+.frame>header,.frame>footer{min-width:0;max-width:100%;overflow:hidden}
+main{grid-template-columns:minmax(0,1fr)}
+.music-page{width:100%;max-width:100%;min-width:0}
+.music-favorites{min-width:0;max-width:100%}
