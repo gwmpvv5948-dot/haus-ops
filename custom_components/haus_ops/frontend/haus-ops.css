@@ -921,3 +921,11 @@ main{grid-template-columns:minmax(0,1fr)}
 .pv-daily-goal .produced{background:#ffaa00}
 .pv-daily-goal .forecast{background:repeating-linear-gradient(130deg,#cc99cc 0 2px,#222 2px 5px)}
 .pv-daily-chart svg{touch-action:none;user-select:none}
+
+/* Energy navigation forms the final segments of the heading rail. */
+.energy-heading-rail{align-items:stretch;gap:5px}
+.energy-heading-rail .band{min-height:32px}
+.energy-heading-rail .band::after{height:32px;border-radius:0}
+.energy-heading-actions{display:flex;align-items:stretch;gap:5px;flex:none}
+.energy-heading-rail .energy-heading-actions button{border-radius:0;min-height:32px}
+.energy-heading-rail .energy-heading-actions button:last-child{border-radius:0 20px 20px 0}

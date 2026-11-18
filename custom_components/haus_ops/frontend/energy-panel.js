@@ -58,7 +58,7 @@ export function energyView(panel, engineering = false, summaryOnly = false) {
     [house,solar,battery,grid].every(known) && Math.abs(house-solar-battery-grid)>Math.max(100,house*.15) && 'Leistungsbilanz prüfen'].filter(Boolean);
   const status = warnings.join(' · ') || `${grid < 0 ? 'Einspeisung' : 'Netzbezug'} ${power(grid)} · Akku ${fmt(soc)} % · PV ${solar ? power(solar) : 'inaktiv'}`;
   return {hz: known(hz) ? fmt(hz,2)+' Hz' : '— Hz', status, warning:warnings.length>0, layout:`<section class="energy-page">
-    <div class="eng-heading">${band('Leistung jetzt','peach')}<div><button data-pv-daily>PV-Tagesverlauf</button><button data-energy-mode aria-pressed="false">Energiekern</button></div></div><div class="energy-sources">
+    <div class="eng-heading energy-heading-rail">${band('Leistung jetzt','peach')}<div class="energy-heading-actions"><button data-pv-daily>PV-Tagesverlauf</button><button data-energy-mode aria-pressed="false">Energiekern</button></div></div><div class="energy-sources">
     ${source('Solar','solar',solar,solar>0?'Erzeugt':panel.state('sun.sun')?.state==='above_horizon'?'Inaktiv':'Nacht',`Ost ${fmt(pv[0])} · West ${fmt(pv[1])}<br>Garage ${fmt(pv[2])} · Schuppen ${fmt(pv[3])} W`)}
     ${source('Akku','battery',battery,battery>0?'Entlädt':battery<0?'Lädt':'Ruht',`<div class="energy-soc" style="--soc:${soc<20?'var(--red)':'var(--battery)'}">${Array.from({length:10},(_,i)=>`<i class="${soc >= (i+1)*10?'filled':''}"></i>`).join('')}</div>${fmt(soc)} % · ${fmt(stored,2)} kWh · ${fmt(temp,1)}°`)}
     ${source('Netz','purple',grid,grid>0?'Bezug':grid<0?'Einspeisung':'Ruht',`DREWAG<br>${volts.map(v=>fmt(v)).join(' · ')} V`)}
