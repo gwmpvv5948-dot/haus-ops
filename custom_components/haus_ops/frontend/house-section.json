@@ -1,0 +1,448 @@
+{
+  "title": "Wohnhaus · Schnitt A-A",
+  "rooms": [
+    {
+      "key": "roof",
+      "name": "Dachspitz",
+      "aliases": [
+        "Dachspitz",
+        "Dachspitze",
+        "Spitzboden"
+      ],
+      "floor": 3,
+      "side": "left",
+      "polygon": [
+        [
+          540,
+          306
+        ],
+        [
+          640,
+          222
+        ],
+        [
+          740,
+          306
+        ]
+      ],
+      "anchor": [
+        640,
+        285
+      ],
+      "lamps": []
+    },
+    {
+      "key": "office",
+      "name": "Arbeitszimmer",
+      "aliases": [
+        "Arbeitszimmer",
+        "Arbeit",
+        "Büro"
+      ],
+      "floor": 2,
+      "side": "left",
+      "polygon": [
+        [
+          446,
+          382
+        ],
+        [
+          539,
+          310
+        ],
+        [
+          558,
+          310
+        ],
+        [
+          558,
+          414
+        ],
+        [
+          446,
+          414
+        ]
+      ],
+      "anchor": [
+        505,
+        385
+      ],
+      "lamps": []
+    },
+    {
+      "key": "utility",
+      "name": "Technikraum",
+      "aliases": [
+        "Technikraum",
+        "Technik"
+      ],
+      "floor": 2,
+      "side": "left",
+      "polygon": [
+        [
+          618,
+          310
+        ],
+        [
+          700,
+          310
+        ],
+        [
+          700,
+          414
+        ],
+        [
+          618,
+          414
+        ]
+      ],
+      "anchor": [
+        664,
+        387
+      ],
+      "lamps": []
+    },
+    {
+      "key": "bedroom",
+      "name": "Schlafzimmer",
+      "aliases": [
+        "Schlafzimmer",
+        "SZ"
+      ],
+      "floor": 2,
+      "side": "right",
+      "polygon": [
+        [
+          700,
+          310
+        ],
+        [
+          740,
+          310
+        ],
+        [
+          834,
+          390
+        ],
+        [
+          834,
+          414
+        ],
+        [
+          700,
+          414
+        ]
+      ],
+      "anchor": [
+        780,
+        389
+      ],
+      "lamps": [],
+      "temperature_entity": "sensor.sz_temp"
+    },
+    {
+      "key": "alwin",
+      "name": "Alwin",
+      "aliases": [
+        "Alwin"
+      ],
+      "floor": 1,
+      "side": "left",
+      "polygon": [
+        [
+          446,
+          422
+        ],
+        [
+          558,
+          422
+        ],
+        [
+          558,
+          522
+        ],
+        [
+          446,
+          522
+        ]
+      ],
+      "anchor": [
+        502,
+        486
+      ],
+      "lamps": [
+        {
+          "aliases": [
+            "Alwin Schrank Stripe"
+          ],
+          "type": "schrank",
+          "position": [
+            508.7,
+            442
+          ]
+        }
+      ]
+    },
+    {
+      "key": "bath",
+      "name": "Bad",
+      "aliases": [
+        "Bad",
+        "Badezimmer"
+      ],
+      "floor": 1,
+      "side": "left",
+      "polygon": [
+        [
+          618,
+          422
+        ],
+        [
+          700,
+          422
+        ],
+        [
+          700,
+          522
+        ],
+        [
+          618,
+          522
+        ]
+      ],
+      "anchor": [
+        660,
+        453
+      ],
+      "lamps": [],
+      "temperature_entity": "sensor.bd_temp"
+    },
+    {
+      "key": "carla",
+      "name": "Carla",
+      "aliases": [
+        "Carla"
+      ],
+      "floor": 1,
+      "side": "right",
+      "polygon": [
+        [
+          700,
+          422
+        ],
+        [
+          834,
+          422
+        ],
+        [
+          834,
+          522
+        ],
+        [
+          700,
+          522
+        ]
+      ],
+      "anchor": [
+        795,
+        485
+      ],
+      "lamps": [
+        {
+          "aliases": [
+            "Carla Fado"
+          ],
+          "type": "kugel",
+          "position": [
+            770.6,
+            492
+          ]
+        },
+        {
+          "aliases": [
+            "Carla Stripe"
+          ],
+          "type": "streifen",
+          "position": [
+            764.6,
+            455
+          ]
+        }
+      ]
+    },
+    {
+      "key": "kitchen",
+      "name": "Küche",
+      "aliases": [
+        "Küche",
+        "Kueche",
+        "KU"
+      ],
+      "floor": 0,
+      "side": "left",
+      "polygon": [
+        [
+          446,
+          530
+        ],
+        [
+          558,
+          530
+        ],
+        [
+          558,
+          630
+        ],
+        [
+          446,
+          630
+        ]
+      ],
+      "anchor": [
+        480,
+        598
+      ],
+      "lamps": [
+        {
+          "aliases": [
+            "Küche",
+            "Küche Deckenlicht"
+          ],
+          "type": "decke",
+          "position": [
+            506,
+            535
+          ]
+        }
+      ],
+      "temperature_entity": "sensor.ku_temp"
+    },
+    {
+      "key": "living",
+      "name": "Wohn- & Esszimmer",
+      "aliases": [
+        "Wohnzimmer",
+        "Esszimmer",
+        "Wohnen",
+        "Wohn- & Esszimmer",
+        "WZ"
+      ],
+      "floor": 0,
+      "side": "right",
+      "polygon": [
+        [
+          618,
+          530
+        ],
+        [
+          834,
+          530
+        ],
+        [
+          834,
+          630
+        ],
+        [
+          618,
+          630
+        ]
+      ],
+      "anchor": [
+        701,
+        611
+      ],
+      "lamps": [
+        {
+          "aliases": [
+            "TV",
+            "TV Licht"
+          ],
+          "type": "decke",
+          "position": [
+            640,
+            535
+          ]
+        },
+        {
+          "aliases": [
+            "Fado WZ",
+            "Wohnzimmer Fado"
+          ],
+          "type": "kugel",
+          "position": [
+            678,
+            600
+          ]
+        },
+        {
+          "aliases": [
+            "WZ Tisch",
+            "Tisch"
+          ],
+          "type": "decke",
+          "position": [
+            722,
+            535
+          ]
+        },
+        {
+          "aliases": [
+            "Esszimmer",
+            "Esszimmer Deckenlicht"
+          ],
+          "type": "decke",
+          "position": [
+            772,
+            535
+          ]
+        },
+        {
+          "aliases": [
+            "Stehlampe"
+          ],
+          "type": "stehlampe",
+          "position": [
+            815,
+            602
+          ]
+        }
+      ]
+    },
+    {
+      "key": "garden",
+      "name": "Garten",
+      "aliases": [
+        "Garten",
+        "Außen",
+        "Aussen",
+        "Außenbereich"
+      ],
+      "outdoor": true,
+      "floor": 0,
+      "side": "left",
+      "polygon": [
+        [
+          85,
+          495
+        ],
+        [
+          400,
+          495
+        ],
+        [
+          400,
+          648
+        ],
+        [
+          85,
+          648
+        ]
+      ],
+      "anchor": [
+        235,
+        623
+      ],
+      "lamps": []
+    }
+  ]
+}
