@@ -90,7 +90,7 @@ export function pvView(panel){
   const bar=(value,max)=>`<i class="pv-mini"><b style="width:${Math.max(0,Math.min(100,100*value/max))||0}%"></b></i>`;
   const observed=panel.demo?0:actual;
   return {status:`PV-Prognose · ${valid.length}/7 Tage · ${fmt(total)} kWh`,layout:`<section class="pv-outlook">
-    <header><h2>Solarprognose · 7 Tage</h2><button data-pv-back>Zur Energiebilanz</button></header>
+    <header><h2>Solarprognose · 7 Tage</h2><div><button data-pv-daily>PV-Tagesverlauf ▶</button><button data-pv-back>Zur Energiebilanz</button></div></header>
     <div class="pv-metrics">${metric('Prognose',fmt(active.kwh),'kWh')}${metric('Vorsichtig · P10',fmt(active.low),'kWh')}${metric('Monatsreferenz',fmt(rate,0),'%')}${metric(valid.length===7?'7 Tage':valid.length+' von 7 Tagen',fmt(total),'kWh')}</div>
     <div class="pv-days"><div class="pv-scale"><small>kWh</small><div>${[0,.25,.5,.75,1].map(f=>`<span style="bottom:${f*100}%">${fmt(f*scale)}</span>`).join('')}</div><small>Wetter</small><small>Sonne</small><small>Regen</small></div>
     ${rows.map((r,i)=>{

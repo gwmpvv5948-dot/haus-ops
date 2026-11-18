@@ -1,13 +1,14 @@
-import { setupSettingsLayout } from './settings-layout.js?v=1.6.45';
-import { MobileNotifications } from './mobile-notifications.js?v=1.6.45';
-import { nightDisplayOff } from './display-night.js?v=1.6.45';
-import {loadPV,pvView} from './pv-panel.js?v=1.6.45';
-import { LightPanel } from './light-panel.js?v=1.6.45';
-import { CircuitsPanel } from './circuits-panel.js?v=1.6.45';
-import { OverviewPanel, overviewFields } from './overview-panel.js?v=1.6.45';
-import { MusicPanel, musicFields } from './music-panel.js?v=1.6.45';
-import { WaterPanel, waterFields } from './water-panel.js?v=1.6.45';
-import { energyFields, energyView } from './energy-panel.js?v=1.6.45';
+import {loadPVActual,pvDayView,bindPVDay} from './pv-day-panel.js?v=1.6.46';
+import { setupSettingsLayout } from './settings-layout.js?v=1.6.46';
+import { MobileNotifications } from './mobile-notifications.js?v=1.6.46';
+import { nightDisplayOff } from './display-night.js?v=1.6.46';
+import {loadPV,pvView} from './pv-panel.js?v=1.6.46';
+import { LightPanel } from './light-panel.js?v=1.6.46';
+import { CircuitsPanel } from './circuits-panel.js?v=1.6.46';
+import { OverviewPanel, overviewFields } from './overview-panel.js?v=1.6.46';
+import { MusicPanel, musicFields } from './music-panel.js?v=1.6.46';
+import { WaterPanel, waterFields } from './water-panel.js?v=1.6.46';
+import { energyFields, energyView } from './energy-panel.js?v=1.6.46';
 import { ClimatePanel, roomNames } from './climate-panel.js';
 const antonio = new FontFace('Antonio', `url("${new URL('./Antonio.ttf', import.meta.url).href}")`, {
   weight: '400 700',
@@ -89,7 +90,7 @@ class HausOps extends HTMLElement {
     if (!this.shadowRoot) {
       this.attachShadow({ mode: 'open' });
       this.shadowRoot.innerHTML = `
-        <link rel="stylesheet" href="${new URL('./haus-ops.css?v=1.6.45', import.meta.url)}">
+        <link rel="stylesheet" href="${new URL('./haus-ops.css?v=1.6.46', import.meta.url)}">
         <div class="stage"><div class="frame">
           <div class="brand">LCARS 77</div>
           <header><span class="rail"></span><span class="overview-data" aria-hidden="true" hidden></span><span class="overview-rail" aria-hidden="true" hidden></span><strong>HAUS-OPS</strong><time></time><span class="cap"></span></header>
@@ -709,8 +710,8 @@ class HausOps extends HTMLElement {
     const music = this.page === musicPageIndex ? this.music.view() : null;
     const water = this.page === waterPageIndex ? this.water.view() : null;
     this.syncWarpSound(this.page === energyPageIndex && this.engineeringMode && !this.pvOpen);
-    if (this.page === energyPageIndex && this.pvOpen) void loadPV(this);
-    const energy = this.page === energyPageIndex ? (this.pvOpen ? pvView(this) : energyView(this, this.engineeringMode)) : null;
+    if (this.page === energyPageIndex && this.pvOpen) { void loadPV(this); if(this.pvOpen==='day') void loadPVActual(this); }
+    const energy = this.page === energyPageIndex ? (this.pvOpen ? (this.pvOpen==='day'?pvDayView(this):pvView(this)) : energyView(this, this.engineeringMode)) : null;
     const canConfigure = Boolean(this.ha?.user?.is_admin);
     this.shadowRoot.querySelector('[data-settings]').hidden = !canConfigure || Boolean(energy);
     this.shadowRoot.querySelector('[data-nav-spacer]').hidden = canConfigure || Boolean(energy);
@@ -939,6 +940,7 @@ class HausOps extends HTMLElement {
     this.updateOverviewRotor(main,level);
     this.tick();
     if (music) this.music.tick(main);
+    if (this.pvOpen==='day') bindPVDay(this,main);
     if (this.animatedPage !== this.page) {
       this.animatedPage = this.page;
       this.animatePage(main);
@@ -1105,7 +1107,7 @@ class HausOps extends HTMLElement {
       return new URL('./sounds/yellow_alert.mp3?v=2', import.meta.url).href;
     }
     if (kind === 'warp' && ['warp_core_loop.wav', 'warp_core.wav', 'warp_core.mp3'].includes(filename)) {
-      return new URL('./sounds/warp_core_loop.wav?v=1.6.45', import.meta.url).href;
+      return new URL('./sounds/warp_core_loop.wav?v=1.6.46', import.meta.url).href;
     }
     if (['beep3', 'beep5', 'beep6'].includes(kind) && filename === kind + '.mp3') {
       return new URL('./sounds/' + filename, import.meta.url).href;
@@ -1215,10 +1217,17 @@ class HausOps extends HTMLElement {
     const button = event.target.closest('button, .circuits-wheel path[data-action^="circuit-room:"]') ??
       event.target.closest('[data-pv-card]')?.querySelector('[data-pv-open]') ??
       event.target.closest('[data-card-page]')?.querySelector('button[data-page]');
-    if (!button || button.disabled || button.hasAttribute('data-swiped') || !button.matches('[data-page], [data-action], [data-settings], [data-energy-mode], [data-pv-open], [data-pv-back], [data-pv-day]')) return;
+    if (!button || button.disabled || button.hasAttribute('data-swiped') || !button.matches('[data-page], [data-action], [data-settings], [data-energy-mode], [data-pv-open], [data-pv-back], [data-pv-day], [data-pv-daily], [data-pv-week], [data-pv-date], [data-pv-day-shift]')) return;
     const beeps = soundSlots.map(([kind]) => kind).filter(kind => kind.startsWith('beep') && this.soundUrl(kind));
     if (!playedAlarm && beeps.length && this.alarmAudio?.paused !== false) this.playTouchSound(beeps[Math.floor(Math.random() * beeps.length)]);
     if (button.hasAttribute('data-settings')) { this.settings.open(); return; }
+    if(button.matches('[data-pv-daily], [data-pv-week], [data-pv-date], [data-pv-day-shift]')) {
+      this.pvOpen=button.hasAttribute('data-pv-week')?true:'day';
+      if(button.dataset.pvDate!==undefined)this.pvDayIndex=Number(button.dataset.pvDate);
+      if(button.dataset.pvDayShift!==undefined)this.pvDayIndex=Math.min(6,Math.max(0,(this.pvDayIndex||0)+Number(button.dataset.pvDayShift)));
+      this.render();
+      return;
+    }
     if (button.matches('[data-pv-open], [data-pv-back], [data-pv-day]')) {
       this.pvOpen = !button.hasAttribute('data-pv-back');
       if (button.dataset.pvDay !== undefined) this.pvSelected = Number(button.dataset.pvDay);
@@ -1470,7 +1479,7 @@ class HausOpsSettings {
     this.dialog = document.createElement('dialog');
     this.dialog.className = 'settings';
     this.dialog.setAttribute('aria-labelledby', 'settings-title');
-    this.dialog.innerHTML = `<link rel="stylesheet" href="${new URL('./settings.css?v=1.6.45', import.meta.url)}">
+    this.dialog.innerHTML = `<link rel="stylesheet" href="${new URL('./settings.css?v=1.6.46', import.meta.url)}">
     <form><header class="settings-header"><h2 id="settings-title">HAUS-OPS konfigurieren</h2><p>Bereich wählen · Änderungen mit OK speichern</p></header>
     <nav class="settings-sections" aria-label="Einstellungsbereiche"></nav><div class="fields">
       <fieldset><legend>Display</legend><label><span><input type="checkbox" name="touch-sounds" ${panel.touchSoundsEnabled ? 'checked' : ''}> Star-Trek-Töne auf diesem Display</span></label>
