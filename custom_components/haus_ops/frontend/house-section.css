@@ -107,10 +107,14 @@
 
 .house-section [data-house-roof] {font-size:32px;}
 
-.house-sonos-effects {display:none;pointer-events:none;}
-.house-sonos-effects.playing {display:block;}
-.house-music-note {animation:house-note-flight var(--note-duration) linear infinite;animation-delay:var(--note-delay);}
-.house-music-wave {transform-origin:664px 585px;animation:house-wave-flight 3.3s ease-out infinite;animation-delay:var(--wave-delay);}
-.house-cpu text {font-size:18px;}
-@keyframes house-note-flight {0%{opacity:0;transform:translate(0,0);}15%{opacity:.9;}80%{opacity:.7;}100%{opacity:0;transform:translate(155px,var(--note-y));}}
-@keyframes house-wave-flight {0%{opacity:0;transform:translateX(0) scale(.5);}20%{opacity:.6;}100%{opacity:0;transform:translateX(130px) scale(1.4);}}
+/* Ground-floor living and dining room, inside the existing house section. */
+.house-living .living-furniture,.house-living .living-fixtures{fill:none;stroke:#cc99cc;stroke-width:1.8}
+.house-living .living-furniture path,.house-living .living-fixtures path{vector-effect:non-scaling-stroke;stroke-width:.65}
+.house-living .living-speaker{fill:none;color:#555;stroke:#555;stroke-width:2.2;transition:stroke .5s}
+.house-living .living-speaker.playing{color:#99ccff;stroke:#99ccff}
+.house-living .living-tweeter{fill:currentColor}
+.house-living .living-membrane{fill:none}
+.house-living .living-speaker.playing .living-membrane{animation:living-membrane .536s ease-out infinite;transform-box:fill-box;transform-origin:center}
+.house-living .house-bulb{transition:fill .8s,stroke .8s,filter .8s}
+@keyframes living-membrane{0%{transform:scale(1.25);stroke-width:3}100%{transform:scale(1);stroke-width:2}}
+.house-cpu text{font-size:18px}

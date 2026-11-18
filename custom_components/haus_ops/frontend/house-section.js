@@ -1,6 +1,7 @@
-import {groundFloorSonosPlaying,cpuValue,cpuSparkline,inverterReading} from './house-telemetry.js?v=1.6.61&r=17';
+import {livingMarkup,livingSonos,LivingAcoustics} from './house-living.js?v=1.6.62&r=18';
+import {groundFloorSonosPlaying,cpuValue,cpuSparkline,inverterReading} from './house-telemetry.js?v=1.6.62&r=18';
 import { roomNames } from './climate-panel.js';
-import {resolveHouseData, validateHouseConfig, houseTemperatureColor, normalizeHouseName, houseWasher} from './house-model.js?v=1.6.61&r=17';
+import {resolveHouseData, validateHouseConfig, houseTemperatureColor, normalizeHouseName, houseWasher} from './house-model.js?v=1.6.62&r=18';
 export const housePageIndex = 11;
 const esc = value => String(value ?? '').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
 const fmt = value => Number.isFinite(value) ? value.toLocaleString('de-DE',{minimumFractionDigits:1,maximumFractionDigits:1})+'°' : '—';
@@ -13,10 +14,10 @@ const stair = (top,bottom,reverse) => {
 };
 
 export class HouseSection {
-  constructor(panel) { this.panel=panel; this.selected=null; this.pending=new Set(); }
+  constructor(panel) { this.panel=panel; this.acoustics=new LivingAcoustics(); this.selected=null; this.pending=new Set(); }
 
   load() {
-    const path=this.panel.config?.house_section_config || new URL('./house-section.json?v=1.6.61&r=17',import.meta.url).href;
+    const path=this.panel.config?.house_section_config || new URL('./house-section.json?v=1.6.62&r=18',import.meta.url).href;
     if (this.path===path) return;
     this.path=path; this.config=null; this.current=null; this.error=''; this.layoutKey='';
     fetch(path,{credentials:'same-origin'}).then(response=>{
@@ -150,7 +151,7 @@ export class HouseSection {
       <g transform="translate(0 -24)"><path d="M590 84V168H842V84" fill="none" stroke="#cc99cc" stroke-width="7"/>
       ${Array.from({length:16},(_,i)=>`<g transform="translate(${602+(i%4)*59} ${94+Math.floor(i/4)*16})"><rect width="44" height="11" rx="6" fill="${['#ff9966','#cc99cc','#ffcc99','#9999ff'][i%4]}"/><text data-house-number x="49" y="10">${(i*17+23)%100}</text></g>`).join('')}</g>
       ${rooms.map(room=>`<g data-house-room="${room.key}" data-outdoor="${!!room.outdoor}" data-house-owner="${room.key}" ${attrs('house-room:'+room.key)} aria-label="${esc(room.name)} · Raum auswählen"><polygon class="house-room-fill" points="${points(room)}"/><polygon class="house-room-glow" points="${points(room)}"/></g>`).join('')}
-      ${lamps.map((lamp,i)=>{
+      ${lamps.filter(lamp=>lamp.room!=='living').map((lamp,i)=>{
         const [x,y]=lamp.position;
         const spot=lamp.type==='spot', sphere=lamp.type==='kugel', cabinet=lamp.type==='schrank', stripe=lamp.type==='streifen', indirect=lamp.type==='kommode';
         const cy=y+(indirect?-15:spot?-60:sphere?0:stripe?18:cabinet?28:47);
@@ -165,9 +166,9 @@ export class HouseSection {
         <path class="house-inner house-stairs" d="${stair(534,624,false)} ${stair(426,516,true)} ${stair(320,408,false)}" stroke-width="1.5"/>
         <path d="M330 642H430M850 642H950" stroke="#cc99cc" stroke-dasharray="10 5"/>
       </g>
-      <g class="house-furniture" transform="translate(0 0)"><path d="M467 391h54v7h-54v-7m5 7v11m43-11v11 M760 408h67 M460 513v-14h43v14m-43-14v-8h16v8 M628 499h49a11 11 0 0 1 0 22h-49a11 11 0 0 1 0-22Z M634 456h14v28h-14Z M766 515v-15h39v15m-39-15v-7h13v7 M457 626v-26h45v26m-45-61h30v9h-30Z M635 629v-28h38v28 M765 601h34v5h-34m17 5v18 M807 612q-19-12-19 8v8h31v-8q0-20-12-8Z"/></g>
+      <g class="house-furniture" transform="translate(0 0)"><path d="M467 391h54v7h-54v-7m5 7v11m43-11v11 M760 408h67 M460 513v-14h43v14m-43-14v-8h16v8 M628 499h49a11 11 0 0 1 0 22h-49a11 11 0 0 1 0-22Z M634 456h14v28h-14Z M766 515v-15h39v15m-39-15v-7h13v7 M457 626v-26h45v26m-45-61h30v9h-30Z"/></g>
       <g class="house-windows" transform="translate(0 0)"><path d="M435 439h10v49h-10Z M435 555h10v52h-10Z M835 440h10v48h-10Z M835 553h10v54h-10Z"/><path d="M463 365l29-25l4 5l-29 25Z M785 340l28 24l-4 5l-28-24Z"/></g>
-      ${lamps.map(lamp=>{
+      ${lamps.filter(lamp=>lamp.room!=='living').map(lamp=>{
         const [x,y]=lamp.position;
         const glyph=lamp.type==='kugel'
           ? ` ${lamp.outdoor?'':lamp.onDresser?`<path class="house-lamp-furniture" d="M${x-24} ${y+10}h48v17h-48ZM${x} ${y+10}v17m-20 0v3m40-3v3"/>`:`<path class="house-lamp-furniture" d="M${x-15} ${y+10}h30v3h-30ZM${x-11} ${y+13}v17m22-17v17"/>`}<circle class="house-bulb" cx="${x}" cy="${y}" r="7.5"/><path d="M${x-4} ${y+8}h8" stroke="#cc99cc"/>`
@@ -187,10 +188,7 @@ export class HouseSection {
         return `<g class="house-lamp" data-house-lamp="${esc(lamp.id)}" data-house-lamp-type="${lamp.type}" data-house-owner="${lamp.room}" ${attrs('house-light:'+lamp.id)}><title>${esc(lamp.name)}</title><circle cx="${x}" cy="${y+8}" r="24" fill="transparent"/>${glyph}</g>`;
       }).join('')}
       <g clip-path="url(#house-outline)" class="house-scan"><rect x="400" y="-40" width="480" height="40" fill="url(#house-scan)"/></g>
-      <g class="house-sonos-effects" data-house-sonos clip-path="url(#house-room-living)" aria-label="Sonos-Wiedergabe im Erdgeschoss">
-        ${Array.from({length:7},(_,i)=>`<g class="house-music-note" style="--note-delay:${-i*.9}s;--note-duration:${4+i*.37}s;--note-y:${-15-i%3*12}px"><path d="M650 601v-15l10-3v15m-10-8 10-3" fill="none" stroke="#cc99cc" stroke-width="1.8"/><ellipse cx="647" cy="602" rx="3" ry="2" fill="#cc99cc"/><ellipse cx="657" cy="599" rx="3" ry="2" fill="#cc99cc"/></g>`).join('')}
-        ${Array.from({length:3},(_,i)=>`<path class="house-music-wave" style="--wave-delay:${-i*1.1}s" d="M669 573q14 12 0 24m7-29q21 17 0 34" fill="none" stroke="#99ccff" stroke-width="1.6"/>`).join('')}
-      </g>
+      ${livingMarkup(rooms.find(room=>room.key==='living'),this.config.living_detail)}
       <g class="house-devices">
         ${rooms.some(room=>room.key==='roof')?`<g class="house-mini-core" clip-path="url(#house-room-roof)" aria-label="Dachspitz · kleiner pulsierender Warp-Kern"><ellipse class="house-mini-core-aura" cx="640" cy="275" rx="31" ry="35" fill="url(#house-core-aura)"/><path d="M632 245v58m16-58v58" stroke="#547695" stroke-width="1.5"/><rect x="636" y="245" width="8" height="58" rx="4" fill="#18293a"/><g class="house-mini-core-energy">${Array.from({length:6},(_,i)=>`<rect class="house-core-coil" style="--coil-delay:${i*-.22}s" x="629" y="${249+i*9}" width="22" height="6" rx="3" fill="${i%2?'#d8efff':'#99ccff'}"/>`).join('')}<rect x="623" y="273" width="34" height="7" rx="2" fill="#ffcc99"/><circle cx="640" cy="276.5" r="7" fill="#111" stroke="#ff9966" stroke-width="2"/><circle cx="640" cy="276.5" r="3" fill="#99ccff"/></g><path d="M631 245h18m-18 58h18" stroke="#cc99cc" stroke-width="3" stroke-linecap="round"/></g>`:''}
         ${rooms.some(room=>room.key==='utility')?`<g class="house-server-rack" aria-label="Technikraum · Serverschrank mit dekorativen Statuslämpchen"><rect x="644" y="328" width="47" height="79" rx="2" fill="#0c1018" stroke="#cc99cc" stroke-width="1.5"/><path d="M649 331v72m37-72v72" stroke="#4c435b"/>${Array.from({length:5},(_,i)=>`<g><rect x="650" y="${335+i*12}" width="35" height="9" rx="1" fill="#202432" stroke="#6f6682" stroke-width=".7"/><path d="M653 ${338+i*12}h15m-15 3h15" stroke="#74859c" stroke-width=".8"/><circle class="house-server-led" style="--led-delay:${i*-.37}s;--led-period:${1.1+i*.23}s" cx="675" cy="${339.5+i*12}" r="1.6" fill="#99ccff"/><circle class="house-server-led" style="--led-delay:${i*-.61-.4}s;--led-period:${1.9-i*.16}s" cx="681" cy="${339.5+i*12}" r="1.5" fill="${i%2?'#ff9966':'#cc99cc'}"/></g>`).join('')}<text x="667.5" y="403" text-anchor="middle" fill="#cc99cc" font-size="6">SERVER</text></g>`:''}
@@ -215,7 +213,7 @@ export class HouseSection {
     this.svg=svg;
     const data=this.current;
     const text=(selector,value)=>svg.querySelectorAll(selector).forEach(node=>{if(node.textContent!==value)node.textContent=value;});
-    svg.querySelector('[data-house-sonos]')?.classList.toggle('playing',!!data.musicPlaying);
+    this.acoustics.update(svg,this.panel.demo?[{playing:true,volume:.6},{playing:true,volume:.6}]:livingSonos(this.panel.circuits.registry,this.panel.ha?.states,this.config.living_detail?.sonos_entities));
     text('[data-house-cpu-value]',Number.isFinite(data.cpu)?'CPU · '+Math.round(data.cpu)+' %':'CPU · —');
     svg.querySelector('[data-house-cpu-path]')?.setAttribute('d',cpuSparkline(data.cpuRows ?? []));
     text('[data-house-inverter-output]','Leistung · '+inverterReading(this.panel.state?.('sensor.inverter_wirkleistung'))+' · Heute · '+inverterReading(this.panel.state?.('sensor.inverter_tagesertrag')));
@@ -280,6 +278,7 @@ export class HouseSection {
   }
 
   close() {
+    this.acoustics.destroy();
     this.opened = false;
     this.overlay?.remove();
     this.overlay = null;
