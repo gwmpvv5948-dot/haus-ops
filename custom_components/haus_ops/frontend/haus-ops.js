@@ -1,15 +1,15 @@
-import { HouseSection, housePageIndex } from './house-section.js?v=1.6.56&r=8';
-import {loadPVActual,pvDayView,bindPVDay} from './pv-day-panel.js?v=1.6.56';
-import { setupSettingsLayout } from './settings-layout.js?v=1.6.56';
-import { MobileNotifications } from './mobile-notifications.js?v=1.6.56';
-import { nightDisplayOff } from './display-night.js?v=1.6.56';
-import {loadPV,pvView} from './pv-panel.js?v=1.6.56';
-import { LightPanel } from './light-panel.js?v=1.6.56';
-import { CircuitsPanel } from './circuits-panel.js?v=1.6.56';
-import { OverviewPanel, overviewFields } from './overview-panel.js?v=1.6.56';
-import { MusicPanel, musicFields } from './music-panel.js?v=1.6.56';
-import { WaterPanel, waterFields } from './water-panel.js?v=1.6.56';
-import { energyFields, energyView } from './energy-panel.js?v=1.6.56';
+import { HouseSection, housePageIndex } from './house-section.js?v=1.6.57&r=9';
+import {loadPVActual,pvDayView,bindPVDay} from './pv-day-panel.js?v=1.6.57';
+import { setupSettingsLayout } from './settings-layout.js?v=1.6.57';
+import { MobileNotifications } from './mobile-notifications.js?v=1.6.57';
+import { nightDisplayOff } from './display-night.js?v=1.6.57';
+import {loadPV,pvView} from './pv-panel.js?v=1.6.57';
+import { LightPanel } from './light-panel.js?v=1.6.57';
+import { CircuitsPanel } from './circuits-panel.js?v=1.6.57';
+import { OverviewPanel, overviewFields } from './overview-panel.js?v=1.6.57';
+import { MusicPanel, musicFields } from './music-panel.js?v=1.6.57';
+import { WaterPanel, waterFields } from './water-panel.js?v=1.6.57';
+import { energyFields, energyView } from './energy-panel.js?v=1.6.57';
 import { ClimatePanel, roomNames } from './climate-panel.js';
 const antonio = new FontFace('Antonio', `url("${new URL('./Antonio.ttf', import.meta.url).href}")`, {
   weight: '400 700',
@@ -96,8 +96,8 @@ class HausOps extends HTMLElement {
     if (!this.shadowRoot) {
       this.attachShadow({ mode: 'open' });
       this.shadowRoot.innerHTML = `
-        <link rel="stylesheet" href="${new URL('./haus-ops.css?v=1.6.56', import.meta.url)}">
-        <link rel="stylesheet" href="${new URL('./house-section.css?v=1.6.56&r=8', import.meta.url)}">
+        <link rel="stylesheet" href="${new URL('./haus-ops.css?v=1.6.57&r=triangle', import.meta.url)}">
+        <link rel="stylesheet" href="${new URL('./house-section.css?v=1.6.57&r=9', import.meta.url)}">
         <div class="stage"><div class="frame">
           <div class="brand">LCARS 77</div>
           <header><span class="rail"></span><span class="overview-data" aria-hidden="true" hidden></span><span class="overview-rail" aria-hidden="true" hidden></span><strong>HAUS-OPS</strong><time></time><span class="cap"></span></header>
@@ -221,10 +221,9 @@ class HausOps extends HTMLElement {
     const navigationViewport = this.shadowRoot.querySelector('.nav-scroll');
     this.fitNavigation = () => {
       const height = navigationViewport.clientHeight;
-      const touchHeight = navigationViewport.getBoundingClientRect().height;
-      // Show every group on the 10-inch panel while retaining large physical targets.
-      const count = touchHeight >= navigation.length * 49
-        ? navigation.length : Math.max(1, Math.floor((height + 3) / 49));
+      // Use the same large blocks at every display size; overflow stays scrollable.
+      // Fit a whole number of rows so the lower elbow never exposes half a block.
+      const count = Math.max(1, Math.floor((height + 3) / 49));
       navigationViewport.style.setProperty('--nav-block', ((height-(count-1)*3)/count)+'px');
     };
     this.navigationResize = new ResizeObserver(this.fitNavigation);
@@ -1135,10 +1134,10 @@ class HausOps extends HTMLElement {
   soundUrl(kind) {
     const filename = this.config?.sounds?.[kind] || soundSlots.find(([key]) => key === kind)?.[2];
     if (kind === 'beep1' && ['beep1.mp3','computerbeep_1.mp3'].includes(filename)) {
-      return new URL('./sounds/beep1.mp3?v=1.6.56', import.meta.url).href;
+      return new URL('./sounds/beep1.mp3?v=1.6.57', import.meta.url).href;
     }
     if (kind === 'error' && filename === 'error.mp3') {
-      return new URL('./sounds/error.mp3?v=1.6.56', import.meta.url).href;
+      return new URL('./sounds/error.mp3?v=1.6.57', import.meta.url).href;
     }
     if (kind === 'red' && filename === redAlarmFile) {
       return new URL('./sounds/' + redAlarmFile, import.meta.url).href;
@@ -1147,7 +1146,7 @@ class HausOps extends HTMLElement {
       return new URL('./sounds/yellow_alert.mp3?v=2', import.meta.url).href;
     }
     if (kind === 'warp' && ['warp_core_loop.wav', 'warp_core.wav', 'warp_core.mp3'].includes(filename)) {
-      return new URL('./sounds/warp_core_loop.wav?v=1.6.56', import.meta.url).href;
+      return new URL('./sounds/warp_core_loop.wav?v=1.6.57', import.meta.url).href;
     }
     if (['beep3', 'beep5', 'beep6', 'beep7'].includes(kind) && filename === kind + '.mp3') {
       return new URL('./sounds/' + filename, import.meta.url).href;
@@ -1541,7 +1540,7 @@ class HausOpsSettings {
     this.dialog = document.createElement('dialog');
     this.dialog.className = 'settings';
     this.dialog.setAttribute('aria-labelledby', 'settings-title');
-    this.dialog.innerHTML = `<link rel="stylesheet" href="${new URL('./settings.css?v=1.6.56', import.meta.url)}">
+    this.dialog.innerHTML = `<link rel="stylesheet" href="${new URL('./settings.css?v=1.6.57', import.meta.url)}">
     <form><header class="settings-header"><h2 id="settings-title">HAUS-OPS konfigurieren</h2><p>Bereich wählen · Änderungen mit OK speichern</p></header>
     <nav class="settings-sections" aria-label="Einstellungsbereiche"></nav><div class="fields">
       <fieldset><legend>Display</legend><label><span><input type="checkbox" name="touch-sounds" ${panel.touchSoundsEnabled ? 'checked' : ''}> Star-Trek-Töne auf diesem Display</span></label>

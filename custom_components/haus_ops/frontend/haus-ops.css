@@ -800,7 +800,8 @@ footer .rail[data-music-tone=error]{background:var(--red)}
 .frame[data-overview] .overview-rail{background:var(--peach);height:14px;flex:2}
 .frame[data-overview] header strong{font-size:19px}
 .frame[data-overview] [data-page="9"]{--gold:#fa0}
-.nav-scroll button[aria-current=true]>small::after{content:" ◀"}
+/* A CSS triangle keeps the active marker identical in Safari and Chromium. */
+.nav-scroll button[aria-current=true]>small::after{content:"";display:inline-block;width:0;height:0;margin-left:.3em;border-top:.46em solid transparent;border-bottom:.46em solid transparent;border-right:.66em solid currentColor;vertical-align:-.05em}
 @media(prefers-reduced-motion:no-preference){.ops-overview .ops-heading i{animation:light-scan 6s linear infinite}}
 @media(prefers-reduced-motion:reduce){.ops-blind-frame i{transition:none}}
 @property --fill{syntax:"<percentage>";inherits:false;initial-value:0%}

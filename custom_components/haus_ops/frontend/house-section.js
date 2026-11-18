@@ -1,5 +1,5 @@
 import { roomNames } from './climate-panel.js';
-import {resolveHouseData, validateHouseConfig, houseTemperatureColor, normalizeHouseName} from './house-model.js?v=1.6.56&r=8';
+import {resolveHouseData, validateHouseConfig, houseTemperatureColor, normalizeHouseName} from './house-model.js?v=1.6.57&r=9';
 export const housePageIndex = 11;
 const esc = value => String(value ?? '').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
 const fmt = value => Number.isFinite(value) ? value.toLocaleString('de-DE',{minimumFractionDigits:1,maximumFractionDigits:1})+'°' : '—';
@@ -15,7 +15,7 @@ export class HouseSection {
   constructor(panel) { this.panel=panel; this.selected=null; this.pending=new Set(); }
 
   load() {
-    const path=this.panel.config?.house_section_config || new URL('./house-section.json?v=1.6.56&r=8',import.meta.url).href;
+    const path=this.panel.config?.house_section_config || new URL('./house-section.json?v=1.6.57&r=9',import.meta.url).href;
     if (this.path===path) return;
     this.path=path; this.config=null; this.current=null; this.error=''; this.layoutKey='';
     fetch(path,{credentials:'same-origin'}).then(response=>{
@@ -94,13 +94,17 @@ export class HouseSection {
     const labels=['left','right'].map(side=>{
       const group=rooms.filter(room=>room.side===side);
       const rows=group.reduce((sum,room)=>sum+(room.key==='roof'?0:Math.max(1,room.lamps.length)),0);
-      const lineHeight=Math.max(14,Math.min(19,(480-group.length*28-Math.max(0,group.length-1)*4)/Math.max(1,rows)));
-      const blockHeights=group.map(room=>28+(room.key==='roof'?0:Math.max(1,room.lamps.length)*lineHeight));
-      const gap=Math.max(4,(480-blockHeights.reduce((a,b)=>a+b,0))/Math.max(1,group.length-1));
-      let y=side==='left'?200:228;
+      const start=side==='left'?112:190;
+      const available=680-start;
+      const groupGap=28;
+      const lineHeight=Math.max(14,Math.min(19,(available-group.length*24-Math.max(0,group.length-1)*groupGap)/Math.max(1,rows)));
+      const blockHeights=group.map(room=>24+(room.key==='roof'?0:Math.max(1,room.lamps.length)*lineHeight));
+      const gap=Math.max(groupGap,(available-blockHeights.reduce((a,b)=>a+b,0))/Math.max(1,group.length-1));
+      let y=start;
       return group.map((room,index)=>{
         const x=side==='left'?338:958, left=side==='left';
         let markup=lead(room,room.key,y,room.anchor);
+        if(index) markup+=`<path class="house-group-divider" d="M${left?160:958} ${y-27}h178"/>`;
         markup+=`<g class="house-room-label" data-house-owner="${room.key}" ${attrs('house-room:'+room.key)} aria-label="${esc(room.name)} · Raum auswählen"><rect x="${left?55:950}" y="${y-20}" width="305" height="28" fill="transparent"/><text x="${x}" y="${y}" text-anchor="${left?'end':'start'}"><tspan fill="#cc99cc">${room.outdoor?'Außen':`E<tspan data-house-room-floor="${room.key}">${room.floor}</tspan>`} · </tspan><tspan>${esc(room.name)} · </tspan><tspan data-house-room-temp="${room.key}">—</tspan></text></g>`;
         if (!room.lamps.length && room.key!=='roof') markup+=`<text data-house-room-missing="${room.key}" class="house-unmapped" x="${x}" y="${y+19}" text-anchor="${left?'end':'start'}">Licht · nicht erfasst</text>`;
         (room.lamps ?? []).forEach((lamp,i)=>{
@@ -124,12 +128,12 @@ export class HouseSection {
       </defs>
       <rect width="1280" height="800" fill="#000"/><rect x="470" y="85" width="95" height="610" fill="#1c1426"/>
       <path d="M1245 120H915Q855 120 855 180V680Q855 740 915 740H1245V640H997Q955 640 955 598V262Q955 220 997 220H1245Z" fill="#202027"/>
-      <path d="M64 24H28a18 18 0 0 0 0 36h36Z M1234 24h12a18 18 0 0 1 0 36h-12Z" fill="#cc99cc"/>
+      <g transform="translate(0 -24)"><path d="M64 24H28a18 18 0 0 0 0 36h36Z M1234 24h12a18 18 0 0 1 0 36h-12Z" fill="#cc99cc"/>
       <rect x="70" y="24" width="10" height="36" fill="#cc99cc"/><text class="house-title" x="92" y="57">${esc(this.config.title || 'Wohnhaus · Schnitt A-A')}</text>
-      <rect x="560" y="24" width="668" height="36" fill="#cc99cc"/><text class="house-class" x="1210" y="50" text-anchor="end">Satteldach-Klasse · Etage 0 – 3</text>
-      <path d="M78 187V88H558V187" fill="none" stroke="#cc99cc" stroke-width="6"/><text class="house-status-title" x="90" y="106">Etagen-Status · Temperatur / Licht</text>${floorSummary}
-      <path d="M590 84V168H842V84" fill="none" stroke="#cc99cc" stroke-width="7"/>
-      ${Array.from({length:16},(_,i)=>`<g transform="translate(${602+(i%4)*59} ${94+Math.floor(i/4)*16})"><rect width="44" height="11" rx="6" fill="${['#ff9966','#cc99cc','#ffcc99','#9999ff'][i%4]}"/><text data-house-number x="49" y="10">${(i*17+23)%100}</text></g>`).join('')}
+      <rect x="560" y="24" width="668" height="36" fill="#cc99cc"/><text class="house-class" x="1210" y="50" text-anchor="end">Satteldach-Klasse · Etage 0 – 3</text></g>
+      <g class="house-status-panel" transform="translate(860 -15) scale(.72 .85)"><path d="M78 187V88H558V187" fill="none" stroke="#cc99cc" stroke-width="6"/><text class="house-status-title" x="90" y="106">Etagen-Status · Temperatur / Licht</text>${floorSummary}</g>
+      <g transform="translate(0 -24)"><path d="M590 84V168H842V84" fill="none" stroke="#cc99cc" stroke-width="7"/>
+      ${Array.from({length:16},(_,i)=>`<g transform="translate(${602+(i%4)*59} ${94+Math.floor(i/4)*16})"><rect width="44" height="11" rx="6" fill="${['#ff9966','#cc99cc','#ffcc99','#9999ff'][i%4]}"/><text data-house-number x="49" y="10">${(i*17+23)%100}</text></g>`).join('')}</g>
       ${rooms.map(room=>`<g data-house-room="${room.key}" data-outdoor="${!!room.outdoor}" data-house-owner="${room.key}" ${attrs('house-room:'+room.key)} aria-label="${esc(room.name)} · Raum auswählen"><polygon class="house-room-fill" points="${points(room)}"/><polygon class="house-room-glow" points="${points(room)}"/></g>`).join('')}
       ${lamps.map((lamp,i)=>{
         const [x,y]=lamp.position;
