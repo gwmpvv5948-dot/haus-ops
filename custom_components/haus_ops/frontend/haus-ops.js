@@ -1,4 +1,4 @@
-import {AirQualityPanel,airQualityPageIndex,airRoomFields,matchesAirRoomField} from './air-quality-panel.js?v=2';
+import {AirQualityPanel,airQualityPageIndex,airRoomFields,matchesAirRoomField} from './air-quality-panel.js?v=3';
 import {VehiclePanel,vehicleFields,vehiclePageIndex} from './vehicle-panel.js?v=1.6.63&r=2';
 import {validateVehicleBlueprint} from './vehicle-model.js?v=1.6.63&r=2';
 import {VentilationPanel,ventilationFields,ventilationCharacteristics,validateVentilationCharacteristics} from './ventilation-panel.js?v=1.6.63&r=3';
@@ -21,6 +21,7 @@ const antonio = new FontFace('Antonio', `url("${new URL('./Antonio.ttf', import.
 });
 document.fonts.add(antonio);
 
+const airQualityWarningId = 'haus_ops.luftqualitaet';
 const energyPageIndex = 6;
 const waterPageIndex = 7;
 const musicPageIndex = 8;
@@ -253,7 +254,7 @@ class HausOps extends HTMLElement {
 
   yellowWarnings() {
     this.yellowMuted ??= new Map();
-    return (this.config?.yellow_alerts ?? []).flatMap(id => {
+    const warnings = (this.config?.yellow_alerts ?? []).flatMap(id => {
       const state = this.state(id);
       if (!['on','off'].includes(state?.state)) {
         this.yellowMuted.delete(id);
@@ -264,6 +265,16 @@ class HausOps extends HTMLElement {
         : muted?.since === state.last_changed && muted.until > Date.now() ? 'stumm' : 'neu';
       return [{id,name:state.attributes.friendly_name || id, since:state.last_changed,status}];
     });
+    const name = this.airQuality.criticalWarning();
+    if (!name) {
+      this.airQualityWarning = undefined;
+      this.yellowMuted.delete(airQualityWarningId);
+      return warnings;
+    }
+    const episode = this.airQualityWarning ??= {since: new Date().toISOString(), acknowledged:false};
+    const muted = this.yellowMuted.get(airQualityWarningId);
+    const status = episode.acknowledged ? 'quittiert' : muted?.until > Date.now() ? 'stumm' : 'neu';
+    return [...warnings,{id:airQualityWarningId,name,since:episode.since,status}];
   }
 
   warningView(warnings) {
@@ -292,13 +303,20 @@ class HausOps extends HTMLElement {
     const start = (button, pointer) => {
       if (!button || this.warningHold) return;
       const id = button.dataset.warningHold;
-      const since = this.state(id)?.last_changed;
+      const since = id === airQualityWarningId ? this.airQualityWarning?.since : this.state(id)?.last_changed;
       button.classList.add('holding');
       const timer = setTimeout(async () => {
         cancel();
-        if (!button.isConnected || this.state(id)?.state !== 'on' || this.state(id)?.last_changed !== since) return;
+        if (!button.isConnected) return;
         try {
-          await this.call(id,'turn_off');
+          if (id === airQualityWarningId) {
+            const warning = this.yellowWarnings().find(item=>item.id===id);
+            if (!warning || warning.since !== since || warning.status==='quittiert') return;
+            this.airQualityWarning.acknowledged = true;
+          } else {
+            if (this.state(id)?.state !== 'on' || this.state(id)?.last_changed !== since) return;
+            await this.call(id,'turn_off');
+          }
           this.selectedWarning = this.yellowWarnings().find(item=>item.id!==id && item.status==='neu')?.id ?? id;
         } catch { this.notify('Quittieren fehlgeschlagen'); }
         this.render();
@@ -722,7 +740,7 @@ class HausOps extends HTMLElement {
     const newKeys = new Set(newWarnings.map(item=>item.id+'/'+item.since));
     const incomingWarning = [...newKeys].some(key=>!this.previousWarnings?.has(key));
     this.previousWarnings = newKeys;
-    if (this.config?.yellow_alerts?.length && overviewAlarm.level !== 'rot') {
+    if ((this.config?.yellow_alerts?.length || warnings.length) && overviewAlarm.level !== 'rot') {
       overviewAlarm.level = warnings.length ? 'gelb' : 'normal';
       overviewAlarm.reasons = warnings.map(item=>item.name).join(' · ');
       overviewAlarm.count = warnings.length;
@@ -1365,7 +1383,10 @@ class HausOps extends HTMLElement {
           this.yellowMuted.set(index,{since:warning.since,until:Date.now()+1800000});
           this.selectedWarning = this.yellowWarnings().find(item=>item.status==='neu')?.id ?? index;
         }
-        if (kind === 'yellow-details') this.dispatchEvent(new CustomEvent('hass-more-info',{
+        if (kind === 'yellow-details' && index === airQualityWarningId) {
+          this.airQuality.selected = undefined;
+          this.page = airQualityPageIndex;
+        } else if (kind === 'yellow-details') this.dispatchEvent(new CustomEvent('hass-more-info',{
           detail:{entityId:index},bubbles:true,composed:true,
         }));
         return;

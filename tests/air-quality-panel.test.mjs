@@ -79,3 +79,18 @@ test('saved room sensor overrides take precedence and clearing them restores YAM
   panel.panel.config={air_quality:{roomSensors:{}}};
   assert.equal(panel.data(panel.config()).rooms.find(room=>room.name==='Küche').temperature.id,kitchen);
 });
+
+test('critical warning uses the aggregate, ignores the room filter and clears at 200',()=>{
+  const id='sensor.living_co2';
+  const panel=fixture({[id]:entity(id,2100,'carbon_dioxide','ppm')});
+  panel.panel.config={air_quality:{indoor:{co2:id}}};
+  panel.selected='Küche';
+  assert.equal(panel.criticalWarning(),'Luftqualität kritisch · CO₂');
+  panel.panel.demo=true;
+  assert.equal(panel.criticalWarning(),null);
+  panel.panel.demo=false;
+  panel.panel.ha.states[id].state='2000';
+  assert.equal(panel.criticalWarning(),null);
+  panel.panel.ha.states[id].state='unavailable';
+  assert.equal(panel.criticalWarning(),null);
+});

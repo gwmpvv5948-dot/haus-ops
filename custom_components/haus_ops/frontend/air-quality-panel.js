@@ -288,15 +288,31 @@ export class AirQualityPanel {
     }).finally(()=>{this.pending=false; if(this.panel.page===airQualityPageIndex)this.panel.render();});
   }
 
+  leadReading(pools, thresholds) {
+    return keys.map(key=>{
+      const sources=pools[key].filter(source=>source.value!=null);
+      const source=sources.reduce((highest,item)=>!highest || item.value>highest.value ? item : highest,undefined) ?? pools[key][0];
+      return {key,source,index:airIndex(source?.value,thresholds[key])};
+    });
+  }
+
+  criticalWarning() {
+    if (this.panel.demo || !this.panel.ha) return null;
+    const config=this.config();
+    const {aggregate}=this.data(config);
+    const lead=this.leadReading(aggregate,config.thresholds)
+      .filter(reading=>reading.index>200).sort((a,b)=>b.index-a.index)[0];
+    return lead ? `Luftqualität kritisch · ${metrics[lead.key].label}` : null;
+  }
+
   view() {
     const config=this.config();
     const {rooms,aggregate,outdoor,absolute,dew}=this.data(config);
     const demo=this.panel.demo, now=Date.now(), thresholds=config.thresholds;
     const selected=rooms.find(room=>room.name===this.selected);
     const pools=selected?Object.fromEntries(keys.map(key=>[key,[selected.readings[key]].filter(Boolean)])):aggregate;
-    const top=key=>[...pools[key]].filter(source=>source.value!=null).sort((a,b)=>b.value-a.value)[0]??pools[key][0];
     const indexOf=(key,v)=>airIndex(v,thresholds[key]);
-    const readings=keys.map(key=>({key,source:top(key),index:indexOf(key,top(key)?.value)}));
+    const readings=this.leadReading(pools,thresholds);
     const lead=readings.filter(row=>row.index!=null).sort((a,b)=>b.index-a.index)[0];
     const eventSources=(Array.isArray(config.events)?config.events:[]).filter(event=>event?.entity && this.panel.ha?.states?.[event.entity]);
     const timer=this.panel.config?.vent?.timer ?? this.panel.config?.timer;
