@@ -1,0 +1,23 @@
+{
+  "thresholds": {
+    "co2": [400, 800, 1000, 1400, 2000, 2500],
+    "pm25": [0, 10, 20, 25, 50, 75],
+    "pm10": [0, 20, 40, 50, 100, 150],
+    "voc": [0, 150, 250, 350, 450, 500]
+  },
+  "rooms": [
+    {"name":"Wohn- & Esszimmer","areas":["Wohnzimmer","Esszimmer","Wohn- & Esszimmer"],"temperature":"climate.al_vtherm"},
+    {"name":"Küche","areas":["Küche"],"temperature":"sensor.ku_temp"},
+    {"name":"Schlafzimmer","areas":["Schlafzimmer"],"temperature":"sensor.sz_temp"},
+    {"name":"Arbeitszimmer","areas":["Arbeitszimmer"]},
+    {"name":"Carla","areas":["Carla"]},
+    {"name":"Alwin","areas":["Alwin"],"temperature":"climate.alwin_thermostat_mqtt"},
+    {"name":"Bad","areas":["Bad","Badezimmer"],"temperature":"sensor.bd_temp"}
+  ],
+  "indoor": {},
+  "outdoor": "",
+  "referenceRoom": "",
+  "events": [
+    {"entity":"timer.stossluftung","state":"active","label":"Stoßlüftung"}
+  ]
+}

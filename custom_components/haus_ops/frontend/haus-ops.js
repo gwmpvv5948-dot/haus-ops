@@ -1,3 +1,4 @@
+import {AirQualityPanel,airQualityPageIndex} from './air-quality-panel.js?v=1';
 import {VentilationPanel,ventilationFields,ventilationCharacteristics,validateVentilationCharacteristics} from './ventilation-panel.js?v=1.6.63&r=3';
 import { HouseSection, housePageIndex } from './house-section.js?v=1.6.63&r=18';
 import {loadPVActual,pvDayView,bindPVDay} from './pv-day-panel.js?v=1.6.63&r=alarm-nav';
@@ -31,6 +32,7 @@ const navigation = [
   [waterPageIndex, 'Wasser', '02-13', '--sand', 'supply', ''],
   [9, 'Licht', '03-21', '--pink', 'comfort', ''],
   [4, 'Klima', '03-22', '--pink', 'comfort', ''],
+  [airQualityPageIndex, 'Luftqualität', '03-26', '--pink', 'comfort', ''],
   [2, 'Lüftung', '03-23', '--pink', 'comfort', 'Komfort'],
   [3, 'Rollos', '03-24', '--pink', 'comfort', ''],
   [musicPageIndex, 'Musik', '03-25', '--pink', 'comfort', ''],
@@ -88,6 +90,7 @@ class HausOps extends HTMLElement {
   climatePanel = new ClimatePanel(this);
   house = new HouseSection(this);
   ventPanel = new VentilationPanel(this);
+  airQuality = new AirQualityPanel(this);
 
   set hass(value) { this.ha = value; this.settings.load(value); this.render(); }
   set panel(value) { this.yamlConfig = value?.config; this.render(); }
@@ -96,11 +99,13 @@ class HausOps extends HTMLElement {
 
   connectedCallback() {
     if (!this.shadowRoot) {
+      if (this.demo && this.getAttribute('demo-page') === 'luftqualitaet') this.page = airQualityPageIndex;
       this.attachShadow({ mode: 'open' });
       this.shadowRoot.innerHTML = `
         <link rel="stylesheet" href="${new URL('./haus-ops.css?v=1.6.63&r=alarm-nav', import.meta.url)}">
         <link rel="stylesheet" href="${new URL('./house-section.css?v=1.6.63&r=18', import.meta.url)}">
         <link rel="stylesheet" href="${new URL('./ventilation-panel.css?v=1.6.63&r=3', import.meta.url)}">
+        <link rel="stylesheet" href="${new URL('./air-quality-panel.css?v=1', import.meta.url)}">
         <div class="stage"><div class="frame">
           <div class="brand">LCARS 77</div>
           <header><span class="rail"></span><span class="overview-data" aria-hidden="true" hidden></span><span class="overview-rail" aria-hidden="true" hidden></span><strong>HAUS-OPS</strong><time></time><span class="cap"></span></header>
@@ -558,6 +563,7 @@ class HausOps extends HTMLElement {
       this.demoLevel = this.demoBaseLevel; this.demoBaseLevel = undefined; this.render(); return;
     }
     this.ventPanel.tick();
+    this.airQuality.tick();
     const seconds = this.remaining;
     const formatted = `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`;
     this.shadowRoot.querySelectorAll('[data-countdown]').forEach(node => { node.textContent = formatted; });
@@ -809,6 +815,9 @@ class HausOps extends HTMLElement {
       case 3:
         layout = this.renderBlinds(devices);
         break;
+      case airQualityPageIndex:
+        layout = this.airQuality.view();
+        break;
       case 4:
         layout = this.climatePanel.render();
         break;
@@ -974,6 +983,10 @@ class HausOps extends HTMLElement {
       ?.style.setProperty('height', `${blind.position === null ? 0 : 100 - blind.position}%`);
     });
     this.ventPanel.update(main);
+    if (this.page === airQualityPageIndex) {
+      this.airQuality.bind(main);
+      this.shadowRoot.querySelector('footer .rail').textContent = this.airQuality.footer;
+    }
     this.house.syncOverlay();
     this.shadowRoot.querySelectorAll('nav [data-page]').forEach(button =>
       button.setAttribute('aria-current', Number(button.dataset.page) === this.page));
@@ -1253,7 +1266,7 @@ class HausOps extends HTMLElement {
   }
 
   isInactiveTap(target) {
-    if (target.closest('a, input, select, textarea, label, summary, [contenteditable], .pv-daily-chart, [data-blind-position], [data-overview-dimmer], [data-warning-hold]')) return false;
+    if (target.closest('a, input, select, textarea, label, summary, [contenteditable], .pv-daily-chart, [data-blind-position], [data-overview-dimmer], [data-warning-hold], [data-air-action], [data-air-chart], [data-air-cell]')) return false;
     const button = target.closest('button, [data-action], [data-page]');
     if (button?.disabled) return true;
     if (button?.matches('[data-page], [data-action], [data-settings], [data-energy-mode], [data-pv-open], [data-pv-back], [data-pv-day], [data-pv-daily], [data-pv-week], [data-pv-date], [data-pv-day-shift]')) return false;
@@ -1705,7 +1718,7 @@ class HausOpsSettings {
     const next = { energy: {}, overview: {}, music: {}, vent: {}, water: {
       leak_minutes: Number(data.get('water-leak-minutes')) || 30,
       leak_liters: Number(data.get('water-leak-liters')) || 300,
-    }, ventilation: this.panel.config?.ventilation, blinds: blindFields.map(([key, label]) => ({ key, name: data.get(`blind-name.${key}`)?.trim() || label })),
+    }, air_quality: this.panel.config?.air_quality, ventilation: this.panel.config?.ventilation, blinds: blindFields.map(([key, label]) => ({ key, name: data.get(`blind-name.${key}`)?.trim() || label })),
       blind_presets: [0, 50, 80].map((fallback, index) => {
         const value = data.get(`blind-preset.${index}`);
         return value ? Number(value) : fallback;

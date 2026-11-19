@@ -1,0 +1,26 @@
+.air-quality-page {
+  display:block;
+  width:100%;
+  height:100%;
+  min-height:0;
+  background:#000;
+  font-family:Antonio,'Arial Narrow',sans-serif;
+  font-weight:600;
+  letter-spacing:.04em;
+  text-transform:uppercase;
+  user-select:none;
+  touch-action:manipulation;
+}
+.air-quality-page text {pointer-events:none}
+.air-quality-page [data-air-action] {cursor:pointer;outline:none}
+.air-quality-page [data-air-action]:focus-visible rect {stroke:#fff4e0;stroke-width:2}
+.air-quality-page [data-air-chart],.air-quality-page [data-air-cell] {cursor:crosshair}
+.air-quality-page .air-glow {animation:air-glow 4s ease-in-out infinite alternate}
+@keyframes air-glow {from {opacity:.55} to {opacity:1}}
+@media (prefers-reduced-motion:reduce) {
+  .air-quality-page .air-glow {animation:none}
+}
+@media (prefers-reduced-motion:no-preference) {
+  .air-quality-page .air-room-warn {animation:air-glow 1.6s ease-in-out infinite alternate}
+}
+.air-quality-page .air-unit {text-transform:none}

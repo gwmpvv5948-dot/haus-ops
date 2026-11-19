@@ -5,4 +5,9 @@
 <title>HAUS-OPS · LCARS Demo</title>
 <script type="module" src="./custom_components/haus_ops/frontend/haus-ops.js"></script>
 <haus-ops demo></haus-ops>
+<script>
+  if (new URLSearchParams(location.search).get('seite') === 'luftqualitaet') {
+    document.querySelector('haus-ops').setAttribute('demo-page', 'luftqualitaet');
+  }
+</script>
 </html>
