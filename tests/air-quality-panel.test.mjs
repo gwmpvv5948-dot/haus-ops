@@ -66,3 +66,16 @@ test('area discovery keeps VOC concentration separate and room filtering changes
   assert.match(panel.view(),/aria-pressed="true"/);
   assert.equal(panel.chart.points.at(-1),37.5);
 });
+
+test('saved room sensor overrides take precedence and clearing them restores YAML assignments',()=>{
+  const kitchen = 'sensor.ku_temp';
+  const manual = 'sensor.kitchen_temperature_manual';
+  const panel=fixture({
+    [kitchen]:entity(kitchen,19,'temperature','°C'),
+    [manual]:entity(manual,22,'temperature','°C'),
+  });
+  panel.panel.yamlConfig={air_quality:{roomSensors:{Küche:{temperature:manual}}}};
+  assert.equal(panel.data(panel.config()).rooms.find(room=>room.name==='Küche').temperature.id,manual);
+  panel.panel.config={air_quality:{roomSensors:{}}};
+  assert.equal(panel.data(panel.config()).rooms.find(room=>room.name==='Küche').temperature.id,kitchen);
+});

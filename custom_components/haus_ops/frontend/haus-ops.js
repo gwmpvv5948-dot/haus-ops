@@ -1,4 +1,4 @@
-import {AirQualityPanel,airQualityPageIndex} from './air-quality-panel.js?v=1';
+import {AirQualityPanel,airQualityPageIndex,airRoomFields,matchesAirRoomField} from './air-quality-panel.js?v=2';
 import {VentilationPanel,ventilationFields,ventilationCharacteristics,validateVentilationCharacteristics} from './ventilation-panel.js?v=1.6.63&r=3';
 import { HouseSection, housePageIndex } from './house-section.js?v=1.6.63&r=18';
 import {loadPVActual,pvDayView,bindPVDay} from './pv-day-panel.js?v=1.6.63&r=alarm-nav';
@@ -1539,14 +1539,40 @@ class HausOpsSettings {
     }
   }
 
-  open() {
+  async open() {
     const panel = this.panel;
     if (!panel.ha?.user?.is_admin) {
       panel.notify('Einstellungen benötigen einen Home-Assistant-Administrator.');
       return;
     }
     if (this.dialog?.open) return;
+    await panel.airQuality.loadConfig();
+    if (this.dialog?.open || !panel.isConnected || !panel.ha?.user?.is_admin) return;
     const config = panel.config ?? {};
+    const airConfig = panel.airQuality.config();
+    const airRooms = (airConfig.rooms ?? []).filter(room=>typeof room?.name==='string');
+    const airStates = panel.ha.states ?? {};
+    const airOptions = Object.fromEntries(airRoomFields.map(([key])=>[key,
+      Object.entries(airStates).filter(([id,state])=>matchesAirRoomField(id,state,key)).map(([id])=>id).sort()
+    ]));
+    const fieldsBySection = new Map(entityFields);
+    const airFieldsBySection = new Map();
+    for (const [index,room] of airRooms.entries()) {
+      const aliases=[room.name,...(room.areas??[])];
+      const title=aliases.map(name=>'Klima · '+name).find(name=>fieldsBySection.has(name)) ?? 'Klima · '+room.name;
+      if (!fieldsBySection.has(title)) fieldsBySection.set(title,[]);
+      const overrides=Object.hasOwn(airConfig.roomSensors??{},room.name) ? airConfig.roomSensors[room.name] : {};
+      const fields=airRoomFields.map(([key,label])=>{
+        const selected=overrides[key] ?? '';
+        const options=[...new Set([...airOptions[key],selected].filter(Boolean))];
+        return `<label>${escape(label)}<select name="air-room.${index}.${key}">
+          <option value="">Automatisch${room[key]?' · '+escape(room[key]):''}</option>
+          ${options.map(id=>`<option value="${escape(id)}" ${id===selected?'selected':''}>${escape(airStates[id]?.attributes?.friendly_name ? airStates[id].attributes.friendly_name+' · '+id : id)}</option>`).join('')}
+        </select></label>`;
+      }).join('');
+      airFieldsBySection.set(title,(airFieldsBySection.get(title)??'')+
+        `<h3>Luftqualität · ${escape(room.name)}</h3>`+fields);
+    }
     const circuitSelection = config.circuits?.selectionSaved
       ? config.circuits.include ?? []
       : panel.circuits.structure().flatMap(floor => floor.rooms.flatMap(room => room.items.map(item => item.id)));
@@ -1635,8 +1661,9 @@ class HausOpsSettings {
         <label>Geschützte Entitäten (eine ID pro Zeile)<textarea name="circuit-protected" rows="5" spellcheck="false" autocapitalize="none">${escape(config.circuits?.protected?.join('\n'))}</textarea></label>
         <label>Leistungssensoren (Schalter = Sensor, kommagetrennt)<input name="circuit-power" value="${escape(Object.entries(config.circuits?.power ?? {}).map(pair => pair.join(' = ')).join(', '))}" spellcheck="false"></label>
       </fieldset>
-      ${entityFields.map(([title, fields]) => `<fieldset><legend>${title}</legend>${fields.map(([key, label, , caption]) =>
+      ${[...fieldsBySection].map(([title, fields]) => `<fieldset><legend>${escape(title)}</legend>${fields.map(([key, label, , caption]) =>
         `<label>${caption ?? label}<input name="${key}" value="${escape(existing(key))}" placeholder="Entitäts-ID" spellcheck="false" autocapitalize="none"></label>`).join('')}
+        ${airFieldsBySection.get(title) ?? ''}
         ${title === 'Wasser' ? `<label>Dauerfluss · Minuten<input type="number" min="1" max="1440" name="water-leak-minutes" value="${escape(config.water?.leak_minutes ?? 30)}"></label>
           <label>Dauerfluss · Liter<input type="number" min="1" max="100000" name="water-leak-liters" value="${escape(config.water?.leak_liters ?? 300)}"></label>` : ''}
         ${title === 'Rollos und Strom' ? blindFields.map(([key, label]) =>
@@ -1705,24 +1732,35 @@ class HausOpsSettings {
     this.dialog.addEventListener('close', () => this.dialog.remove(), { once: true });
     form.addEventListener('submit', event => {
       event.preventDefault();
-      this.save(form);
+      this.save(form, airRooms);
     });
     panel.shadowRoot.append(this.dialog);
     this.dialog.showModal();
   }
 
-  async save(form) {
+  async save(form, airRooms) {
     const data = new FormData(form);
     const submit = form.querySelector('[type=submit]');
     const status = form.querySelector('[role=status]');
     const next = { energy: {}, overview: {}, music: {}, vent: {}, water: {
       leak_minutes: Number(data.get('water-leak-minutes')) || 30,
       leak_liters: Number(data.get('water-leak-liters')) || 300,
-    }, air_quality: this.panel.config?.air_quality, ventilation: this.panel.config?.ventilation, blinds: blindFields.map(([key, label]) => ({ key, name: data.get(`blind-name.${key}`)?.trim() || label })),
+    }, air_quality: this.panel.config?.air_quality ?? this.panel.yamlConfig?.air_quality, ventilation: this.panel.config?.ventilation, blinds: blindFields.map(([key, label]) => ({ key, name: data.get(`blind-name.${key}`)?.trim() || label })),
       blind_presets: [0, 50, 80].map((fallback, index) => {
         const value = data.get(`blind-preset.${index}`);
         return value ? Number(value) : fallback;
       }), access: [], switches: [], climate: [], thermostats: [], schedules: [], valves: {} };
+    const airConfig = this.panel.config?.air_quality ?? this.panel.yamlConfig?.air_quality ?? {};
+    const roomSensors = {...airConfig.roomSensors};
+    for (const [i,room] of airRooms.entries()) {
+      const bindings = Object.fromEntries(airRoomFields.flatMap(([key])=>{
+        const id = data.get(`air-room.${i}.${key}`);
+        return id ? [[key,id]] : [];
+      }));
+      if (Object.keys(bindings).length) Object.defineProperty(roomSensors,room.name,{value:bindings,enumerable:true,configurable:true,writable:true});
+      else delete roomSensors[room.name];
+    }
+    if (airRooms.length) next.air_quality = {...airConfig,roomSensors};
     for (const [, fields] of entityFields) {
       for (const [key, name, domains] of fields) {
         const entity = data.get(key)?.trim();

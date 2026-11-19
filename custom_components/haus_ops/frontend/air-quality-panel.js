@@ -10,6 +10,17 @@ const metrics = {
   voc: {label:'VOC-Index', unit:'', device:''},
 };
 const keys = Object.keys(metrics);
+export const airRoomFields = [
+  ['temperature','Lufttemperatur'], ['humidity','Relative Luftfeuchte'],
+  ...keys.map(key=>[key,metrics[key].label]),
+];
+
+export function matchesAirRoomField(id,state,key) {
+  if(key==='temperature')return id.startsWith('climate.') || classify(state,'temperature') ||
+    (id.startsWith('sensor.') && ['°c','°f','k'].includes(unit(state)));
+  if(key==='humidity')return classify(state,'humidity');
+  return metricFor(id,state)===key;
+}
 const peach = '#ffcc99', pink = '#cc99cc', white = '#fff4e0', blue = '#99ccff';
 const fmt = new Intl.NumberFormat('de-DE',{maximumFractionDigits:1});
 const num = value => Number.isFinite(value) ? fmt.format(value) : '—';
@@ -184,13 +195,20 @@ export class AirQualityPanel {
     if(this.panel.page===airQualityPageIndex && this.refreshAt && Date.now()>=this.refreshAt && !this.pending) this.panel.render();
   }
 
+  loadConfig() {
+    this.configRequest ??= fetch(configUrl).then(response=>{
+      if(!response.ok) throw Error('Luftqualitäts-Konfiguration');
+      return response.json();
+    }).then(base=>{this.base=base; this.configError=false;}).catch(()=>{
+      this.configError=true;
+      this.configRequest=undefined;
+    });
+    return this.configRequest;
+  }
+
   config() {
-    if(!this.base && !this.loading) {
-      this.loading=true;
-      fetch(configUrl).then(response=>{
-        if(!response.ok) throw Error('Luftqualitäts-Konfiguration');
-        return response.json();
-      }).then(base=>{this.base=base;}).catch(()=>{this.configError=true;}).finally(()=>this.panel.render());
+    if(!this.base && !this.configRequest && !this.configError) {
+      this.loadConfig().then(()=>this.panel.render());
     }
     const custom=this.panel.config?.air_quality ?? this.panel.yamlConfig?.air_quality ?? {};
     const thresholds={...this.base?.thresholds};
@@ -220,14 +238,22 @@ export class AirQualityPanel {
         return [key,preferred(sources)];
       }));
       const env=kind=>{
+        const names=[room.name,...(room.areas??[])].map(normalized);
+        const climateTemperature=kind==='temperature' && Array.isArray(panel.config?.climate)
+          ? panel.config.climate.find(entry=>names.includes(normalized(entry.name)))?.entity
+          : undefined;
         const bound=room[kind];
-        const sources=[bound,...candidates.filter(id=>classify(states[id],kind))].filter(Boolean)
+
+        const sources=[bound,climateTemperature,...candidates.filter(id=>classify(states[id],kind))].filter(Boolean)
           .map(id=>readSource(id,states,kind)).filter(Boolean);
         return preferred(sources);
       };
       return {name:room.name,readings,temperature:env('temperature'),humidity:env('humidity')};
     };
-    const rooms=(config.rooms??[]).filter(room=>typeof room?.name==='string').map(make);
+    const rooms=(config.rooms??[]).filter(room=>typeof room?.name==='string').map((room,index)=>{
+      const overrides=Object.hasOwn(config.roomSensors??{},room.name) ? config.roomSensors[room.name] : {};
+      return make({...room,...overrides},index);
+    });
     const reference=rooms.find(room=>room.name===config.referenceRoom);
     const aggregate=Object.fromEntries(keys.map(key=>{
       if(reference)return [key,reference.readings[key]?[reference.readings[key]]:[]];
