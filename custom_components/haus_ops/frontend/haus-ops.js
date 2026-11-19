@@ -1,16 +1,16 @@
 import {AirQualityPanel,airQualityPageIndex,airRoomFields,matchesAirRoomField} from './air-quality-panel.js?v=5';
-import {VehiclePanel,vehicleFields,vehiclePageIndex} from './vehicle-panel.js?v=1.6.63&r=2';
+import {VehiclePanel,vehicleFields,vehiclePageIndex} from './vehicle-panel.js?v=1.6.63&r=3';
 import {validateVehicleBlueprint} from './vehicle-model.js?v=1.6.63&r=2';
 import {VentilationPanel,ventilationFields,ventilationCharacteristics,validateVentilationCharacteristics} from './ventilation-panel.js?v=1.6.63&r=3';
-import { HouseSection, housePageIndex } from './house-section.js?v=1.6.63&r=18';
-import {loadPVActual,pvDayView,bindPVDay} from './pv-day-panel.js?v=1.6.63&r=security-timestamp';
+import { HouseSection, housePageIndex } from './house-section.js?v=1.6.63&r=21';
+import {loadPVActual,pvDayView,bindPVDay} from './pv-day-panel.js?v=1.6.63&r=alarm-nav';
 import { setupSettingsLayout } from './settings-layout.js?v=1.6.63';
 import { MobileNotifications } from './mobile-notifications.js?v=1.6.63';
 import { nightDisplayOff } from './display-night.js?v=1.6.63';
-import {loadPV,pvView} from './pv-panel.js?v=1.6.63&r=security-timestamp';
+import {loadPV,pvView} from './pv-panel.js?v=1.6.63&r=alarm-nav';
 import { LightPanel } from './light-panel.js?v=1.6.63';
 import { CircuitsPanel } from './circuits-panel.js?v=1.6.63';
-import { OverviewPanel, overviewFields } from './overview-panel.js?v=1.6.63&r=security-timestamp';
+import { OverviewPanel, overviewFields } from './overview-panel.js?v=1.6.63&r=alarm-nav';
 import { MusicPanel, musicFields } from './music-panel.js?v=1.6.63';
 import { WaterPanel, waterFields } from './water-panel.js?v=1.6.63';
 import { energyFields, energyView } from './energy-panel.js?v=1.6.63';
@@ -117,10 +117,10 @@ class HausOps extends HTMLElement {
       if (this.demo && this.getAttribute('demo-page') === 'luftqualitaet') this.page = airQualityPageIndex;
       this.attachShadow({ mode: 'open' });
       this.shadowRoot.innerHTML = `
-        <link rel="stylesheet" href="${new URL('./haus-ops.css?v=1.6.63&r=security-timestamp', import.meta.url)}">
-        <link rel="stylesheet" href="${new URL('./house-section.css?v=1.6.63&r=18', import.meta.url)}">
+        <link rel="stylesheet" href="${new URL('./haus-ops.css?v=1.6.63&r=embedded-footer-8', import.meta.url)}">
+        <link rel="stylesheet" href="${new URL('./house-section.css?v=1.6.63&r=19', import.meta.url)}">
         <link rel="stylesheet" href="${new URL('./ventilation-panel.css?v=1.6.63&r=3', import.meta.url)}">
-        <link rel="stylesheet" href="${new URL('./vehicle-panel.css?v=1.6.63&r=2', import.meta.url)}">
+        <link rel="stylesheet" href="${new URL('./vehicle-panel.css?v=1.6.63&r=6', import.meta.url)}">
         <link rel="stylesheet" href="${new URL('./air-quality-panel.css?v=1', import.meta.url)}">
         <div class="stage"><div class="frame">
           <div class="brand">LCARS 77</div>
@@ -131,7 +131,7 @@ class HausOps extends HTMLElement {
             ).join('')}
           </div></nav>
           <main></main><div class="alarm-layer" hidden></div><div class="heel"><p data-frequency hidden></p><button data-settings aria-label="82873.4 – Konfiguration" hidden>82873.4</button><button data-nav-spacer aria-label="82873.4 – Konfiguration, Administrator erforderlich">82873.4</button></div>
-          <footer><span class="rail">${this.demo ? 'Demo · System bereit' : 'System bereit'}</span><span class="cap"></span></footer>
+          <footer><button type="button" data-footer-overview data-page="0" hidden>Übersicht</button><span class="rail">${this.demo ? 'Demo · System bereit' : 'System bereit'}</span><button type="button" data-vehicle-footer data-action="vehicle-wake" hidden disabled>Aufwecken</button><span class="cap"></span></footer>
         </div><div class="notice" role="status"></div></div>`;
       this.shadowRoot.addEventListener('click', event => this.click(event));
       this.shadowRoot.addEventListener('pointerdown', event => {
@@ -492,6 +492,7 @@ class HausOps extends HTMLElement {
 
   disconnectedCallback() {
     this.vehicle.close();
+    this.house.close();
     this.ventPanel.stop();
     clearInterval(this.houseDataClock);
     clearInterval(this.overviewDataClock);
@@ -773,7 +774,6 @@ class HausOps extends HTMLElement {
     const standbyBlocked = overviewAlarm.level !== 'normal' || this.settings.dialog?.open;
     if (standbyBlocked) this.lastDisplayActivity = now;
     const standby = !standbyBlocked && now - this.lastDisplayActivity >= 60000;
-    if (standby && this.vehicle.opened) this.vehicle.close();
     if (standby && this.page !== 0) {
       this.page = 0;
       this.pvOpen = false;
@@ -823,6 +823,10 @@ class HausOps extends HTMLElement {
     const alarm = overviewAlarm.level === 'rot' ? redAlarmLabel
       : overviewAlarm.level === 'gelb' ? yellowQuiet ? (warnings.some(item=>item.status==='stumm') ? 'Gelb · stumm' : 'Gelb · quittiert') : 'Alarmstufe Gelb'
       : complete && !open.length ? 'Gesichert' : 'Kein aktiver Alarm';
+    const vehicleView = this.page === vehiclePageIndex;
+    const houseView = this.page === housePageIndex;
+    if (!houseView && this.house.svg) this.house.close();
+    if (!vehicleView && this.vehicle.opened) this.vehicle.close();
     let layout;
     switch (this.page) {
       case housePageIndex:
@@ -852,6 +856,9 @@ class HausOps extends HTMLElement {
         break;
       case 3:
         layout = this.renderBlinds(devices);
+        break;
+      case vehiclePageIndex:
+        layout = this.vehicle.view();
         break;
       case airQualityPageIndex:
         layout = this.airQuality.view();
@@ -891,7 +898,6 @@ class HausOps extends HTMLElement {
     this.shadowRoot.querySelector('main').inert = showAlarm;
     const frame = this.shadowRoot.querySelector('.frame');
     frame.toggleAttribute('data-overview', this.page === 0);
-    frame.toggleAttribute('data-house', this.page === housePageIndex);
     const currentNavigation = navigation.find(([page]) => page === this.page) ?? navigation[0];
     frame.style.setProperty('--page-color', `var(${currentNavigation[3]})`);
     frame.dataset.navGroup = currentNavigation[4];
@@ -922,7 +928,7 @@ class HausOps extends HTMLElement {
           ? `${warnings.filter(item=>item.status==='stumm').length} stumm · ${warnings.filter(item=>item.status==='quittiert').length} quittiert`
           : `${warnings.length} quittiert`
         : `${overviewAlarm.count} ${overviewAlarm.count === 1 ? 'Meldung' : 'Meldungen'}`)) : this.page === 9 ? 'Licht' : circuits ? 'Stromkreise' : music ? 'Musik' : water ? 'Wasser' : energy ? 'Energie' : climatePage ? 'Klima' : this.page === 3 ? 'Rollos' : 'HAUS-OPS';
-    this.shadowRoot.querySelector('footer .rail').textContent = [
+    if (!vehicleView) this.shadowRoot.querySelector('footer .rail').textContent = [
       this.demo ? 'Demo' : '', level >= 0 ? 'Lüftung Stufe ' + levels[level] : 'Haus-Ops'
     ].filter(Boolean).join(' · ');
     const footer = this.shadowRoot.querySelector('footer .rail');
@@ -1025,8 +1031,18 @@ class HausOps extends HTMLElement {
       this.airQuality.bind(main);
       this.shadowRoot.querySelector('footer .rail').textContent = this.airQuality.footer;
     }
-    this.house.syncOverlay();
-    this.vehicle.syncOverlay();
+    const footerBar = footer.closest('footer');
+    footerBar.toggleAttribute('data-embedded-view', vehicleView || houseView);
+    footerBar.querySelector('[data-footer-overview]').hidden = !vehicleView && !houseView;
+    footerBar.querySelector('[data-vehicle-footer]').hidden = !vehicleView;
+    if (houseView) {
+      this.house.update(main);
+      footer.textContent = 'Haus · Schnitt';
+    }
+    if (vehicleView) {
+      this.vehicle.opened = true;
+      this.vehicle.update(main,footerBar);
+    }
     this.settings.refreshVehicleFields();
     this.shadowRoot.querySelectorAll('nav [data-page]').forEach(button =>
       button.setAttribute('aria-current', Number(button.dataset.page) === this.page));
@@ -1086,7 +1102,7 @@ class HausOps extends HTMLElement {
       animation.id = 'haus-ops-page-entry';
       animations.push(animation.finished);
     };
-    frame.querySelectorAll(':scope > header .rail, :scope > header .overview-rail:not([hidden]), :scope > footer .rail').forEach(rail => {
+    frame.querySelectorAll(':scope > header .rail, :scope > header .overview-rail:not([hidden]), :scope > footer:not([data-embedded-view]) .rail').forEach(rail => {
       animate(rail, [{transform:'scaleX(0)', transformOrigin:'left'},
         {transform:'scaleX(1)', transformOrigin:'left'}], this.page === 0 ? 700 : 800);
     });
@@ -1357,8 +1373,6 @@ class HausOps extends HTMLElement {
       return;
     }
     if (button.dataset.page !== undefined) {
-      if (Number(button.dataset.page) === housePageIndex) { if(this.vehicle.opened)this.vehicle.close(); this.house.open(); return; }
-      if (Number(button.dataset.page) === vehiclePageIndex) { if(this.house.opened)this.house.close(); this.vehicle.open(); return; }
       this.page = Number(button.dataset.page);
       this.pvOpen = false;
       this.alarmDetailsPage = button.hasAttribute('data-alarm-details') ? this.page : undefined;
@@ -1367,7 +1381,7 @@ class HausOps extends HTMLElement {
       return;
     }
     if (!button.dataset.action) return;
-    if (button.dataset.action.startsWith('vehicle-')) { await this.vehicle.act(button.dataset.action.slice(8)); return; }
+    if (button.dataset.action.startsWith('vehicle-')) { if (!this.vehicle.opened || button.disabled) return; await this.vehicle.act(button.dataset.action.slice(8)); return; }
     if (button.dataset.action.startsWith('music-')) {
       const [action, value] = button.dataset.action.slice(6).split(':');
       await this.music.act(action, ['sonos','room','room-play','member'].includes(action) ? value : Number(value));

@@ -1,7 +1,4 @@
-.frame[data-house] { display:block; position:relative; border-radius:0; padding:0; }
-.frame[data-house] > :is(.brand,.heel,header,footer,nav) { display:none; }
-.frame[data-house] > main { position:absolute; inset:0; display:block; overflow:hidden; }
-.house-section { display:block; width:100%; height:100%; background:#000; color:#ffcc99; font-family:Antonio,'Arial Narrow',sans-serif; font-size:16px; font-weight:600; letter-spacing:.04em; text-transform:uppercase; user-select:none; -webkit-user-select:none; touch-action:none; }
+.house-section { display:block; width:100%; height:100%; background:#000; color:#ffcc99; font-family:Antonio,'Arial Narrow',sans-serif; font-size:16px; font-weight:600; letter-spacing:.04em; text-transform:uppercase; user-select:none; -webkit-user-select:none; touch-action:manipulation; min-height:0; }
 .house-title { fill:#ff9966; font-size:42px; }
 .house-class { fill:#000; font-size:25px; font-style:italic; }
 .house-status-title { fill:#cc99cc; font-size:14px; }
@@ -40,8 +37,6 @@
 .house-section [aria-disabled="true"] { cursor:default; }
 .house-section [role="button"]:focus-visible { outline:2px solid #fff; outline-offset:4px; }
 .house-metrics { font-size:38px; pointer-events:none; }
-.house-footer-text { fill:#000; font-size:19px; }
-.frame[data-house]:is([data-alert="gelb"],[data-alert="gelb-ruhig"]) > header { display:flex; position:absolute; top:0; left:0; right:0; z-index:8; min-height:18px; background:#000; }
 @keyframes house-scan { from { transform:translateY(200px); } to { transform:translateY(700px); } }
 @keyframes house-light-breathe { from { filter:brightness(1); } to { filter:brightness(1.15); } }
 @keyframes house-offline { from { opacity:.45; } to { opacity:.9; } }
@@ -59,25 +54,19 @@
 .house-garden-tree .garden-trunk {fill:none;stroke:#cc99cc;stroke-opacity:.4;stroke-width:2;}
 .house-garden-tree .garden-ground {fill:none;stroke:#cc99cc;stroke-opacity:.35;stroke-width:1;stroke-dasharray:7 5;}
 
-/* An independent layer preserves the page beneath the house. Alarm overlays stay above it. */
-.house-overlay {position:absolute;inset:0;z-index:20;background:#000;overflow:hidden;animation:house-overlay-in .35s ease-out both;}
-.house-overlay-content {position:absolute;inset:0;}
-.house-overlay .house-structure {animation:house-build 1s ease-out both;transform-origin:50% 82%;}
-.house-overlay .house-furniture,.house-overlay .house-windows,.house-overlay .house-garden-tree {animation:house-detail-in .7s .45s ease-out both;}
-.house-overlay .house-room-label,.house-overlay .house-lamp-label,.house-overlay .house-metrics {animation:house-detail-in .65s .8s ease-out both;}
-@keyframes house-overlay-in {from {opacity:0;}to {opacity:1;}}
+.house-start .house-structure {animation:house-build 1s ease-out both;transform-origin:50% 82%;}
+.house-start .house-furniture,.house-start .house-windows,.house-start .house-garden-tree {animation:house-detail-in .7s .45s ease-out both;}
+.house-start .house-room-label,.house-start .house-lamp-label,.house-start .house-metrics {animation:house-detail-in .65s .8s ease-out both;}
 @keyframes house-build {from {opacity:0;transform:scaleY(.04);}to {opacity:1;transform:scaleY(1);}}
 @keyframes house-detail-in {from {opacity:0;transform:translateY(5px);}to {opacity:1;transform:none;}}
 
-.frame[data-house-overlay] > .alarm-layer {z-index:30;}
-.frame[data-house-overlay]:is([data-alert="gelb"],[data-alert="gelb-ruhig"]) > header {position:absolute;top:0;left:0;right:0;z-index:25;background:#000;}
 
 /* Outdoor illumination comes exclusively from the soft lamp halos. */
 .house-section [data-house-room][data-outdoor="true"] .house-room-fill {fill-opacity:0;}
 .house-section [data-house-room][data-outdoor="true"] .house-room-glow {opacity:0!important;}
 /* Keep the house offset throughout entry animations (CSS transforms replace SVG transforms). */
-.house-overlay .house-structure {animation-name:house-build-shift;}
-.house-overlay .house-furniture,.house-overlay .house-windows {animation-name:house-detail-shift;}
+.house-start .house-structure {animation-name:house-build-shift;}
+.house-start .house-furniture,.house-start .house-windows {animation-name:house-detail-shift;}
 @keyframes house-build-shift {from {opacity:0;transform:translateX(0px) scaleY(.04);}to {opacity:1;transform:translateX(0px) scaleY(1);}}
 @keyframes house-detail-shift {from {opacity:0;transform:translate(0px,5px);}to {opacity:1;transform:translate(0px,0);}}
 
@@ -95,7 +84,7 @@
 @keyframes house-wash {to {transform:rotate(360deg);}}
 
 .house-devices {pointer-events:none;}
-.house-overlay .house-devices {animation:house-detail-in .7s .65s ease-out both;}
+.house-start .house-devices {animation:house-detail-in .7s .65s ease-out both;}
 .house-mini-core-energy {transform-origin:640px 276.5px;animation:house-core-pulse 2.2s ease-in-out infinite;}
 .house-mini-core-aura {animation:house-core-aura 2.2s ease-in-out infinite;}
 .house-core-coil {animation:house-core-coil 1.8s ease-in-out infinite;animation-delay:var(--coil-delay);}

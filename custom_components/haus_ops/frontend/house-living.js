@@ -44,7 +44,7 @@ export function livingMarkup(room,config={}) {
   if(l.type==='kugel')glyph=`<circle class="house-bulb" cx="${x}" cy="${y}" r="15"/><path d="M${x-5} ${y+16}h10"/>`;
   else if(l.type==='streifen'||l.type==='kommode')glyph=`<path class="house-bulb" d="M${x-60} ${y}h120" stroke-width="4" stroke-linecap="round"/>`;
   else glyph=`<path d="M${x} ${l.type==='stehlampe'?y:140}V${l.type==='stehlampe'?600:y} ${l.type==='stehlampe'?`m-18 0h36`:''}"/><path class="house-bulb" d="M${x-22} ${y}l8-18h28l8 18Z"/>`;
-  return `<g class="house-lamp" data-house-lamp="${esc(l.id)}" data-house-lamp-type="${l.type}" data-house-owner="living" role="button" tabindex="0" data-action="house-light:${esc(l.id)}"><title>${esc(l.name)}</title><rect x="${x-28}" y="${y-28}" width="56" height="56" fill="transparent" stroke="none"/>${glyph}</g>`;
+  return `<g class="house-lamp" data-house-lamp="${esc(l.id)}" data-house-lamp-type="${l.type}" data-house-owner="living" role="button" tabindex="0" data-action="house-light:${esc(l.id)}"><title>${esc(l.name)}</title><rect class="house-lamp-hit" x="${x-100}" y="${y-88}" width="200" height="176" fill="transparent" stroke="none" pointer-events="all"/>${glyph}</g>`;
  }).join('');
  return `<g class="house-living" clip-path="url(#house-room-living)" aria-label="Wohn- und Esszimmer · Möbel, Licht und Sonos"><g transform="translate(618 530) scale(${216/1140} ${100/460}) translate(-70 -140)">
  <rect x="70" y="140" width="1140" height="460" fill="#ff9966" opacity=".055"/>

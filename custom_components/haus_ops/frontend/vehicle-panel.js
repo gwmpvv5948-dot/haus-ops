@@ -10,7 +10,6 @@ const closedText=v=>v===true?'Offen':v===false?'Zu':'—';
 const clock=v=>Number.isFinite(v)?Math.floor(Math.round(v*60)/60)+':'+String(Math.round(v*60)%60).padStart(2,'0')+' h':'—';
 const heat=s=>!vehicleAvailable(s)?NaN:s.attributes?.options?.includes(s.state)?Math.min(3,s.attributes.options.indexOf(s.state)):({off:0,aus:0,low:1,medium:2,high:3})[s.state]??NaN;
 const field=(key,x,y,size=17,fill='#ffcc99',anchor='start')=>`<text data-v="${key}" x="${x}" y="${y}" font-size="${size}" fill="${fill}" text-anchor="${anchor}">—</text>`;
-const triangle=(x,y,right=true)=>`<path d="M${x} ${y-6}l${right?10:-10} 6l${right?-10:10} 6Z" fill="currentColor"/>`;
 function control(action,x,y,w,label,round=false){return `<g class="vehicle-button" data-action="vehicle-${action}" role="button" tabindex="0" aria-label="${label}"><rect x="${x}" y="${y}" width="${w}" height="36" rx="${round?18:2}" fill="${round?'#cc99cc':'#ff9966'}"/><rect class="vehicle-hold-fill" x="${x}" y="${y}" width="${w}" height="36" fill="#fff" fill-opacity=".3" pointer-events="none"/>${field('button-'+action,x+w/2,y+24,17,'#000','middle')}<text class="vehicle-hold-note" x="${x+w/2}" y="${y+32}" text-anchor="middle" font-size="8" fill="#000">1,2 s halten</text></g>`;}
 export class VehiclePanel{
  constructor(panel){this.panel=panel;this.cache=new Map();this.token=0;}
@@ -46,11 +45,11 @@ export class VehiclePanel{
   return {...found,map,read,online,initialized,stale:online!==true,charging,status,battery:number('battery'),range:distanceKm(read('range')),limit:number('limit'),...temperatures,target,seatLeft:heat(read('seat_left')),seatRight:heat(read('seat_right')),steering:heat(read('steering')),climate,preconditioning:on(read('preconditioning')),windows,front:aggregateOpen(front),rear:aggregateOpen(rear),doors,frunk:initialized?coverOpen(read('frunk')):undefined,trunk:initialized?coverOpen(read('trunk')):undefined,port:initialized?coverOpen(read('charge_port')):undefined,locked:vehicleAvailable(read('lock'))?read('lock').state==='locked'?true:read('lock').state==='unlocked'?false:undefined:undefined,sentry:on(read('sentry')),dashcam:on(read('dashcam')),present:on(read('present')),tire,power,voltage:number('voltage'),current:number('current'),energy,full:remainingChargeHours(read('full')),phases,connected,odometer:distanceKm(read('odometer')),speed:distanceKm(read('speed')),gear:vehicleAvailable(read('gear'))?read('gear').state.toUpperCase():'—',location:vehicleAvailable(read('location'))?read('location').state==='home'?'Zuhause':read('location').state==='not_home'?'Unterwegs':read('location').state:'—',destination:vehicleAvailable(read('destination'))?read('destination').state:'—',distance:distanceKm(read('distance')),arrivalBattery:number('arrival_battery'),software,update:read('software')?.state==='on',vin:maskedVehicleVIN(found.device),last};
  }
  demoData(){return {map:{},read:()=>undefined,online:true,initialized:true,stale:false,charging:true,status:'Lädt',battery:43,range:181,limit:80,inside:25.6,outside:21.5,target:21,seatLeft:2,seatRight:0,steering:0,climate:false,preconditioning:false,windows:false,front:false,rear:false,doors:false,frunk:false,trunk:false,port:true,locked:true,sentry:false,dashcam:true,present:false,tire:[2.9,2.9,2.8,2.8].map(value=>({value,warning:false})),power:11,voltage:400,current:16,energy:8.4,full:2+1/60,phases:'3 Ph',connected:true,odometer:13130,speed:0,gear:'P',location:'Zuhause',destination:'—',distance:NaN,arrivalBattery:NaN,software:'2026.14.6',update:false,vin:'···0001',last:Date.now(),...this.demoOverrides};}
- view(){this.load();const c=this.blueprint();if(!c)return `<svg class="vehicle-page" viewBox="0 0 1280 800"><text x="40" y="80" fill="#ffcc99" font-size="28">${this.error??'Fahrzeugdaten laden …'}</text>${control('back',40,120,200,'Zur Übersicht')}</svg>`;
+ view(){this.load();const c=this.blueprint();if(!c)return `<svg class="vehicle-page" viewBox="0 0 1280 750"><text x="40" y="80" fill="#ffcc99" font-size="28">${this.error??'Fahrzeugdaten laden …'}</text></svg>`;
  const image=c.image.src.startsWith('/')?c.image.src:new URL('./'+c.image.src,import.meta.url).href;
  const leaders=c.leaders.map((l,i)=>{const left=l.side==='left',origin=left?400:852,x=left?390:862;return `<g class="vehicle-leader" style="--lead-delay:${i*70}ms"><path d="M${origin} ${l.textY-5}H${l.bendX}V${l.y}H${l.x}"/><circle cx="${origin}" cy="${l.textY-5}" r="5" fill="${l.color}"/><circle cx="${l.x}" cy="${l.y}" r="3" fill="${l.color}" stroke="#000" stroke-width=".7"/><text x="${x}" y="${l.textY}" text-anchor="${left?'end':'start'}" font-size="16" fill="${l.color}">${esc(l.name)} · <tspan data-v="lead-${l.key}" fill="#ffcc99">—</tspan></text></g>`;}).join('');
  const tiles=[['Laden','charge','limit'],['Sicherheit','lock','sentry'],['Klappen','frunk','trunk'],['Klima','climate','seat'],['Fenster','windows','flash']];
- return `<svg class="vehicle-page vehicle-start" viewBox="0 0 1280 800" role="group" aria-label="Fahrzeug · Model 3 mit Tesla-Fleet-Zuständen und Steuerung">
+ return `<svg class="vehicle-page vehicle-start" viewBox="0 0 1280 750" role="group" aria-label="Fahrzeug · Model 3 mit Tesla-Fleet-Zuständen und Steuerung">
  <defs><clipPath id="vehicle-image-clip"><rect x="${c.image.x}" y="${c.image.y}" width="${c.image.width}" height="${c.image.height}"/></clipPath><linearGradient id="vehicle-scan"><stop stop-color="#99ccff" stop-opacity="0"/><stop offset=".5" stop-color="#99ccff" stop-opacity=".3"/><stop offset="1" stop-color="#99ccff" stop-opacity="0"/></linearGradient>${[['cabin','#99ccff'],['warm','#ff9966'],['yellow','#ffcc33']].map(([key,color])=>`<radialGradient id="vehicle-glow-${key}"><stop stop-color="${color}" stop-opacity=".8"/><stop offset="1" stop-color="${color}" stop-opacity="0"/></radialGradient>`).join('')}</defs>
  <circle cx="40" cy="38" r="20" fill="#cc99cc"/><text x="74" y="52" font-size="38" fill="#ff9966">Fahrzeug · ${esc(c.model??'Model 3')}</text><path class="vehicle-rail" d="M420 20H1242a18 18 0 0 1 0 36H420Z" fill="#cc99cc"/><text x="432" y="45" font-size="16" fill="#000">Tesla Fleet · Durchleuchtung</text>${field('metadata',1240,45,15,'#000','end')}
  <g class="vehicle-live"><path d="M235 70H34q-14 0-14 14v6h215Z" fill="#9999ff"/><text x="30" y="85" fill="#000" font-size="13">Energie · Akku</text>${field('battery',24,149,72,'#99ddbb')}${field('charging',26,173,16,'#ffaa00')}
@@ -72,16 +71,18 @@ export class VehiclePanel{
  <text x="1016" y="272" font-size="27" fill="#ff9966">Status</text>${['online','drive','speed','present','location','software'].map((key,i)=>field('status-'+key,1016,296+i*20,15)).join('')}<text x="1016" y="436" font-size="27" fill="#ff9966">Navigation</text>${['destination','distance','arrival'].map((key,i)=>field('nav-'+key,1016,460+i*20,15,'#cc99cc')).join('')}
  ${field('power-line',250,588,26,'#ffaa00')}${field('energy-line',530,588,26)}${field('full-line',760,588,26,'#99ddbb')}${field('electrical-line',950,588,24,'#99ccff')}</g>
  ${tiles.map(([name,a,b],i)=>{const x=20+i*249;return `<g class="vehicle-control-card"><path d="M${x+238} 600H${x+30}q-30 0-30 30v116h18V634q0-18 18-18h202Z" fill="#9999ff"/><text x="${x+30}" y="638" font-size="28" fill="#ffcc99">${name}</text>${[0,1,2].map(j=>field('tile'+i+'-'+j,x+30,659+j*18,13,'#cc99cc')).join('')}${control(a,x+30,710,103,a)}${control(b,x+137,710,104,b,true)}</g>`;}).join('')}
- <rect class="vehicle-rail" x="20" y="754" width="1240" height="36" rx="18" fill="#cc99cc"/><g class="vehicle-button" role="button" tabindex="0" aria-label="Zur Übersicht" data-action="vehicle-back"><rect x="20" y="750" width="215" height="40" rx="18" fill="transparent"/><g transform="translate(46 772)" fill="#000">${triangle(0,0,false)}</g><text x="60" y="778" font-size="17" fill="#000">Übersicht</text></g>${field('footer',640,778,15,'#000','middle')}<g class="vehicle-button" role="button" tabindex="0" aria-label="Fahrzeug aufwecken" data-action="vehicle-wake"><rect x="1090" y="750" width="170" height="40" rx="18" fill="#9999ff"/><text x="1108" y="778" font-size="17" fill="#000">Aufwecken</text><g transform="translate(1238 772)" fill="#000">${triangle(0,0)}</g></g>
- <g class="vehicle-global-alert"><rect x="20" y="2" width="1240" height="16" fill="#ffcc33"/>${field('alarm',640,15,12,'#000','middle')}</g>
  </svg>`;
  }
- update(root){
-  const svg=root.querySelector('.vehicle-page');if(!svg)return;const c=this.blueprint();if(!c)return;
+ update(root,footer){
+  const svg=root.querySelector('.vehicle-page');if(!svg)return;
+  if(this.svg!==svg){this.cancelHold?.();this.svg=svg;this.updateSignature=undefined;}
+  const wake=footer?.querySelector('[data-action="vehicle-wake"]');
+  const rail=footer?.querySelector('.rail');
+  const c=this.blueprint();
+  if(!c){if(wake)wake.disabled=true;if(rail)rail.textContent=this.error??'Fahrzeugdaten laden …';return;}
   this.current=this.data();const d=this.current;
-  const viewFrame=this.panel.shadowRoot?.querySelector('.frame');
   const {device,read,last,full,...stable}=d;
-  const signature=JSON.stringify([stable,Math.floor(last/60000),Math.round(full*60),this.busy,viewFrame?.dataset.alert,viewFrame?.querySelector('header strong')?.textContent,Object.values(d.map).map(id=>this.panel.ha?.states?.[id]?.attributes)]);
+  const signature=JSON.stringify([stable,Math.floor(last/60000),Math.round(full*60),this.busy,Object.values(d.map).map(id=>this.panel.ha?.states?.[id]?.attributes)]);
   if(signature===this.updateSignature)return;
   this.updateSignature=signature;
   const text=(key,value,warning=false)=>{const n=svg.querySelector(`[data-v="${key}"]`);if(n){const s=String(value);if(n.textContent!==s)n.textContent=s;n.classList.toggle('vehicle-warning-text',warning);}};
@@ -112,11 +113,10 @@ export class VehiclePanel{
   text('power-line','Ladeleistung: '+num(d.power,1)+' kW');text('energy-line','Geladen: '+num(d.energy,1)+' kWh');text('full-line','Voll in: '+(d.charging?clock(d.full):'—'));text('electrical-line',d.charging?num(d.voltage)+' V · '+num(d.current)+' A · '+d.phases:d.connected===true?'Kabel steckt':d.connected===false?'Kabel —':'Kabel · —');
   const tileRows=[['Status · '+d.status,'Leistung · '+num(d.power,1)+' kW · '+num(d.current)+' A','Limit · '+num(d.limit)+' %'],['Schloss · '+leads.lock,'Wächter · '+leads.sentry,'Dashcam · '+(d.dashcam===true?'Aufnahme':d.dashcam===false?'Aus':'—')],['Türen · '+(d.doors===true?'Offen':d.doors===false?'Alle zu':'—'),'Frunk · '+leads.frunk,'Kofferraum · '+leads.trunk],['Innen · '+num(d.inside,1)+'° · Soll '+num(d.target,1)+'°','Sitz · L '+heatText(d.seatLeft)+' · R '+heatText(d.seatRight),'Lenkrad · '+leads.steering],['Vorne · '+closedText(d.front),'Hinten · '+closedText(d.rear),'Ladeklappe · '+closedText(d.port)]];
   tileRows.forEach((rows,i)=>rows.forEach((value,j)=>text('tile'+i+'-'+j,value)));
-  const labels={charge:d.charging?'Stop':'Start',limit:'Limit +10',lock:d.locked===false?'Verriegeln':'Entriegeln',sentry:d.sentry?'Wächter aus':'Wächter an',frunk:'Frunk',trunk:d.trunk===true?'Schließen':'Kofferraum',climate:d.climate?'Klima aus':'Klima an',seat:'Sitz L +',windows:d.windows===true?'Schließen':'Lüften',flash:'Blinken',back:'Übersicht'};
-  for(const[action,label]of Object.entries(labels)){text('button-'+action,label);const n=svg.querySelector(`[data-action="vehicle-${action}"]`);if(n){const hold=this.needsHold(action,d);n.setAttribute('aria-label',label+(hold?' · 1,2 Sekunden halten':''));n.setAttribute('aria-disabled',String(action!=='back'&&(!!this.busy||!this.plan(action,d))));n.classList.toggle('vehicle-needs-hold',hold);}}
-  svg.querySelector('[data-action="vehicle-wake"]')?.setAttribute('aria-disabled',String(!!this.busy||!this.plan('wake',d)));
-  text('footer',this.busy==='wake'?'Wecke Fahrzeug …':this.busy?'Befehl wird ausgeführt …':d.ambiguous?'Mehrere Fahrzeuge · in Einstellungen zuordnen':!Object.keys(d.map).length&&!this.panel.demo?'Tesla-Fleet-Entitäten in Einstellungen zuordnen':!d.initialized?'Noch keine Fahrzeugmesswerte · Aufwecken manuell':(d.stale?'Stand ':'Letzte Aktualisierung ')+time+' · '+(d.online===true?'Fahrzeug wach':d.online===false?'Fahrzeug schläft':'Fahrzeugstatus unbekannt'));
-  const frame=this.panel.shadowRoot?.querySelector('.frame'),alert=frame?.dataset.alert;svg.classList.toggle('vehicle-yellow-alert',alert==='gelb'||alert==='gelb-ruhig');text('alarm',frame?.querySelector('header strong')?.textContent??'');
+  const labels={charge:d.charging?'Stop':'Start',limit:'Limit +10',lock:d.locked===false?'Verriegeln':'Entriegeln',sentry:d.sentry?'Wächter aus':'Wächter an',frunk:'Frunk',trunk:d.trunk===true?'Schließen':'Kofferraum',climate:d.climate?'Klima aus':'Klima an',seat:'Sitz L +',windows:d.windows===true?'Schließen':'Lüften',flash:'Blinken'};
+  for(const[action,label]of Object.entries(labels)){text('button-'+action,label);const n=svg.querySelector(`[data-action="vehicle-${action}"]`);if(n){const hold=this.needsHold(action,d);n.setAttribute('aria-label',label+(hold?' · 1,2 Sekunden halten':''));n.setAttribute('aria-disabled',String(!!this.busy||!this.plan(action,d)));n.classList.toggle('vehicle-needs-hold',hold);}}
+  if(wake)wake.disabled=!!this.busy||!this.plan('wake',d);
+  if(rail)rail.textContent=this.busy==='wake'?'Wecke Fahrzeug …':this.busy?'Befehl wird ausgeführt …':d.ambiguous?'Mehrere Fahrzeuge · in Einstellungen zuordnen':!Object.keys(d.map).length&&!this.panel.demo?'Tesla-Fleet-Entitäten in Einstellungen zuordnen':!d.initialized?'Noch keine Fahrzeugmesswerte · Aufwecken manuell':(d.stale?'Stand ':'Letzte Aktualisierung ')+time+' · '+(d.online===true?'Fahrzeug wach':d.online===false?'Fahrzeug schläft':'Fahrzeugstatus unbekannt');
   if(!svg.dataset.bound){svg.dataset.bound='true';this.bind(svg);}
  }
  needsHold(action,d=this.current){return action==='lock'&&d?.locked!==false||action==='frunk'&&d?.frunk!==true||action==='trunk'&&d?.trunk!==true;}
@@ -148,7 +148,7 @@ export class VehiclePanel{
   svg.addEventListener('pointerdown',e=>{this.suppressedClick=null;const n=e.target.closest('[data-action^="vehicle-"]');if(!n||e.button!==0||!e.isPrimary)return;if(start(n,e.pointerId,e.clientX,e.clientY)){e.preventDefault();n.setPointerCapture(e.pointerId);}});
   svg.addEventListener('pointermove',e=>{if(this.hold?.pointer===e.pointerId&&Math.hypot(e.clientX-this.hold.x,e.clientY-this.hold.y)>12)cancel();});
   for(const type of ['pointerup','pointercancel','lostpointercapture'])svg.addEventListener(type,cancel);
-  svg.addEventListener('keydown',e=>{if(e.key==='Escape'){cancel();this.close();return;}const n=e.target.closest('[data-action^="vehicle-"]');if(!n||!['Enter',' '].includes(e.key))return;e.preventDefault();if(e.repeat)return;this.suppressedClick=null;const action=n.dataset.action.slice(8);if(!start(n,'keyboard')&&!this.needsHold(action))n.dispatchEvent(new MouseEvent('click',{bubbles:true,composed:true}));});
+  svg.addEventListener('keydown',e=>{if(e.key==='Escape'){cancel();return;}const n=e.target.closest('[data-action^="vehicle-"]');if(!n||!['Enter',' '].includes(e.key))return;e.preventDefault();if(e.repeat)return;this.suppressedClick=null;const action=n.dataset.action.slice(8);if(!start(n,'keyboard')&&!this.needsHold(action))n.dispatchEvent(new MouseEvent('click',{bubbles:true,composed:true}));});
   svg.addEventListener('keyup',e=>{if(['Enter',' '].includes(e.key))cancel();});svg.addEventListener('focusout',cancel);
  }
  async awake(token){
@@ -160,26 +160,22 @@ export class VehiclePanel{
   throw Error('Fahrzeug antwortet noch nicht. Bitte später erneut versuchen.');
  }
  async act(action,held=false,expected){
-  if(action==='back'){this.close();this.panel.page=0;this.panel.render();return;}
   if(this.busy)return;const d=this.data();if(this.needsHold(action,d)&&!held)return;const plan=this.plan(action,d);if(!plan||expected&&(plan.entity!==expected.entity||plan.service!==expected.service))return;
   const token=this.token;this.busy=action;this.panel.render();
   try{
    if(this.panel.demo){this.demoAction(action);}
    else if(action==='wake'){await this.awake(token);}
    else{await this.awake(token);if(token!==this.token)return;this.busy=action;this.panel.render();const fresh=this.plan(action,this.data());if(!fresh||fresh.entity!==plan.entity||fresh.service!==plan.service)throw Error('Fahrzeugzustand hat sich geändert. Bitte erneut prüfen.');await this.panel.call(fresh.entity,fresh.service,fresh.data??{});}
-   if(action==='flash'&&this.overlay){const node=this.overlay.querySelector('[data-vehicle-flash]');node?.classList.remove('flashing');requestAnimationFrame(()=>node?.classList.add('flashing'));}
+   if(action==='flash'&&this.svg){const node=this.svg.querySelector('[data-vehicle-flash]');node?.classList.remove('flashing');requestAnimationFrame(()=>node?.classList.add('flashing'));}
   }catch(error){if(this.opened)this.panel.notify(error.message||'Fahrzeugbefehl fehlgeschlagen.');}
   finally{this.busy=null;this.panel.render();}
  }
  demoAction(action){const d=this.demoData();this.demoOverrides??={};const changes={charge:{charging:!d.charging,status:d.charging?'Gestoppt':'Lädt'},limit:{limit:d.limit>=100?50:Math.min(100,d.limit+10)},lock:{locked:!d.locked},sentry:{sentry:!d.sentry},frunk:{frunk:!d.frunk},trunk:{trunk:!d.trunk},climate:{climate:!d.climate},seat:{seatLeft:(d.seatLeft+1)%4},windows:{windows:!d.windows,front:!d.windows,rear:!d.windows},wake:{online:true,stale:false}};Object.assign(this.demoOverrides,changes[action]??{});}
- open(){this.opened=true;this.returnFocus=this.panel.shadowRoot.activeElement;this.lastAlert=this.panel.shadowRoot.querySelector('.frame')?.dataset.alert;this.syncOverlay();this.overlay?.querySelector('[data-action="vehicle-back"]')?.focus({preventScroll:true});}
- close(){this.token++;this.cancelHold?.();this.bindingsAbort?.abort();this.opened=false;this.overlay?.remove();this.overlay=null;this.panel.shadowRoot.querySelector('.frame')?.removeAttribute('data-vehicle-overlay');this.returnFocus?.focus({preventScroll:true});}
- syncOverlay(){
-  if(!this.opened)return;const frame=this.panel.shadowRoot.querySelector('.frame');
-  if(this.lastAlert!==frame.dataset.alert&&['rot','gelb'].includes(frame.dataset.alert)){this.close();return;}
-  this.lastAlert=frame.dataset.alert;
-  if(!this.overlay?.isConnected){const overlay=document.createElement('section');overlay.className='vehicle-overlay';overlay.setAttribute('role','dialog');overlay.setAttribute('aria-modal','true');overlay.setAttribute('aria-label','Fahrzeug · Model 3');overlay.innerHTML='<div class="vehicle-overlay-content"></div>';frame.append(overlay);this.overlay=overlay;overlay.addEventListener('keydown',e=>{if(e.key!=='Tab')return;const nodes=[...overlay.querySelectorAll('[tabindex="0"]')].filter(n=>n.getAttribute('aria-disabled')!=='true'),index=nodes.indexOf(this.panel.shadowRoot.activeElement);if(e.shiftKey&&index<=0){e.preventDefault();nodes.at(-1)?.focus();}else if(!e.shiftKey&&index===nodes.length-1){e.preventDefault();nodes[0]?.focus();}});}
-  const content=this.overlay.querySelector('.vehicle-overlay-content'),markup=this.view();if(this.markup!==markup||!content.firstChild){this.cancelHold?.();content.innerHTML=markup;this.markup=markup;this.updateSignature=undefined;}
-  this.update(content);this.overlay.inert=frame.querySelector('.alarm-layer')?.hidden===false;frame.setAttribute('data-vehicle-overlay','');
+ close(){
+  this.token++;
+  this.cancelHold?.();
+  this.bindingsAbort?.abort();
+  this.opened=false;
+  this.svg=null;
  }
 }

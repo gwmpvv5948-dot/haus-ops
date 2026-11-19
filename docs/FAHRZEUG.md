@@ -1,6 +1,6 @@
 # Fahrzeug · Model 3
 
-Die Seite öffnet sich über **Fahrzeug** in der linken Navigation als große LCARS-Röntgenansicht. „Übersicht“ unten links führt zurück. Die üblichen HAUS-OPS-Alarme bleiben darüber sichtbar. Neue Alarme schließen die Fahrzeugansicht und öffnen wie bisher Sicherheit. Nach 60 Sekunden ohne Bedienung wird die Fahrzeugansicht geschlossen.
+Die Seite öffnet sich über **Fahrzeug** in der linken Navigation als LCARS-Röntgenansicht mit sichtbarer Seitennavigation. Im unteren Balken führt „Übersicht“ links zurück und „Aufwecken“ steht rechts. Die üblichen HAUS-OPS-Alarme bleiben darüber sichtbar. Neue Alarme schließen die Fahrzeugansicht und öffnen wie bisher Sicherheit. Nach 60 Sekunden ohne Bedienung wird die Fahrzeugansicht geschlossen.
 
 ## Konfiguration
 

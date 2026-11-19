@@ -1,4 +1,4 @@
-import {livingMarkup,livingSonos,LivingAcoustics} from './house-living.js?v=1.6.63&r=18';
+import {livingMarkup,livingSonos,LivingAcoustics} from './house-living.js?v=1.6.63&r=20';
 import {groundFloorSonosPlaying,cpuValue,cpuSparkline,inverterReading} from './house-telemetry.js?v=1.6.63&r=18';
 import { roomNames } from './climate-panel.js';
 import {resolveHouseData, validateHouseConfig, houseTemperatureColor, normalizeHouseName, houseWasher} from './house-model.js?v=1.6.63&r=18';
@@ -72,7 +72,7 @@ export class HouseSection {
 
   view() {
     this.load();
-    if (!this.config) return `<svg class="house-section" viewBox="0 0 1280 800" aria-label="Hausschnitt"><text x="60" y="110" fill="#ffcc99" font-size="30">${esc(this.error || 'HA-Bereiche und Hausschnitt laden …')}</text><g ${attrs('house-back')}><rect x="60" y="160" width="400" height="70" fill="#cc99cc"/><text x="90" y="205" fill="#000" font-size="26">Schließen ×</text></g></svg>`;
+    if (!this.config) return `<svg class="house-section" viewBox="0 0 1280 746" aria-label="Hausschnitt"><text x="60" y="110" fill="#ffcc99" font-size="30">${esc(this.error || 'HA-Bereiche und Hausschnitt laden …')}</text></svg>`;
     const data=this.data();
     data.washer=houseWasher(this.panel.demo?{state:'85',attributes:{unit_of_measurement:'W'}}:this.panel.state(this.config.washer_power_entity || 'sensor.tasmota_wama_plug_energy_power'));
     this.refreshCPU();
@@ -131,7 +131,7 @@ export class HouseSection {
         return markup;
       }).join('');
     }).join('');
-    return `<svg class="house-section house-start" viewBox="0 0 1280 800" role="group" aria-label="Wohnhaus · Hausschnitt mit Temperaturen und Lichtsteuerung" preserveAspectRatio="xMidYMid meet">
+    return `<svg class="house-section house-start" viewBox="0 0 1280 746" role="group" aria-label="Wohnhaus · Hausschnitt mit Temperaturen und Lichtsteuerung" preserveAspectRatio="xMidYMid meet">
       <defs>
         <pattern id="house-hatch" width="7" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(-45)"><rect width="7" height="7" fill="#241a30"/><path d="M0 0V7" stroke="#cc99cc" stroke-width="1.5"/></pattern>
         <pattern id="house-deck" width="7" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(-45)"><rect width="7" height="7" fill="#1b2030"/><path d="M0 0V7" stroke="#9999ff" stroke-width="1.5"/></pattern>
@@ -185,7 +185,7 @@ export class HouseSection {
           : lamp.type==='stehlampe'
           ? `<path d="M${x} ${y}v28m-8 0h16" stroke="#cc99cc"/><path class="house-bulb" d="M${x-9} ${y+2}l4-10h10l4 10Z"/>`
           : `<path d="M${x} ${y-6}v6" stroke="#cc99cc"/><rect class="house-bulb" x="${x-5}" y="${y}" width="10" height="5" rx="2"/>`;
-        return `<g class="house-lamp" data-house-lamp="${esc(lamp.id)}" data-house-lamp-type="${lamp.type}" data-house-owner="${lamp.room}" ${attrs('house-light:'+lamp.id)}><title>${esc(lamp.name)}</title><circle cx="${x}" cy="${y+8}" r="24" fill="transparent"/>${glyph}</g>`;
+        return `<g class="house-lamp" data-house-lamp="${esc(lamp.id)}" data-house-lamp-type="${lamp.type}" data-house-owner="${lamp.room}" ${attrs('house-light:'+lamp.id)}><title>${esc(lamp.name)}</title><circle class="house-lamp-hit" cx="${x}" cy="${y}" r="42" fill="transparent" pointer-events="all"/>${glyph}</g>`;
       }).join('')}
       <g clip-path="url(#house-outline)" class="house-scan"><rect x="400" y="-40" width="480" height="40" fill="url(#house-scan)"/></g>
       ${livingMarkup(rooms.find(room=>room.key==='living'),this.config.living_detail)}
@@ -197,9 +197,6 @@ export class HouseSection {
       <g class="house-washer" transform="translate(-55 0)" data-house-washer aria-label="Waschmaschine"><rect x="700" y="467" width="36" height="43" rx="2"/><path d="M700 475h36m-30-4h4m5 0h3"/><circle cx="718" cy="491" r="13"/><g class="house-washer-drum"><path d="M709 486q6-7 10 0t8 3q-1 9-8 8t-10-11Z"/><path d="M711 495q6-9 12-9"/></g></g>
       ${labels}
       <g class="house-metrics"><text x="75" y="730" fill="#e8806a">Etagen: 4</text><text x="333" y="730" fill="#ffcc99" data-house-lights-count>Lichter: —</text><text x="655" y="730" fill="#99ccff" data-house-roof>Warp-Kern: —</text><text x="1000" y="730" fill="#ff9966" data-house-inside>Ø Innen: —</text></g>
-      <path d="M65 754H29a16 16 0 0 0 0 32h36Z M1235 754h10a16 16 0 0 1 0 32h-10Z" fill="#cc99cc"/><rect x="72" y="754" width="1156" height="32" fill="#cc99cc"/>
-      <text class="house-footer-text" x="90" y="777">4 Etagen · ${rooms.length} Bereiche</text><text class="house-footer-text" x="640" y="777" text-anchor="middle" data-house-footer-status>Raum antippen = Details · Licht antippen = Schalten</text>
-      <g ${attrs('house-back')} aria-label="Hausschnitt schließen"><rect x="1038" y="746" width="190" height="40" fill="transparent"/><text class="house-footer-text" x="1212" y="777" text-anchor="end">Schließen ×</text></g>
     </svg>`;
   }
 
@@ -267,63 +264,23 @@ export class HouseSection {
     this.nextCPUFetch=Date.now()+5*60000;
     const start=new Date(Date.now()-30*60000).toISOString();
     this.cpuPending=true;
-    this.panel.ha.callApi('GET',`history/period/${start}?filter_entity_id=sensor.ap_dg_cpu_utilization&minimal_response=1&no_attributes=1&significant_changes_only=0`).then(([rows])=>{this.cpuRows=rows ?? [];}).catch(()=>{}).finally(()=>{this.cpuPending=false;if(this.opened)this.panel.render();});
-  }
-
-  open() {
-    this.opened = true;
-    this.returnFocus = this.panel.shadowRoot.activeElement;
-    this.syncOverlay();
-    this.panel.shadowRoot.querySelector('.house-section [data-action="house-back"]')?.focus({preventScroll:true});
+    this.panel.ha.callApi('GET',`history/period/${start}?filter_entity_id=sensor.ap_dg_cpu_utilization&minimal_response=1&no_attributes=1&significant_changes_only=0`).then(([rows])=>{this.cpuRows=rows ?? [];}).catch(()=>{}).finally(()=>{this.cpuPending=false;if(this.panel.page===housePageIndex)this.panel.render();});
   }
 
   close() {
     this.acoustics.destroy();
-    this.opened = false;
-    this.overlay?.remove();
-    this.overlay = null;
-    this.panel.shadowRoot.querySelector('.frame')?.removeAttribute('data-house-overlay');
-    this.returnFocus?.focus({preventScroll:true});
-  }
-
-  syncOverlay() {
-    if (!this.opened) return;
-    if (!this.overlay?.isConnected) {
-      const overlay = document.createElement('section');
-      overlay.className = 'house-overlay';
-      overlay.setAttribute('role','dialog');
-      overlay.setAttribute('aria-modal','true');
-      overlay.setAttribute('aria-label','Haus · Schnitt');
-      overlay.innerHTML = '<div class="house-overlay-content"></div>';
-      overlay.addEventListener('keydown',event=>{
-        if(event.key==='Escape') {event.preventDefault();this.close();}
-        if(event.key==='Tab') {
-          const items=[...overlay.querySelectorAll('button,[tabindex="0"]')];
-          const index=items.indexOf(this.panel.shadowRoot.activeElement);
-          if(event.shiftKey && index<=0) {event.preventDefault();items.at(-1)?.focus();}
-          else if(!event.shiftKey && index===items.length-1) {event.preventDefault();items[0]?.focus();}
-        }
-      });
-      this.panel.shadowRoot.querySelector('.frame').append(overlay);
-      this.overlay=overlay;
-    }
-    const content=this.overlay.querySelector('.house-overlay-content');
-    const markup=this.view();
-    if(this.overlayMarkup!==markup || !content.firstChild) {content.innerHTML=markup;this.overlayMarkup=markup;}
-    this.update(content);
-    const frame=this.panel.shadowRoot.querySelector('.frame');
-    frame.toggleAttribute('data-house-overlay',true);
+    clearTimeout(this.startTimer);
+    this.svg = null;
   }
 
   updateNumbers() {
-    if (!this.opened && this.panel.page!==housePageIndex || !this.svg?.isConnected || document.hidden) return;
+    if (this.panel.page!==housePageIndex || !this.svg?.isConnected || document.hidden) return;
     const numbers=[...this.svg.querySelectorAll('[data-house-number]')];
     for(let i=0;i<3;i++) { const node=numbers[Math.floor(Math.random()*numbers.length)]; if(node)node.textContent=String(Math.floor(Math.random()*100)).padStart(2,'0'); }
   }
 
   async act(action,id) {
-    if (action==='back') {this.close();return;}
-    if (action==='room') {this.selected=this.selected===id?null:id;this.update(this.overlay?.querySelector('.house-overlay-content') || this.panel.shadowRoot.querySelector('main'));return;}
+    if (action==='room') {this.selected=this.selected===id?null:id;this.update(this.panel.shadowRoot.querySelector('main'));return;}
     const lamp=this.current?.lamps.find(lamp=>lamp.id===id);
     if (action!=='light' || !lamp?.available || this.pending.has(id)) return;
     this.pending.add(id);

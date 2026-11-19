@@ -1,14 +1,14 @@
 :host{display:block;position:fixed;inset:0;z-index:10;background:#000;overflow:hidden;color:#cd9bd0;font:700 17px "Antonio","Arial Narrow",sans-serif;text-transform:uppercase}
 *{box-sizing:border-box}
 .stage{position:absolute;top:50%;left:50%;width:var(--stage-width,800px);height:var(--stage-height,480px);transform:translate(-50%,-50%) scale(var(--scale,1));padding:0}
-.frame{height:100%;background:#000;border-radius:0;padding:0;display:grid;grid-template-columns:109px 1fr;grid-template-rows:49px 1fr 36px;gap:4px 24px;--peach:#ff995f;--sand:#ffcc99;--purple:#a19aff;--pink:#cd9bd0;--red:#e9685b;--blue:#9ecdf7}
+.frame{height:100%;background:#000;border-radius:0;padding:0;display:grid;grid-template-columns:109px 1fr;grid-template-rows:49px 1fr 36px;gap:4px var(--frame-column-gap);--frame-column-gap:24px;--footer-rail-height:14px;--peach:#ff995f;--sand:#ffcc99;--purple:#a19aff;--pink:#cd9bd0;--red:#e9685b;--blue:#9ecdf7}
 .brand,.heel{background:var(--peach);color:black;text-align:right;padding:0 9px 5px;display:flex;align-items:end;justify-content:end}
 .brand{border-radius:42px 0 0 0}.heel{border-radius:0 0 0 36px}
 header,footer{display:flex;align-items:flex-start;gap:4px;color:var(--peach)}
 header strong{font-size:15px;line-height:14px;white-space:nowrap}
 .rail{height:14px;background:var(--peach);flex:1}.cap{width:18px;height:14px;border-radius:0 12px 12px 0;background:var(--peach)}
 header>time{background:var(--purple);color:#000;padding:0 8px;font-variant-numeric:tabular-nums;font-size:13px;height:14px}
-footer{align-items:end}footer .rail{background:var(--pink);color:black;text-align:right;padding-right:7px;font-size:12px}
+footer{align-items:end}footer :is(.rail,.cap){height:var(--footer-rail-height)}footer .rail{background:var(--pink);color:black;text-align:right;padding-right:7px;font-size:12px}
 nav{display:grid;grid-template-rows:repeat(5,1fr) 1fr;gap:3px;min-height:0}
 button{font:inherit;text-transform:inherit;border:0;cursor:pointer;color:#121016;background:var(--sand);touch-action:manipulation}
 button:focus-visible{outline:3px solid white;outline-offset:-4px}button:disabled{opacity:.52;cursor:default}
@@ -801,7 +801,9 @@ footer .rail[data-music-tone=error]{background:var(--red)}
 .frame[data-overview] header strong{font-size:19px}
 .frame[data-overview] [data-page="9"]{--gold:#fa0}
 /* A CSS triangle keeps the active marker identical in Safari and Chromium. */
-.nav-scroll button[aria-current=true]>small::after{content:"";display:inline-block;width:0;height:0;margin-left:.3em;border-top:.46em solid transparent;border-bottom:.46em solid transparent;border-right:.66em solid currentColor;vertical-align:-.05em}
+.nav-scroll button[aria-current=true]>small::after,
+.frame > footer [data-footer-overview]::before{content:"";display:inline-block;width:0;height:0;border-top:.46em solid transparent;border-bottom:.46em solid transparent;border-right:.66em solid currentColor}
+.nav-scroll button[aria-current=true]>small::after{margin-left:.3em;vertical-align:-.05em}
 @media(prefers-reduced-motion:no-preference){.ops-overview .ops-heading i{animation:light-scan 6s linear infinite}}
 @media(prefers-reduced-motion:reduce){.ops-blind-frame i{transition:none}}
 @property --fill{syntax:"<percentage>";inherits:false;initial-value:0%}
@@ -981,3 +983,15 @@ main{grid-template-columns:minmax(0,1fr)}
 .frame[data-alert="rot"] .nav-scroll {animation:nav-alarm-pulse .65s infinite alternate;}
 
 .tiles button .access-change{display:block;font-size:12px;font-variant-numeric:tabular-nums;line-height:1.35}
+
+.frame > footer[data-embedded-view] {
+  gap:0;
+  margin-inline-start:calc(-1 * var(--frame-column-gap));
+  max-width:none;
+}
+.frame > footer[data-embedded-view] :is(.rail,.cap) {line-height:var(--footer-rail-height)}
+.frame > footer[data-embedded-view] .rail {border:0;text-align:center;padding:0 6px}
+.frame > footer [data-footer-overview] {height:var(--footer-rail-height);padding:0 14px 0 calc(var(--frame-column-gap) + 14px);font-size:12px;line-height:var(--footer-rail-height);white-space:nowrap;border-radius:0;background:var(--peach)}
+.frame > footer [data-footer-overview]:not([hidden]) {display:inline-flex;align-items:center;gap:4px}
+.frame > footer [data-footer-overview]::before {flex:none;font-size:9px;color:#000a}
+.frame[data-alert="normal"]:has(> footer[data-embedded-view]) > header > .rail {background:var(--peach)}
