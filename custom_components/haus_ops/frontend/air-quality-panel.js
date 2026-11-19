@@ -206,11 +206,17 @@ export class AirQualityPanel {
     return this.configRequest;
   }
 
+  overrides() {
+    const yaml=this.panel.yamlConfig?.air_quality;
+    const saved=this.panel.config?.air_quality;
+    return {...yaml,...saved,thresholds:{...yaml?.thresholds,...saved?.thresholds}};
+  }
+
   config() {
     if(!this.base && !this.configRequest && !this.configError) {
       this.loadConfig().then(()=>this.panel.render());
     }
-    const custom=this.panel.config?.air_quality ?? this.panel.yamlConfig?.air_quality ?? {};
+    const custom=this.overrides();
     const thresholds={...this.base?.thresholds};
     for(const key of keys) {
       const limits=custom.thresholds?.[key];
@@ -261,8 +267,15 @@ export class AirQualityPanel {
       const bound=readSource(indoor[key],states,key);
       return [key,bound?[bound,...all]:all];
     }));
-    const outdoorId=config.outdoor || ids.find(id=>states[id]?.attributes?.device_class==='aqi' && /outdoor|aussen|außen|waqi|open_meteo/i.test(id+' '+states[id].attributes.friendly_name));
-    return {rooms,aggregate,outdoor:panel.demo?28:readSource(outdoorId,states,'aqi')?.value,
+    const outdoorCandidates=ids.filter(id=>{
+      if(!id.startsWith('sensor.'))return false;
+      const attrs=states[id]?.attributes;
+      const name=normalized(id+' '+(attrs?.friendly_name??'')).replaceAll('ß','ss');
+      return /outdoor|aussen|waqi|open[ _-]meteo/.test(name)
+        && (attrs?.device_class==='aqi' || /(?:^|[._ -])(?:aqi|luftqualitätsindex)(?:$|[ _-])/.test(name));
+    });
+    const outdoorId=config.outdoor || (outdoorCandidates.length===1 ? outdoorCandidates[0] : undefined);
+    return {rooms,aggregate,outdoorId,outdoor:panel.demo?28:readSource(outdoorId,states,'aqi')?.value,
       absolute:readSource('sensor.thermal_comfort_absolute_luftfeuchtigkeit',states),
       dew:readSource('sensor.thermal_comfort_taupunkt',states)};
   }
@@ -307,7 +320,7 @@ export class AirQualityPanel {
 
   view() {
     const config=this.config();
-    const {rooms,aggregate,outdoor,absolute,dew}=this.data(config);
+    const {rooms,aggregate,outdoorId,outdoor,absolute,dew}=this.data(config);
     const demo=this.panel.demo, now=Date.now(), thresholds=config.thresholds;
     const selected=rooms.find(room=>room.name===this.selected);
     const pools=selected?Object.fromEntries(keys.map(key=>[key,[selected.readings[key]].filter(Boolean)])):aggregate;
@@ -374,7 +387,8 @@ export class AirQualityPanel {
       ${ring(lead?.index,lead?.key,demo)}
       ${readings.map(({key,source},i)=>particleRow(key,120+i*82,source,thresholds[key],rangeFor(source?.id))).join('')}
       ${roomRows}
-      ${rect(728,393,326,40,blue,20)}${txt(741,419,'Außen · AQI',16,'#000')}${txt(1041,419,outdoor==null?'—':num(outdoor),18,'#000','end')}
+      <g><title>${escape(demo?'Beispielwert':outdoorId??'Außen-AQI nicht zugeordnet')}</title>
+      ${rect(728,393,326,40,blue,20)}${txt(741,419,'Außen · AQI',16,'#000')}${txt(1041,419,outdoor==null?'—':num(outdoor),18,'#000','end')}</g>
       ${head(0,446,690,'Verlauf · 24 h'+(indexMode?'':' · '+(environment?environmentLabel:'Raumklima')))}
       ${head(715,446,339,'7 Tage · Stunden')}
       ${!indexMode && environment?txt(1054,478,environmentLabel+' · '+environmentUnit,11,pink,'end'):''}

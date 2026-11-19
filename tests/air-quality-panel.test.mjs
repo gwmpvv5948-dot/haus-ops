@@ -94,3 +94,21 @@ test('critical warning uses the aggregate, ignores the room filter and clears at
   panel.panel.ha.states[id].state='unavailable';
   assert.equal(panel.criticalWarning(),null);
 });
+
+test('a saved room binding preserves an outdoor sensor configured in YAML',()=>{
+  const id='sensor.rest_european_index';
+  const panel=fixture({[id]:entity(id,28,undefined,undefined)});
+  panel.panel.yamlConfig={air_quality:{outdoor:id}};
+  panel.panel.config={air_quality:{roomSensors:{Küche:{temperature:'sensor.ku_temp'}}}};
+  const config=panel.config();
+  assert.equal(panel.data(config).outdoor,28);
+  assert.equal(config.roomSensors.Küche.temperature,'sensor.ku_temp');
+});
+
+test('the named Außen AQI sensor is discovered without a device class',()=>{
+  const id='sensor.au_en_aqi';
+  const state=entity(id,31,undefined,undefined);
+  state.attributes.friendly_name='Außen AQI';
+  const panel=fixture({[id]:state});
+  assert.equal(panel.data(panel.config()).outdoor,31);
+});

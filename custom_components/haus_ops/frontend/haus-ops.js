@@ -1,4 +1,4 @@
-import {AirQualityPanel,airQualityPageIndex,airRoomFields,matchesAirRoomField} from './air-quality-panel.js?v=3';
+import {AirQualityPanel,airQualityPageIndex,airRoomFields,matchesAirRoomField} from './air-quality-panel.js?v=4';
 import {VehiclePanel,vehicleFields,vehiclePageIndex} from './vehicle-panel.js?v=1.6.63&r=2';
 import {validateVehicleBlueprint} from './vehicle-model.js?v=1.6.63&r=2';
 import {VentilationPanel,ventilationFields,ventilationCharacteristics,validateVentilationCharacteristics} from './ventilation-panel.js?v=1.6.63&r=3';
@@ -1790,12 +1790,12 @@ class HausOpsSettings {
     const next = { energy: {}, overview: {}, music: {}, vent: {}, vehicle: {}, water: {
       leak_minutes: Number(data.get('water-leak-minutes')) || 30,
       leak_liters: Number(data.get('water-leak-liters')) || 300,
-    }, air_quality: this.panel.config?.air_quality ?? this.panel.yamlConfig?.air_quality, ventilation: this.panel.config?.ventilation, blinds: blindFields.map(([key, label]) => ({ key, name: data.get(`blind-name.${key}`)?.trim() || label })),
+    }, air_quality: this.panel.savedConfig?.air_quality, ventilation: this.panel.config?.ventilation, blinds: blindFields.map(([key, label]) => ({ key, name: data.get(`blind-name.${key}`)?.trim() || label })),
       blind_presets: [0, 50, 80].map((fallback, index) => {
         const value = data.get(`blind-preset.${index}`);
         return value ? Number(value) : fallback;
       }), access: [], switches: [], climate: [], thermostats: [], schedules: [], valves: {} };
-    const airConfig = this.panel.config?.air_quality ?? this.panel.yamlConfig?.air_quality ?? {};
+    const airConfig = this.panel.airQuality.overrides();
     const roomSensors = {...airConfig.roomSensors};
     for (const [i,room] of airRooms.entries()) {
       const bindings = Object.fromEntries(airRoomFields.flatMap(([key])=>{
@@ -1805,7 +1805,7 @@ class HausOpsSettings {
       if (Object.keys(bindings).length) Object.defineProperty(roomSensors,room.name,{value:bindings,enumerable:true,configurable:true,writable:true});
       else delete roomSensors[room.name];
     }
-    if (airRooms.length) next.air_quality = {...airConfig,roomSensors};
+    if (airRooms.length) next.air_quality = {...this.panel.savedConfig?.air_quality,roomSensors};
     for (const [, fields] of entityFields) {
       for (const [key, name, domains] of fields) {
         const entity = data.get(key)?.trim();
