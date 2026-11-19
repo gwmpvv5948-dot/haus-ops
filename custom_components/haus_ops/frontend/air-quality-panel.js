@@ -41,6 +41,38 @@ export function airIndex(value, limits) {
   return 250;
 }
 
+const epaLevels = [
+  {max:50, label:'Gut', color:'#00e400', ink:'#000'},
+  {max:100, label:'Mäßig', color:'#ffff00', ink:'#000'},
+  {max:150, label:'Ungesund für empfindliche Gruppen', color:'#ff7e00', ink:'#000'},
+  {max:200, label:'Ungesund', color:'#ff0000', ink:'#000'},
+  {max:300, label:'Sehr ungesund', color:'#8f3f97', ink:'#fff'},
+  {max:Infinity, label:'Gefährlich', color:'#7e0023', ink:'#fff'},
+];
+
+const europeanLevels = [
+  {max:20, label:'Gut', color:'#50f0e6', ink:'#000'},
+  {max:40, label:'Ausreichend', color:'#50ccaa', ink:'#000'},
+  {max:60, label:'Mäßig', color:'#f0e641', ink:'#000'},
+  {max:80, label:'Schlecht', color:'#ff5050', ink:'#000'},
+  {max:100, label:'Sehr schlecht', color:'#960032', ink:'#fff'},
+  {max:Infinity, label:'Extrem schlecht', color:'#7d2181', ink:'#fff'},
+];
+
+function outdoorEuropeanRating(value) {
+  if (!Number.isFinite(value) || value<0) return null;
+  return europeanLevels.find(level=>value<=level.max);
+}
+
+export function outdoorEpaRating(value) {
+  if (!Number.isFinite(value) || value<0) return null;
+  return epaLevels.find(level=>Math.round(value)<=level.max);
+}
+
+function isUsAqi(name) {
+  return /(?:^|[._ -])(?:us[ _-]?aqi|aqi[ _-]?us)(?=$|[ _-])/i.test(name);
+}
+
 function metricFor(id,state) {
   if (!id.startsWith('sensor.') || !state) return undefined;
   const cls = state.attributes?.device_class;
@@ -267,15 +299,18 @@ export class AirQualityPanel {
       const bound=readSource(indoor[key],states,key);
       return [key,bound?[bound,...all]:all];
     }));
+    const outdoorName=id=>normalized(id+' '+(states[id]?.attributes?.friendly_name??'')).replaceAll('ß','ss');
     const outdoorCandidates=ids.filter(id=>{
       if(!id.startsWith('sensor.'))return false;
       const attrs=states[id]?.attributes;
-      const name=normalized(id+' '+(attrs?.friendly_name??'')).replaceAll('ß','ss');
+      const name=outdoorName(id);
       return /outdoor|aussen|waqi|open[ _-]meteo/.test(name)
-        && (attrs?.device_class==='aqi' || /(?:^|[._ -])(?:aqi|luftqualitätsindex)(?:$|[ _-])/.test(name));
+        && (attrs?.device_class==='aqi' || isUsAqi(name) || /(?:^|[._ -])(?:aqi|luftqualitätsindex)(?:$|[ _-])/.test(name));
     });
-    const outdoorId=config.outdoor || (outdoorCandidates.length===1 ? outdoorCandidates[0] : undefined);
-    return {rooms,aggregate,outdoorId,outdoor:panel.demo?28:readSource(outdoorId,states,'aqi')?.value,
+    const usCandidates=outdoorCandidates.filter(id=>isUsAqi(outdoorName(id)));
+    const outdoorId=config.outdoor || (usCandidates.length===1 ? usCandidates[0] : outdoorCandidates.length===1 ? outdoorCandidates[0] : undefined);
+    const outdoorScale=config.outdoorScale || (isUsAqi(outdoorName(outdoorId))?'us':undefined);
+    return {rooms,aggregate,outdoorId,outdoorScale,outdoor:panel.demo?28:readSource(outdoorId,states,'aqi')?.value,
       absolute:readSource('sensor.thermal_comfort_absolute_luftfeuchtigkeit',states),
       dew:readSource('sensor.thermal_comfort_taupunkt',states)};
   }
@@ -320,7 +355,7 @@ export class AirQualityPanel {
 
   view() {
     const config=this.config();
-    const {rooms,aggregate,outdoorId,outdoor,absolute,dew}=this.data(config);
+    const {rooms,aggregate,outdoorId,outdoorScale,outdoor,absolute,dew}=this.data(config);
     const demo=this.panel.demo, now=Date.now(), thresholds=config.thresholds;
     const selected=rooms.find(room=>room.name===this.selected);
     const pools=selected?Object.fromEntries(keys.map(key=>[key,[selected.readings[key]].filter(Boolean)])):aggregate;
@@ -369,6 +404,10 @@ export class AirQualityPanel {
       return values.length?[Math.min(...values),Math.max(...values)]:null;
     };
     const subtitle=demo?'Demo · Beispielwerte':'Innenindex · 0–250';
+    const epa=demo || outdoorScale==='us';
+    const outdoorRating=epa?outdoorEpaRating(outdoor):outdoorEuropeanRating(outdoor);
+    const outdoorValue=outdoorRating?num(epa?Math.round(outdoor):outdoor)+' · '+outdoorRating.label:outdoor==null?'—':num(outdoor);
+    const outdoorInk=outdoorRating?.ink ?? '#000';
     const showingRooms=rooms.slice(0,7);
     const roomRows=showingRooms.map((room,i)=>{
       const co2=room.readings.co2, index=indexOf('co2',co2?.value), y=96+i*42, active=room===selected;
@@ -387,8 +426,9 @@ export class AirQualityPanel {
       ${ring(lead?.index,lead?.key,demo)}
       ${readings.map(({key,source},i)=>particleRow(key,120+i*82,source,thresholds[key],rangeFor(source?.id))).join('')}
       ${roomRows}
-      <g><title>${escape(demo?'Beispielwert':outdoorId??'Außen-AQI nicht zugeordnet')}</title>
-      ${rect(728,393,326,40,blue,20)}${txt(741,419,'Außen · AQI',16,'#000')}${txt(1041,419,outdoor==null?'—':num(outdoor),18,'#000','end')}</g>
+      <g><title>${escape(demo?'Beispielwert · US‑EPA':outdoorId ? outdoorId+(epa?' · US‑EPA':' · Europäischer AQI') : 'Außen-AQI nicht zugeordnet')}</title>
+      ${rect(728,393,326,40,outdoorRating?.color??blue,20)}${txt(741,419,'Außen · AQI',16,outdoorInk)}
+      ${txt(1041,419,outdoorValue,outdoorRating?.label.length>20?13:17,outdoorInk,'end')}</g>
       ${head(0,446,690,'Verlauf · 24 h'+(indexMode?'':' · '+(environment?environmentLabel:'Raumklima')))}
       ${head(715,446,339,'7 Tage · Stunden')}
       ${!indexMode && environment?txt(1054,478,environmentLabel+' · '+environmentUnit,11,pink,'end'):''}

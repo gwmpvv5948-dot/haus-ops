@@ -15,3 +15,20 @@ Eine Raumzeile filtert die Kurve und die Heatmap. Erneutes Antippen setzt den Fi
 ## Gelber Alarm
 
 Ein Innenindex über 200 löst im laufenden HAUS-OPS-Dashboard automatisch **Gelb** aus. Der Alarm verwendet denselben Innenindex wie die Luftqualitätsseite und berücksichtigt einen konfigurierten Referenzraum. Der Raumfilter ändert den Alarm nicht. **Details** öffnet die Luftqualitätsseite. Stummschaltung und Quittierung gelten für die aktuelle Meldung in diesem Dashboard. Sobald der Index wieder höchstens 200 beträgt oder kein kritischer Messwert mehr verfügbar ist, verschwindet die Meldung. Rote Alarme haben Vorrang.
+
+## Außen-AQI
+
+Die bestehende Kachel **Außen · AQI** zeigt den Messwert, die Farbe und die Stufe. Standardmäßig bewertet HAUS-OPS den europäischen AQI von Open-Meteo (`current=european_aqi`). Die oberen Grenzen sind 20 (Gut), 40 (Ausreichend), 60 (Mäßig), 80 (Schlecht) und 100 (Sehr schlecht). Höhere Werte gelten als Extrem schlecht.
+
+### Optionaler US-AQI
+
+Für die farbige US-EPA-Anzeige muss der Sensor den **US-AQI** liefern. Bei Open-Meteo verwende `current=us_aqi` im REST-Aufruf und `{{ value_json.current.us_aqi }}` als Wertvorlage. Ein eindeutig als US-AQI benannter Außensensor wie `sensor.aussen_us_aqi` wird automatisch erkannt. Für andere Namen konfiguriere die Entität und die Skala explizit:
+
+```yaml
+haus_ops:
+  air_quality:
+    outdoor: sensor.aussen_aqi
+    outdoorScale: us
+```
+
+Die Stufen sind Gut (0–50), Mäßig (51–100), Ungesund für empfindliche Gruppen (101–150), Ungesund (151–200), Sehr ungesund (201–300) und Gefährlich (ab 301). [US-EPA AQI](https://www.airnow.gov/aqi/aqi-basics/)

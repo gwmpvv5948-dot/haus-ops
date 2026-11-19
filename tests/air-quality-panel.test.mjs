@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {test} from 'node:test';
-import {AirQualityPanel,airIndex} from '../custom_components/haus_ops/frontend/air-quality-panel.js';
+import {AirQualityPanel,airIndex,outdoorEpaRating} from '../custom_components/haus_ops/frontend/air-quality-panel.js';
 
 const base = JSON.parse(readFileSync(new URL('../custom_components/haus_ops/frontend/air-quality-config.json',import.meta.url)));
 const entity = (entity_id,state,device_class,unit_of_measurement) =>
@@ -111,4 +111,47 @@ test('the named Außen AQI sensor is discovered without a device class',()=>{
   state.attributes.friendly_name='Außen AQI';
   const panel=fixture({[id]:state});
   assert.equal(panel.data(panel.config()).outdoor,31);
+});
+
+test('outdoor US-AQI follows all six EPA bands at their boundaries',()=>{
+  const cases=[
+    [0,50,'Gut','#00e400'],
+    [51,100,'Mäßig','#ffff00'],
+    [101,150,'Ungesund für empfindliche Gruppen','#ff7e00'],
+    [151,200,'Ungesund','#ff0000'],
+    [201,300,'Sehr ungesund','#8f3f97'],
+    [301,500,'Gefährlich','#7e0023'],
+  ];
+  for(const [min,max,label,color] of cases) {
+    for(const value of [min,max]) {
+      assert.equal(outdoorEpaRating(value).label,label);
+      assert.equal(outdoorEpaRating(value).color,color);
+    }
+  }
+  assert.equal(outdoorEpaRating(undefined),null);
+  assert.equal(outdoorEpaRating(-1),null);
+});
+
+test('the display only applies EPA colors to a US-AQI source',()=>{
+  const eu='sensor.aussen_aqi', us='sensor.aussen_us_aqi';
+  const panel=fixture({[eu]:entity(eu,151,'aqi'),[us]:entity(us,151,'aqi')});
+  assert.equal(panel.data(panel.config()).outdoorId,us);
+  const markup=panel.view();
+  assert.equal((markup.match(/>Außen · AQI<\//g)??[]).length,1);
+  assert.match(markup,/151 · Ungesund/);
+  panel.panel.config={air_quality:{outdoor:eu}};
+  assert.match(panel.view(),/151 · Extrem schlecht/);
+  panel.panel.config.air_quality.outdoorScale='us';
+  assert.match(panel.view(),/151 · Ungesund/);
+});
+
+test('the existing outdoor tile rates European AQI without additional configuration',()=>{
+  const id='sensor.aussen_aqi';
+  const panel=fixture({[id]:entity(id,20,'aqi')});
+  for(const [value,label] of [[0,'Gut'],[20,'Gut'],[21,'Ausreichend'],[40,'Ausreichend'],
+    [41,'Mäßig'],[60,'Mäßig'],[61,'Schlecht'],[80,'Schlecht'],[81,'Sehr schlecht'],
+    [100,'Sehr schlecht'],[101,'Extrem schlecht']]) {
+    panel.panel.ha.states[id].state=String(value);
+    assert.ok(panel.view().includes(value+' · '+label));
+  }
 });

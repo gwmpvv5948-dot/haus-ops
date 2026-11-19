@@ -1,16 +1,16 @@
-import {AirQualityPanel,airQualityPageIndex,airRoomFields,matchesAirRoomField} from './air-quality-panel.js?v=4';
+import {AirQualityPanel,airQualityPageIndex,airRoomFields,matchesAirRoomField} from './air-quality-panel.js?v=5';
 import {VehiclePanel,vehicleFields,vehiclePageIndex} from './vehicle-panel.js?v=1.6.63&r=2';
 import {validateVehicleBlueprint} from './vehicle-model.js?v=1.6.63&r=2';
 import {VentilationPanel,ventilationFields,ventilationCharacteristics,validateVentilationCharacteristics} from './ventilation-panel.js?v=1.6.63&r=3';
 import { HouseSection, housePageIndex } from './house-section.js?v=1.6.63&r=18';
-import {loadPVActual,pvDayView,bindPVDay} from './pv-day-panel.js?v=1.6.63&r=alarm-nav';
+import {loadPVActual,pvDayView,bindPVDay} from './pv-day-panel.js?v=1.6.63&r=security-timestamp';
 import { setupSettingsLayout } from './settings-layout.js?v=1.6.63';
 import { MobileNotifications } from './mobile-notifications.js?v=1.6.63';
 import { nightDisplayOff } from './display-night.js?v=1.6.63';
-import {loadPV,pvView} from './pv-panel.js?v=1.6.63&r=alarm-nav';
+import {loadPV,pvView} from './pv-panel.js?v=1.6.63&r=security-timestamp';
 import { LightPanel } from './light-panel.js?v=1.6.63';
 import { CircuitsPanel } from './circuits-panel.js?v=1.6.63';
-import { OverviewPanel, overviewFields } from './overview-panel.js?v=1.6.63&r=alarm-nav';
+import { OverviewPanel, overviewFields } from './overview-panel.js?v=1.6.63&r=security-timestamp';
 import { MusicPanel, musicFields } from './music-panel.js?v=1.6.63';
 import { WaterPanel, waterFields } from './water-panel.js?v=1.6.63';
 import { energyFields, energyView } from './energy-panel.js?v=1.6.63';
@@ -62,6 +62,16 @@ const validSoundName = value => /^[^/\\?#]+\.(mp3|wav|ogg|m4a)$/i.test(value);
 const dashboardVolumePreference = 'haus-ops.dashboard-volume';
 const touchSoundPreference = 'haus-ops.touch-sounds';
 const levels = ['Aus', 'Low', '1', '2', 'Max'];
+const accessChangeTime = new Intl.DateTimeFormat('de-DE', {
+  day:'2-digit', month:'2-digit', year:'2-digit',
+  hour:'2-digit', minute:'2-digit', second:'2-digit'
+});
+const accessChangeLabel = value => {
+  const timestamp = Date.parse(value);
+  return Number.isFinite(timestamp)
+    ? `<time class="access-change" datetime="${new Date(timestamp).toISOString()}">Seit ${accessChangeTime.format(timestamp)}</time>`
+    : '<small class="access-change">Zeitpunkt unbekannt</small>';
+};
 const climate = new Intl.NumberFormat('de-DE', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 const escape = value => String(value ?? '').replace(/[&<>"']/g, c => ({
   '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
@@ -107,7 +117,7 @@ class HausOps extends HTMLElement {
       if (this.demo && this.getAttribute('demo-page') === 'luftqualitaet') this.page = airQualityPageIndex;
       this.attachShadow({ mode: 'open' });
       this.shadowRoot.innerHTML = `
-        <link rel="stylesheet" href="${new URL('./haus-ops.css?v=1.6.63&r=alarm-nav', import.meta.url)}">
+        <link rel="stylesheet" href="${new URL('./haus-ops.css?v=1.6.63&r=security-timestamp', import.meta.url)}">
         <link rel="stylesheet" href="${new URL('./house-section.css?v=1.6.63&r=18', import.meta.url)}">
         <link rel="stylesheet" href="${new URL('./ventilation-panel.css?v=1.6.63&r=3', import.meta.url)}">
         <link rel="stylesheet" href="${new URL('./vehicle-panel.css?v=1.6.63&r=2', import.meta.url)}">
@@ -503,7 +513,10 @@ class HausOps extends HTMLElement {
 
   accesses() {
     if (this.demo) return ['Garagentor', 'Garagentür', 'Türschloss', 'Haustür', 'CA Fenster', 'KU Fenster', 'Terrasse', 'AZ Fenster']
-      .map((name, index) => ({ name, lock: index === 2, open: index === 2 && !this.demoLocked }));
+      .map((name, index) => ({
+        name, lock: index === 2, open: index === 2 && !this.demoLocked,
+        changed: new Date(index === 2 && this.demoLockChanged ? this.demoLockChanged : this.demoStart).toISOString()
+      }));
     return (this.config?.access ?? []).map(({ name, entity }) => {
       const lock = entity?.startsWith('lock.');
       const reading = this.state(entity);
@@ -578,7 +591,7 @@ class HausOps extends HTMLElement {
   }
 
   tick() {
-    const clock = this.shadowRoot?.querySelector('time');
+    const clock = this.shadowRoot?.querySelector('header > time');
     if (!clock) return;
     const offline = this.page === 4 && !this.demo && this.ha?.connection?.connected === false;
     clock.classList.toggle('offline', offline);
@@ -832,7 +845,7 @@ class HausOps extends HTMLElement {
             ${hasAlarm && overviewAlarm.reasons ? ' · ' + escape(overviewAlarm.reasons) : ''}</div>
           <div class="tiles">${accesses.map((item, index) => `<button style="background:${item.open === undefined ? 'var(--pink)' : item.open ? 'var(--red)' : 'var(--pink)'}" data-action="access:${index}" ${item.lock && item.open === undefined ? 'disabled' : ''}>
             ${icon(item.lock ? (item.open ? 'M7 11V7a5 5 0 0 1 9-3m-9 7h10a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-6a2 2 0 0 1 2-2zm5 5h.1' : 'M7 11V7a5 5 0 0 1 10 0v4M5 11h14v10H5zm7 5h.1') : /fenster/i.test(item.name) ? windowIcon : doorIcon)}
-            <span><strong>${escape(item.name)}</strong><small>${accessLabel(item)}</small></span></button>`).join('')}</div></section>`;
+            <span><strong>${escape(item.name)}</strong><small>${accessLabel(item)}</small>${accessChangeLabel(item.changed)}</span></button>`).join('')}</div></section>`;
         break;
       case 2:
         layout = this.ventPanel.view();
@@ -1403,7 +1416,10 @@ class HausOps extends HTMLElement {
         case 'access': {
           const item = this.accesses()[i];
           if (!item.lock) { this.notify('Sensor, nur Anzeige'); break; }
-          if (this.demo) this.demoLocked = !this.demoLocked;
+          if (this.demo) {
+            this.demoLocked = !this.demoLocked;
+            this.demoLockChanged = Date.now();
+          }
           else await this.call(item.entity, item.open ? 'lock' : 'unlock');
           break;
         }
@@ -1420,8 +1436,10 @@ class HausOps extends HTMLElement {
           break;
         case 'ops-lock': {
           const unlocked = this.accesses().filter(item=>item.lock && item.open===true);
-          if (this.demo) this.demoLocked = true;
-          else await Promise.all(unlocked.map(item=>this.call(item.entity,'lock')));
+          if (this.demo) {
+            if (!this.demoLocked) this.demoLockChanged = Date.now();
+            this.demoLocked = true;
+          } else await Promise.all(unlocked.map(item=>this.call(item.entity,'lock')));
           break;
         }
         case 'ops-camera': {
