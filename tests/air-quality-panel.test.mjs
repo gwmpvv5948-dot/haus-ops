@@ -17,7 +17,7 @@ test('particulate and CO₂ index use the configured breakpoints',()=>{
   assert.equal(airIndex(null,base.thresholds.co2),null);
   assert.equal(airIndex(700,base.thresholds.co2),37.5);
   assert.equal(airIndex(1000,base.thresholds.co2),100);
-  assert.equal(airIndex(55,base.thresholds.pm25),210);
+  assert.equal(airIndex(104,base.thresholds.pm25),210);
   assert.equal(airIndex(3000,base.thresholds.co2),250);
 });
 

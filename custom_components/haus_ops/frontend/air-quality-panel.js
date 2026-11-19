@@ -88,7 +88,7 @@ function temperature(state) {
   return unit(state)==='°f' ? (value-32)*5/9 : unit(state)==='k' ? value-273.15 : value;
 }
 
-const configUrl = new URL('./air-quality-config.json',import.meta.url);
+const configUrl = new URL('./air-quality-config.json?v=1.6.71',import.meta.url);
 const txt = (x,y,label,size=16,fill=peach,anchor='start') =>
   `<text x="${x}" y="${y}" font-size="${size}" fill="${fill}" text-anchor="${anchor}">${escape(label).replace(/(?:µg|g)\/m³/g,unit=>`<tspan class="air-unit">${unit}</tspan>`)}</text>`;
 const rect = (x,y,w,h,fill,rx=0,attrs='') => `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${fill}" rx="${rx}" ${attrs}/>`;
