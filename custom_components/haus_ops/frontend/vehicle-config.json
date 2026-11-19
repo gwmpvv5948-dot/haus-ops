@@ -1,0 +1,22 @@
+{
+  "image": {"src":"vehicle-model3.jpg","x":330,"y":200,"width":600,"height":286},
+  "model":"Model 3", "year_label":"Konfigurierbar",
+  "specs":[["Länge","—"],["Radstand","—"],["Breite","—"],["Leergewicht","—"],["Höhe","—"],["Akku","—"],["Antrieb","—"],["WLTP","—"]],
+  "entities": {},
+  "leaders":[
+    {"key":"cabin","name":"Kabine","side":"left","textY":90,"bendX":700,"x":700,"y":300,"color":"#ff9966"},
+    {"key":"roof","name":"Glasdach","side":"left","textY":112,"bendX":650,"x":650,"y":256,"color":"#99ccff"},
+    {"key":"seat","name":"Sitz links","side":"left","textY":134,"bendX":627,"x":627,"y":338,"color":"#ff9966"},
+    {"key":"windows","name":"Fenster","side":"left","textY":156,"bendX":605,"x":605,"y":285,"color":"#ffcc99"},
+    {"key":"steering","name":"Lenkrad","side":"left","textY":178,"bendX":578,"x":578,"y":311,"color":"#ff9966"},
+    {"key":"pump","name":"Wärmepumpe","side":"left","textY":200,"bendX":515,"x":515,"y":329,"color":"#ff9966"},
+    {"key":"tire_fl","name":"Reifen VL","side":"left","textY":222,"bendX":447,"x":447,"y":357,"color":"#99ccff"},
+    {"key":"frunk","name":"Frunk","side":"left","textY":244,"bendX":420,"x":420,"y":330,"color":"#ffcc99"},
+    {"key":"port","name":"Ladeport","side":"right","textY":452,"bendX":842,"x":870,"y":330,"color":"#ffaa00"},
+    {"key":"trunk","name":"Kofferraum","side":"right","textY":472,"bendX":826,"x":859,"y":306,"color":"#ffcc99"},
+    {"key":"tire_rl","name":"Reifen HL","side":"right","textY":492,"bendX":819,"x":819,"y":440,"color":"#99ccff"},
+    {"key":"range","name":"Akku","side":"right","textY":512,"bendX":706,"x":706,"y":408,"color":"#99ddbb"},
+    {"key":"sentry","name":"Wächter","side":"right","textY":532,"bendX":677,"x":677,"y":309,"color":"#cc99cc"},
+    {"key":"lock","name":"Türen","side":"right","textY":552,"bendX":640,"x":640,"y":372,"color":"#cc99cc"}
+  ]
+}

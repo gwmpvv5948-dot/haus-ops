@@ -1,4 +1,6 @@
 import {AirQualityPanel,airQualityPageIndex,airRoomFields,matchesAirRoomField} from './air-quality-panel.js?v=2';
+import {VehiclePanel,vehicleFields,vehiclePageIndex} from './vehicle-panel.js?v=1.6.63&r=2';
+import {validateVehicleBlueprint} from './vehicle-model.js?v=1.6.63&r=2';
 import {VentilationPanel,ventilationFields,ventilationCharacteristics,validateVentilationCharacteristics} from './ventilation-panel.js?v=1.6.63&r=3';
 import { HouseSection, housePageIndex } from './house-section.js?v=1.6.63&r=18';
 import {loadPVActual,pvDayView,bindPVDay} from './pv-day-panel.js?v=1.6.63&r=alarm-nav';
@@ -30,6 +32,7 @@ const navigation = [
   [circuitsPageIndex, 'Stromkreise', '02-11', '--sand', 'supply', ''],
   [energyPageIndex, 'Energie', '02-12', '--sand', 'supply', 'Versorgung'],
   [waterPageIndex, 'Wasser', '02-13', '--sand', 'supply', ''],
+  [vehiclePageIndex, 'Fahrzeug', '02-14', '--sand', 'supply', ''],
   [9, 'Licht', '03-21', '--pink', 'comfort', ''],
   [4, 'Klima', '03-22', '--pink', 'comfort', ''],
   [airQualityPageIndex, 'Luftqualität', '03-26', '--pink', 'comfort', ''],
@@ -89,6 +92,7 @@ class HausOps extends HTMLElement {
   music = new MusicPanel(this);
   climatePanel = new ClimatePanel(this);
   house = new HouseSection(this);
+  vehicle = new VehiclePanel(this);
   ventPanel = new VentilationPanel(this);
   airQuality = new AirQualityPanel(this);
 
@@ -105,6 +109,7 @@ class HausOps extends HTMLElement {
         <link rel="stylesheet" href="${new URL('./haus-ops.css?v=1.6.63&r=alarm-nav', import.meta.url)}">
         <link rel="stylesheet" href="${new URL('./house-section.css?v=1.6.63&r=18', import.meta.url)}">
         <link rel="stylesheet" href="${new URL('./ventilation-panel.css?v=1.6.63&r=3', import.meta.url)}">
+        <link rel="stylesheet" href="${new URL('./vehicle-panel.css?v=1.6.63&r=2', import.meta.url)}">
         <link rel="stylesheet" href="${new URL('./air-quality-panel.css?v=1', import.meta.url)}">
         <div class="stage"><div class="frame">
           <div class="brand">LCARS 77</div>
@@ -458,6 +463,7 @@ class HausOps extends HTMLElement {
   }
 
   disconnectedCallback() {
+    this.vehicle.close();
     this.ventPanel.stop();
     clearInterval(this.houseDataClock);
     clearInterval(this.overviewDataClock);
@@ -736,6 +742,7 @@ class HausOps extends HTMLElement {
     const standbyBlocked = overviewAlarm.level !== 'normal' || this.settings.dialog?.open;
     if (standbyBlocked) this.lastDisplayActivity = now;
     const standby = !standbyBlocked && now - this.lastDisplayActivity >= 60000;
+    if (standby && this.vehicle.opened) this.vehicle.close();
     if (standby && this.page !== 0) {
       this.page = 0;
       this.pvOpen = false;
@@ -988,6 +995,8 @@ class HausOps extends HTMLElement {
       this.shadowRoot.querySelector('footer .rail').textContent = this.airQuality.footer;
     }
     this.house.syncOverlay();
+    this.vehicle.syncOverlay();
+    this.settings.refreshVehicleFields();
     this.shadowRoot.querySelectorAll('nav [data-page]').forEach(button =>
       button.setAttribute('aria-current', Number(button.dataset.page) === this.page));
     this.updateOverviewRotor(main,level);
@@ -1281,7 +1290,7 @@ class HausOps extends HTMLElement {
     if (event.target.closest('.ops-blind-windows [data-blind-position]')) return;
 
     const playedAlarm = this.playPendingAlarm();
-    const button = event.target.closest('button, .house-section [data-action], .ventilation-page [data-action], .circuits-wheel path[data-action^="circuit-room:"]') ??
+    const button = event.target.closest('button, .house-section [data-action], .ventilation-page [data-action], .vehicle-page [data-action], .circuits-wheel path[data-action^="circuit-room:"]') ??
       event.target.closest('[data-pv-card]')?.querySelector('[data-pv-open]') ??
       event.target.closest('[data-card-page]')?.querySelector('button[data-page]');
     if (button?.hasAttribute('data-swiped') || button?.getAttribute('aria-disabled') === 'true') return;
@@ -1317,7 +1326,8 @@ class HausOps extends HTMLElement {
       return;
     }
     if (button.dataset.page !== undefined) {
-      if (Number(button.dataset.page) === housePageIndex) { this.house.open(); return; }
+      if (Number(button.dataset.page) === housePageIndex) { if(this.vehicle.opened)this.vehicle.close(); this.house.open(); return; }
+      if (Number(button.dataset.page) === vehiclePageIndex) { if(this.house.opened)this.house.close(); this.vehicle.open(); return; }
       this.page = Number(button.dataset.page);
       this.pvOpen = false;
       this.alarmDetailsPage = button.hasAttribute('data-alarm-details') ? this.page : undefined;
@@ -1326,6 +1336,7 @@ class HausOps extends HTMLElement {
       return;
     }
     if (!button.dataset.action) return;
+    if (button.dataset.action.startsWith('vehicle-')) { await this.vehicle.act(button.dataset.action.slice(8)); return; }
     if (button.dataset.action.startsWith('music-')) {
       const [action, value] = button.dataset.action.slice(6).split(':');
       await this.music.act(action, ['sonos','room','room-play','member'].includes(action) ? value : Number(value));
@@ -1483,6 +1494,7 @@ const entityFields = [
   ['Wasser', waterFields],
   ['Übersicht und Licht', overviewFields],
   ['Musik', musicFields],
+  ['Fahrzeug', vehicleFields.map(field=>['vehicle.'+field.key,field.label,field.domains])],
   ['Sicherheit', [
     ['access.0', 'Garagentor', ['binary_sensor', 'cover']],
     ['access.1', 'Garagentür', ['binary_sensor']],
@@ -1531,12 +1543,20 @@ class HausOpsSettings {
     try {
       const { value } = await hass.callWS({ type: 'frontend/get_system_data', key: settingsKey });
       this.panel.savedConfig = value ?? undefined;
+      this.panel.circuits.load();
       this.panel.house.load();
+      this.panel.vehicle.load();
       if (hass.user?.is_admin) await this.mobile.load(hass);
       this.panel.render();
     } catch {
       this.panel.notify('HAUS-OPS-Konfiguration konnte nicht geladen werden');
     }
+  }
+
+  refreshVehicleFields() {
+    if (!this.dialog?.open) return;
+    const found=this.panel.vehicle.bindings();
+    for(const field of vehicleFields) { const input=this.dialog.querySelector(`[name="vehicle.${field.key}"]`); if(input && !input.value && !input.dataset.vehicleEdited && found[field.key]) input.value=found[field.key]; }
   }
 
   async open() {
@@ -1579,9 +1599,11 @@ class HausOpsSettings {
     const circuitSelectionPending = !config.circuits?.selectionSaved && config.circuits?.labelOnly && !panel.circuits.registry;
     const houseRooms = panel.house.config?.rooms ?? [];
     const houseReadings = houseRooms.length ? panel.house.data().rooms : [];
+    const vehicleBindings = panel.vehicle.bindings();
     const existing = key => {
       const [group, index] = key.split('.');
       const field = config[group];
+      if (group === 'vehicle') return field?.[index] ?? vehicleBindings[index];
       if (['energy', 'water', 'music', 'overview', 'vent'].includes(group)) return field?.[index];
       if (group === 'blinds') return field?.find(item => item.key === index)?.entity;
       if (group === 'valves') return field?.[roomNames[index]]?.join(', ');
@@ -1670,10 +1692,12 @@ class HausOpsSettings {
           `<label>Anzeigename · ${label}<input name="blind-name.${key}" maxlength="24" value="${escape(config.blinds?.find(item => item.key === key)?.name || label)}"></label>`).join('') +
           blindCommands.slice(3).map(([label], index) =>
             `<label>${label} · % geschlossen<input type="number" min="0" max="100" name="blind-preset.${index}" value="${escape(config.blind_presets?.[index] ?? [0, 50, 80][index])}"></label>`).join('') : ''}
+        ${title === 'Fahrzeug' ? `<label>HA-Geräte-ID (optional, bei mehreren Fahrzeugen)<input name="vehicle-device" value="${escape(config.vehicle?.device)}" spellcheck="false"></label><p>Leere Felder werden automatisch aus genau einem Tesla-Fleet-Fahrzeug zugeordnet. Deaktivierte Entitäten müssen zuerst in HA aktiviert werden. Zum Anzeigen wird kein Weckbefehl gesendet.</p><label>Röntgenbild, Zielpunkte und Eckdaten (JSON)<textarea name="vehicle-blueprint" rows="14" spellcheck="false">${escape(config.vehicle?.blueprint || panel.vehicle.defaults ? JSON.stringify(config.vehicle?.blueprint ?? panel.vehicle.defaults,null,2) : '')}</textarea></label><small>Eckdaten bitte für die eigene Fahrzeugvariante eintragen. Bilddateien müssen lokal in HA liegen. Türentriegelung und Öffnen der Klappen: 1,2 Sekunden halten.</small>` : ''}
         ${title === 'Lüftung' ? `<p>Stufensteuerung über vorhandene Trafo-Helfer. Leere Raumsensor-Felder verwenden die HA-Bereichszuordnung. Automatik-Schalter benötigen HA-Helfer mit passenden Automationen.</p><label>Stufenkennwerte (AUS, LOW, 1, 2, MAX)<textarea name="vent-characteristics" rows="9" spellcheck="false">${escape(JSON.stringify(config.vent?.characteristics ?? ventilationCharacteristics,null,2))}</textarea></label><small>flow: m³/h · voltage: V · rpm: U/min. Sensorwerte haben Vorrang. Stoßlüftung und Rückkehr zur Grundstufe werden durch die bestehende Timer-Automation in HA ausgeführt.</small>` : ''}</fieldset>`).join('')}
       </div><p role="status"></p><div class="controls"><button type="button" data-cancel>Abbrechen</button><button type="submit">OK</button></div></form>`;
     setupSettingsLayout(this.dialog);
     const form = this.dialog.querySelector('form');
+    form.addEventListener('input',event=>{if(event.target.name?.startsWith('vehicle.'))event.target.dataset.vehicleEdited='true';});
     const brightnessControl = form.elements.namedItem('brightness-control');
     brightnessControl.onchange = () => {
       try {
@@ -1742,7 +1766,7 @@ class HausOpsSettings {
     const data = new FormData(form);
     const submit = form.querySelector('[type=submit]');
     const status = form.querySelector('[role=status]');
-    const next = { energy: {}, overview: {}, music: {}, vent: {}, water: {
+    const next = { energy: {}, overview: {}, music: {}, vent: {}, vehicle: {}, water: {
       leak_minutes: Number(data.get('water-leak-minutes')) || 30,
       leak_liters: Number(data.get('water-leak-liters')) || 300,
     }, air_quality: this.panel.config?.air_quality ?? this.panel.yamlConfig?.air_quality, ventilation: this.panel.config?.ventilation, blinds: blindFields.map(([key, label]) => ({ key, name: data.get(`blind-name.${key}`)?.trim() || label })),
@@ -1772,12 +1796,17 @@ class HausOpsSettings {
           return;
         }
         if (group === 'valves') next.valves[name] = ids;
-        else if (['energy', 'water', 'music', 'overview', 'vent'].includes(group)) next[group][index] = entity;
+        else if (['energy', 'water', 'music', 'overview', 'vent', 'vehicle'].includes(group)) next[group][index] = entity;
         else if (group === 'blinds') next.blinds.find(blind => blind.key === index).entity = entity;
         else if (index !== undefined) next[group].push({ name, entity });
         else next[group] = entity;
       }
     }
+    const vehicleDevice = data.get('vehicle-device')?.trim();
+    if(vehicleDevice && !this.panel.circuits.registry?.devices?.some(device=>device.id===vehicleDevice)) { status.textContent='Fahrzeug: HA-Geräte-ID nicht gefunden.'; return; }
+    if(vehicleDevice) next.vehicle.device=vehicleDevice;
+    const vehicleBlueprint=data.get('vehicle-blueprint')?.trim();
+    if(vehicleBlueprint) { try { next.vehicle.blueprint=validateVehicleBlueprint(JSON.parse(vehicleBlueprint)); } catch(error) { status.textContent=error.message; return; } }
     try { next.vent.characteristics = validateVentilationCharacteristics(JSON.parse(data.get('vent-characteristics'))); }
     catch(error) { status.textContent = error.message || 'Ungültige Lüftungskennwerte.'; return; }
     const list = name => [...new Set(data.get(name).split(',').map(id => id.trim()).filter(Boolean))];

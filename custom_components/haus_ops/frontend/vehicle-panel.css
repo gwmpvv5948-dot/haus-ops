@@ -1,0 +1,21 @@
+.vehicle-overlay{position:absolute;inset:0;z-index:20;background:#000;overflow:hidden;animation:vehicle-overlay-in .35s ease-out both}
+.vehicle-overlay-content{position:absolute;inset:0}
+.vehicle-page{display:block;width:100%;height:100%;background:#000;color:#ffcc99;font-family:Antonio,'Arial Narrow',sans-serif;font-weight:600;letter-spacing:.04em;text-transform:uppercase;user-select:none;-webkit-user-select:none;touch-action:manipulation;overflow:hidden}
+.vehicle-page text{pointer-events:none}.vehicle-page .vehicle-live{transition:opacity .8s}.vehicle-page.stale .vehicle-live{opacity:.5}
+.vehicle-leader path{stroke:#e6e0f0;stroke-opacity:.65;stroke-width:1.5;fill:none;stroke-dasharray:1400;animation:vehicle-line-in .9s ease-out both;animation-delay:var(--lead-delay)}
+.vehicle-effects{mix-blend-mode:screen;pointer-events:none}.vehicle-effects>[data-vehicle-effect]{opacity:0;transition:opacity .8s}
+.vehicle-pack-charging{animation:vehicle-pack 1.3s ease-in-out infinite alternate}.vehicle-scan{animation:vehicle-scan 5s linear infinite;pointer-events:none}
+.vehicle-cable,.vehicle-charge-flow,.vehicle-battery-flow{fill:none;stroke-width:2.5;visibility:hidden}.vehicle-cable{stroke:#555}.vehicle-charge-flow{stroke:#ffaa00;stroke-dasharray:3 9}.vehicle-battery-flow{stroke:#99ddbb;stroke-dasharray:4 12}
+.vehicle-page.connected .vehicle-cable{visibility:visible}.vehicle-page.charging .vehicle-charge-flow,.vehicle-page.charging .vehicle-battery-flow{visibility:visible;animation:vehicle-flow .7s linear infinite}
+.vehicle-page [data-vehicle-sentry]{opacity:0}.vehicle-page.vehicle-sentry-active [data-vehicle-sentry]{animation:vehicle-sentry 1.3s ease-in-out infinite alternate}
+.vehicle-warning-text{fill:#ffcc33!important}.vehicle-tire-warning{animation:vehicle-sentry 1.1s ease-in-out infinite alternate}.vehicle-warning-pulse{animation:vehicle-warn 1.1s ease-in-out infinite alternate}
+.vehicle-button{cursor:pointer;outline:none}.vehicle-button:active{filter:brightness(1.3)}.vehicle-button[aria-disabled=true]{opacity:.35;cursor:default}.vehicle-button[aria-disabled=true]:active{filter:none}.vehicle-button:focus-visible>rect:first-child{stroke:#fff;stroke-width:2}
+.vehicle-hold-fill{transform:scaleX(0);transform-box:fill-box;transform-origin:left center;transition:none}.vehicle-holding .vehicle-hold-fill{transform:scaleX(1);transition:transform 1.2s linear}
+.vehicle-hold-note{display:none}.vehicle-needs-hold .vehicle-hold-note{display:block}.vehicle-needs-hold [data-v^="button-"]{transform:translateY(-5px);font-size:15px}
+.vehicle-global-alert{display:none}.vehicle-page.vehicle-yellow-alert .vehicle-global-alert{display:block}.frame[data-vehicle-overlay]>.alarm-layer{z-index:30}
+.vehicle-page [data-vehicle-flash]{opacity:0}.vehicle-page [data-vehicle-flash].flashing{animation:vehicle-flash .35s steps(1,end) 6}
+@keyframes vehicle-overlay-in{from{opacity:0}to{opacity:1}}@keyframes vehicle-line-in{from{stroke-dashoffset:1400;opacity:0}to{stroke-dashoffset:0;opacity:1}}
+@keyframes vehicle-scan{from{transform:translateX(-110px)}to{transform:translateX(650px)}}@keyframes vehicle-flow{to{stroke-dashoffset:-24}}
+@keyframes vehicle-pack{from{opacity:.1}to{opacity:.7}}@keyframes vehicle-sentry{from{opacity:.4}to{opacity:1}}@keyframes vehicle-warn{from{filter:brightness(.7)}to{filter:brightness(1.2)}}@keyframes vehicle-flash{0%,49%{opacity:1}50%,100%{opacity:0}}
+
+.vehicle-page,.vehicle-overlay{outline:none}
