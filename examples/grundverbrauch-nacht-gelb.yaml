@@ -1,0 +1,41 @@
+# In vorhandene template:- und alert:-Blöcke einfügen; nicht doppelt laden.
+template:
+- sensor:
+  - name: Hausverbrauch ohne Wallbox
+    default_entity_id: sensor.hausverbrauch_ohne_wallbox
+    unique_id: haus_ops_hausverbrauch_ohne_wallbox
+    unit_of_measurement: W
+    device_class: power
+    state_class: measurement
+    availability: '{{ is_number(states(''sensor.pv_own_usage_total_power'')) and is_number(states(''sensor.30a_breaker_energy_power''))
+      and state_attr(''sensor.pv_own_usage_total_power'', ''unit_of_measurement'')
+      in [''W'', ''kW''] and state_attr(''sensor.30a_breaker_energy_power'', ''unit_of_measurement'')
+      in [''W'', ''kW''] and states(''sensor.pv_own_usage_total_power'') | float(-1)
+      >= 0 and states(''sensor.30a_breaker_energy_power'') | float(-1) >= 0 }}'
+    state: '{% set haus = states(''sensor.pv_own_usage_total_power'') | float(0) %}
+
+      {% set wallbox = states(''sensor.30a_breaker_energy_power'') | float(0) %}
+
+      {% set haus_w = haus * (1000 if state_attr(''sensor.pv_own_usage_total_power'',
+      ''unit_of_measurement'') == ''kW'' else 1) %}
+
+      {% set wallbox_w = wallbox * (1000 if state_attr(''sensor.30a_breaker_energy_power'',
+      ''unit_of_measurement'') == ''kW'' else 1) %}
+
+      {{ ([0, haus_w - wallbox_w] | max) | round(2) }}'
+- binary_sensor:
+  - name: grundverbrauch_nacht_gelb_bedingung
+    default_entity_id: binary_sensor.grundverbrauch_nacht_gelb_bedingung
+    unique_id: haus_ops_grundverbrauch_nacht_gelb_bedingung
+    state: '{{ (now().hour >= 22 or now().hour < 6) and is_number(states(''sensor.hausverbrauch_ohne_wallbox''))
+      and states(''sensor.hausverbrauch_ohne_wallbox'') | float(0) > 500 }}'
+    delay_on:
+      minutes: 30
+alert:
+  grundverbrauch_nacht_gelb:
+    name: Hoher nächtlicher Grundverbrauch · ohne Wallbox über 500 W seit 30 Minuten
+    entity_id: binary_sensor.grundverbrauch_nacht_gelb_bedingung
+    state: 'on'
+    repeat: 30
+    can_acknowledge: true
+    notifiers: []

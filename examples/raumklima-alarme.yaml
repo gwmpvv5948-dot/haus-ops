@@ -1,0 +1,180 @@
+# Ergänzung zur bestehenden Schlafzimmer-Warnung. Nicht doppelt laden.
+template:
+- binary_sensor:
+  - name: wohnzimmer_temperatur_gelb_bedingung
+    default_entity_id: binary_sensor.wohnzimmer_temperatur_gelb_bedingung
+    unique_id: haus_ops_wohnzimmer_temperatur_gelb_bedingung
+    state: '{{ is_number(states(''sensor.wz_temp'')) and states(''sensor.wz_temp'')
+      | float(0) < 16 }}'
+  - name: wohnzimmer_luftfeuchtigkeit_gelb_bedingung
+    default_entity_id: binary_sensor.wohnzimmer_luftfeuchtigkeit_gelb_bedingung
+    unique_id: haus_ops_wohnzimmer_luftfeuchtigkeit_gelb_bedingung
+    state: '{{ is_number(states(''sensor.wohnzimmer_luftfeuchtigkeit'')) and states(''sensor.wohnzimmer_luftfeuchtigkeit'')
+      | float(0) > 70 }}'
+    delay_on:
+      minutes: 30
+  - name: carla_temperatur_gelb_bedingung
+    default_entity_id: binary_sensor.carla_temperatur_gelb_bedingung
+    unique_id: haus_ops_carla_temperatur_gelb_bedingung
+    state: '{{ is_number(states(''sensor.heizungsmanager_carla_raumtemperatur''))
+      and states(''sensor.heizungsmanager_carla_raumtemperatur'') | float(0) < 16
+      }}'
+  - name: carla_luftfeuchtigkeit_gelb_bedingung
+    default_entity_id: binary_sensor.carla_luftfeuchtigkeit_gelb_bedingung
+    unique_id: haus_ops_carla_luftfeuchtigkeit_gelb_bedingung
+    state: '{{ is_number(states(''sensor.aqara_temp_carla_humidity'')) and states(''sensor.aqara_temp_carla_humidity'')
+      | float(0) > 70 }}'
+    delay_on:
+      minutes: 30
+  - name: alwin_temperatur_gelb_bedingung
+    default_entity_id: binary_sensor.alwin_temperatur_gelb_bedingung
+    unique_id: haus_ops_alwin_temperatur_gelb_bedingung
+    state: '{{ is_number(states(''sensor.heizungsmanager_alwin_raumtemperatur''))
+      and states(''sensor.heizungsmanager_alwin_raumtemperatur'') | float(0) < 16
+      }}'
+  - name: alwin_luftfeuchtigkeit_gelb_bedingung
+    default_entity_id: binary_sensor.alwin_luftfeuchtigkeit_gelb_bedingung
+    unique_id: haus_ops_alwin_luftfeuchtigkeit_gelb_bedingung
+    state: '{{ is_number(states(''sensor.wohnzimmer_alfizimmer_luftfeuchtigkeit''))
+      and states(''sensor.wohnzimmer_alfizimmer_luftfeuchtigkeit'') | float(0) > 70
+      }}'
+    delay_on:
+      minutes: 30
+  - name: arbeitszimmer_temperatur_gelb_bedingung
+    default_entity_id: binary_sensor.arbeitszimmer_temperatur_gelb_bedingung
+    unique_id: haus_ops_arbeitszimmer_temperatur_gelb_bedingung
+    state: '{{ is_number(states(''sensor.nspanelaz_temperature'')) and states(''sensor.nspanelaz_temperature'')
+      | float(0) < 16 }}'
+  - name: bad_temperatur_gelb_bedingung
+    default_entity_id: binary_sensor.bad_temperatur_gelb_bedingung
+    unique_id: haus_ops_bad_temperatur_gelb_bedingung
+    state: '{{ is_number(states(''sensor.bd_temp'')) and states(''sensor.bd_temp'')
+      | float(0) < 16 }}'
+  - name: bad_luftfeuchtigkeit_gelb_bedingung
+    default_entity_id: binary_sensor.bad_luftfeuchtigkeit_gelb_bedingung
+    unique_id: haus_ops_bad_luftfeuchtigkeit_gelb_bedingung
+    state: '{{ is_number(states(''sensor.bd_luftfeuchte'')) and states(''sensor.bd_luftfeuchte'')
+      | float(0) > 70 }}'
+    delay_on:
+      minutes: 30
+  - name: kueche_temperatur_gelb_bedingung
+    default_entity_id: binary_sensor.kueche_temperatur_gelb_bedingung
+    unique_id: haus_ops_kueche_temperatur_gelb_bedingung
+    state: '{{ is_number(states(''sensor.ku_temp'')) and states(''sensor.ku_temp'')
+      | float(0) < 16 }}'
+  - name: flur_temperatur_gelb_bedingung
+    default_entity_id: binary_sensor.flur_temperatur_gelb_bedingung
+    unique_id: haus_ops_flur_temperatur_gelb_bedingung
+    state: '{{ is_number(states(''sensor.fl_temp'')) and states(''sensor.fl_temp'')
+      | float(0) < 16 }}'
+  - name: dachspitze_temperatur_gelb_bedingung
+    default_entity_id: binary_sensor.dachspitze_temperatur_gelb_bedingung
+    unique_id: haus_ops_dachspitze_temperatur_gelb_bedingung
+    state: '{{ is_number(states(''sensor.shellyht_2e8ffd_temperature'')) and states(''sensor.shellyht_2e8ffd_temperature'')
+      | float(0) < 16 }}'
+  - name: dachspitze_luftfeuchtigkeit_gelb_bedingung
+    default_entity_id: binary_sensor.dachspitze_luftfeuchtigkeit_gelb_bedingung
+    unique_id: haus_ops_dachspitze_luftfeuchtigkeit_gelb_bedingung
+    state: '{{ is_number(states(''sensor.shellyht_2e8ffd_humidity'')) and states(''sensor.shellyht_2e8ffd_humidity'')
+      | float(0) > 70 }}'
+    delay_on:
+      minutes: 30
+alert:
+  wohnzimmer_temperatur_gelb:
+    name: Wohnzimmer · Temperatur unter 16 °C
+    entity_id: binary_sensor.wohnzimmer_temperatur_gelb_bedingung
+    state: 'on'
+    repeat: 30
+    can_acknowledge: true
+    notifiers: []
+  wohnzimmer_luftfeuchtigkeit_gelb:
+    name: Wohnzimmer · Luftfeuchtigkeit seit 30 Minuten über 70 %
+    entity_id: binary_sensor.wohnzimmer_luftfeuchtigkeit_gelb_bedingung
+    state: 'on'
+    repeat: 30
+    can_acknowledge: true
+    notifiers: []
+  carla_temperatur_gelb:
+    name: Carla · Temperatur unter 16 °C
+    entity_id: binary_sensor.carla_temperatur_gelb_bedingung
+    state: 'on'
+    repeat: 30
+    can_acknowledge: true
+    notifiers: []
+  carla_luftfeuchtigkeit_gelb:
+    name: Carla · Luftfeuchtigkeit seit 30 Minuten über 70 %
+    entity_id: binary_sensor.carla_luftfeuchtigkeit_gelb_bedingung
+    state: 'on'
+    repeat: 30
+    can_acknowledge: true
+    notifiers: []
+  alwin_temperatur_gelb:
+    name: Alwin · Temperatur unter 16 °C
+    entity_id: binary_sensor.alwin_temperatur_gelb_bedingung
+    state: 'on'
+    repeat: 30
+    can_acknowledge: true
+    notifiers: []
+  alwin_luftfeuchtigkeit_gelb:
+    name: Alwin · Luftfeuchtigkeit seit 30 Minuten über 70 %
+    entity_id: binary_sensor.alwin_luftfeuchtigkeit_gelb_bedingung
+    state: 'on'
+    repeat: 30
+    can_acknowledge: true
+    notifiers: []
+  arbeitszimmer_temperatur_gelb:
+    name: Arbeitszimmer · Temperatur unter 16 °C
+    entity_id: binary_sensor.arbeitszimmer_temperatur_gelb_bedingung
+    state: 'on'
+    repeat: 30
+    can_acknowledge: true
+    notifiers: []
+  schlafzimmer_temperatur_gelb:
+    name: Schlafzimmer · Temperatur unter 16 °C
+    entity_id: binary_sensor.schlafzimmer_temperatur_gelb_bedingung
+    state: 'on'
+    repeat: 30
+    can_acknowledge: true
+    notifiers: []
+  bad_temperatur_gelb:
+    name: Bad · Temperatur unter 16 °C
+    entity_id: binary_sensor.bad_temperatur_gelb_bedingung
+    state: 'on'
+    repeat: 30
+    can_acknowledge: true
+    notifiers: []
+  bad_luftfeuchtigkeit_gelb:
+    name: Bad · Luftfeuchtigkeit seit 30 Minuten über 70 %
+    entity_id: binary_sensor.bad_luftfeuchtigkeit_gelb_bedingung
+    state: 'on'
+    repeat: 30
+    can_acknowledge: true
+    notifiers: []
+  kueche_temperatur_gelb:
+    name: Küche · Temperatur unter 16 °C
+    entity_id: binary_sensor.kueche_temperatur_gelb_bedingung
+    state: 'on'
+    repeat: 30
+    can_acknowledge: true
+    notifiers: []
+  flur_temperatur_gelb:
+    name: Flur · Temperatur unter 16 °C
+    entity_id: binary_sensor.flur_temperatur_gelb_bedingung
+    state: 'on'
+    repeat: 30
+    can_acknowledge: true
+    notifiers: []
+  dachspitze_temperatur_gelb:
+    name: Dachspitze · Temperatur unter 16 °C
+    entity_id: binary_sensor.dachspitze_temperatur_gelb_bedingung
+    state: 'on'
+    repeat: 30
+    can_acknowledge: true
+    notifiers: []
+  dachspitze_luftfeuchtigkeit_gelb:
+    name: Dachspitze · Luftfeuchtigkeit seit 30 Minuten über 70 %
+    entity_id: binary_sensor.dachspitze_luftfeuchtigkeit_gelb_bedingung
+    state: 'on'
+    repeat: 30
+    can_acknowledge: true
+    notifiers: []

@@ -28,4 +28,6 @@ Für eine manuelle Installation `custom_components/haus_ops` nach `/config/custo
 
 [Gelbe und rote Alarme in Home Assistant und HAUS-OPS konfigurieren](docs/alarme.md)
 
+[Alle gelben Alarme: Bedingungen, Einstellungen und Deaktivierung](docs/gelbe-alarme.md)
+
 Die Ansicht **Luftqualität** zeigt Schadstoffwerte, Raumklima und Recorder-Verläufe. Die Sensorzuordnung ist in der [Dokumentation zur Luftqualität](docs/LUFTQUALITAET.md) beschrieben.

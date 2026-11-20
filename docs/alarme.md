@@ -1,5 +1,7 @@
 # Gelbe und rote Alarme in HAUS-OPS
 
+**Vollständiger Bestand der gelben Warnungen, Grenzwerte und Anleitungen zum Deaktivieren:** [Gelbe Alarme](gelbe-alarme.md).
+
 Die Alarmregeln laufen in Home Assistant. HAUS-OPS zeigt die Meldungen an und spielt die Alarmtöne ab. Die folgenden Namen sind Beispiele. Ersetze die Kontakt-IDs durch die eigenen Entitäten und prüfe unter **Entwicklerwerkzeuge → Zustände**, dass der jeweilige Kontakt bei offenem Fenster oder offener Tür `on` meldet.
 
 ## Gelb · einzelne Warnungen
@@ -152,3 +154,22 @@ Die Beispielkonfiguration `examples/mobile-alarmmeldungen.yaml` verwendet `notif
 Die Einstellungen speichern sich im HA-Verzeichnis `.storage/haus_ops.mobile_notifications`. Sie enthalten Empfänger-Aktionsnamen und Versandzeitpunkte, keine Passwörter oder Push-Tokens. Companion App und HA übernehmen den eigentlichen Push-Versand. Ein erfolgreicher HA-Aktionsaufruf bestätigt noch nicht, dass das Telefon die Nachricht tatsächlich angezeigt hat.
 
 Referenz: [kritische Companion-App-Benachrichtigungen](https://companion.home-assistant.io/docs/notifications/critical-notifications/).
+
+## Raumklima · gelbe Warnungen
+
+`examples/raumklima-alarme.yaml` ergänzt die vorhandene Schlafzimmer-Warnung um die übrigen Raumtemperaturen und um Warnungen für vorhandene Raum-Feuchtesensoren. Die Sensorzuordnungen vor einer Übernahme prüfen. Die Datei nicht zusätzlich laden, wenn ihre Einträge bereits in der `configuration.yaml` stehen.
+
+- **Temperatur unter 16 °C:** sofortige Warnung je Raum; bei mindestens 16 °C beendet. Die bestehende `alert.schlafzimmer_temperatur_gelb` bleibt erhalten.
+- **Luftfeuchtigkeit über 70 %:** erst nach 30 Minuten ununterbrochener Überschreitung; bei höchstens 70 % beendet. Jeder Raum besitzt einen eigenen quittierbaren Alert.
+- Ungültige bzw. nicht verfügbare Messwerte erfüllen die Bedingung nicht. Bei Feuchte beginnt die Wartezeit nach einer solchen Unterbrechung erneut. Das Wiederherstellen der 30-Minuten-Wartezeit nach einem HA-Neustart ist nicht vorgesehen; sie beginnt erneut.
+- Quittieren beendet die Warnung nicht: Sie bleibt bis zum Ende der Ursache als quittiert sichtbar. Bei einer erneuten Überschreitung nach zwischenzeitlicher Normalisierung entsteht eine neue Warnung.
+- Raumtemperaturen: Wohnzimmer, Carla, Alwin, Arbeitszimmer, Schlafzimmer, Bad, Küche, Flur und Dachspitze. Für Feuchte sind Wohnzimmer, Carla, Alwin, Bad und Dachspitze zugeordnet. Fehlende Feuchtesensoren anderer Räume müssen zunächst ergänzt werden. Außensensoren, Geräte-Innentemperaturen und die unbeheizte Garage werden nicht als Wohnraumklima überwacht.
+
+Neue `alert.*`-Definitionen benötigen einen HA-Neustart. Die Alert-IDs außerdem unter **Gelbe Warnungen** sowie gegebenenfalls in der bestehenden mobilen Benachrichtigungskonfiguration ergänzen. Die `delay_on`-Verzögerung gehört zur Bedingung; `repeat: 30` ist keine Auslöseverzögerung.
+
+
+## Hoher nächtlicher Grundverbrauch
+
+`alert.grundverbrauch_nacht_gelb` warnt von **22:00 bis 06:00 Uhr**, wenn der Hausverbrauch abzüglich der separat gemessenen Wallboxleistung für **30 Minuten durchgehend über 500 W** liegt. Die Quellen sind `sensor.pv_own_usage_total_power` und `sensor.30a_breaker_energy_power`; das Ergebnis heißt `sensor.hausverbrauch_ohne_wallbox`. Bei fehlender Messung wird keine Null für die Wallbox angenommen. Früheste Auslösung ist 22:30 Uhr.
+
+Konfiguration, Deaktivierung und Rücksetzung sind im [Bestand der gelben Alarme](gelbe-alarme.md#6-hoher-nächtlicher-grundverbrauch--eine-warnung) beschrieben; die YAML-Referenz ist [grundverbrauch-nacht-gelb.yaml](../examples/grundverbrauch-nacht-gelb.yaml). Neue Alert-Definitionen benötigen einen HA-Neustart.

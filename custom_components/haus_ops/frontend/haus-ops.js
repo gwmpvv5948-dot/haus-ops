@@ -545,10 +545,16 @@ class HausOps extends HTMLElement {
   }
 
   get vent() { return this.state(trafo.entity); }
+  get boostActive() {
+    return this.demo ? this.remaining > 0 : this.timer?.state === 'active';
+  }
   get volts() {
+    // The timer's boost overrides the transformer's saved automatic/base stage.
+    if (this.boostActive) return trafo.volts[4];
     return valid(this.vent) && this.vent.state.trim() ? Number(this.vent.state) : NaN;
   }
   get level() {
+    if (this.boostActive) return 4;
     if (this.demo) return this.demoLevel;
     if (Number.isFinite(this.volts)) return trafo.volts.findIndex(volts => Math.abs(volts - this.volts) < 0.05);
     return this.legacyVent?.options?.indexOf(this.state(this.legacyVent.entity)?.state) ?? -1;
