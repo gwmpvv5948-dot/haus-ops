@@ -2,7 +2,7 @@ import {AirQualityPanel,airQualityPageIndex,airRoomFields,matchesAirRoomField} f
 import {VehiclePanel,vehicleFields,vehiclePageIndex} from './vehicle-panel.js?v=1.6.63&r=3';
 import {validateVehicleBlueprint} from './vehicle-model.js?v=1.6.63&r=2';
 import {VentilationPanel,ventilationFields,ventilationCharacteristics,validateVentilationCharacteristics} from './ventilation-panel.js?v=1.6.63&r=3';
-import { HouseSection, housePageIndex } from './house-section.js?v=1.6.63&r=21';
+import { HouseSection, housePageIndex } from './house-section.js?v=1.6.63&r=22';
 import {loadPVActual,pvDayView,bindPVDay} from './pv-day-panel.js?v=1.6.63&r=alarm-nav';
 import { setupSettingsLayout } from './settings-layout.js?v=1.6.63';
 import { MobileNotifications } from './mobile-notifications.js?v=1.6.63';
@@ -118,7 +118,7 @@ class HausOps extends HTMLElement {
       this.attachShadow({ mode: 'open' });
       this.shadowRoot.innerHTML = `
         <link rel="stylesheet" href="${new URL('./haus-ops.css?v=1.6.63&r=embedded-footer-8', import.meta.url)}">
-        <link rel="stylesheet" href="${new URL('./house-section.css?v=1.6.63&r=19', import.meta.url)}">
+        <link rel="stylesheet" href="${new URL('./house-section.css?v=1.6.63&r=20', import.meta.url)}">
         <link rel="stylesheet" href="${new URL('./ventilation-panel.css?v=1.6.63&r=3', import.meta.url)}">
         <link rel="stylesheet" href="${new URL('./vehicle-panel.css?v=1.6.63&r=6', import.meta.url)}">
         <link rel="stylesheet" href="${new URL('./air-quality-panel.css?v=1', import.meta.url)}">

@@ -22,7 +22,7 @@ export function validateHouseConfig(config) {
     keys.add(room.key);
     if (room.temperature_entity && !/^sensor\.[a-z0-9_]+$/.test(room.temperature_entity)) throw Error('Hausschnitt: Ungültiger Temperatursensor.');
     for (const lamp of room.lamps ?? []) {
-      if (!['decke','stehlampe','streifen','kugel','schrank','spot','kommode','tischlampe'].includes(lamp.type) || !point(lamp.position) || lamp.entity_id && !/^(light|switch)\.[a-z0-9_]+$/.test(lamp.entity_id)) throw Error('Hausschnitt: Ungültige Lampenzuordnung.');
+      if (!['decke','stehlampe','streifen','kugel','schrank','spot','kommode','tischlampe','monitor'].includes(lamp.type) || !point(lamp.position) || lamp.entity_id && !/^(light|switch)\.[a-z0-9_]+$/.test(lamp.entity_id)) throw Error('Hausschnitt: Ungültige Lampenzuordnung.');
     }
   }
   return config;
@@ -93,7 +93,7 @@ export function resolveHouseData(config, registry = {}, states = {}, connected =
       if (slot) used.add(slot);
       const xs=room.polygon.map(p=>p[0]), ys=room.polygon.map(p=>p[1]);
       const x = Math.min(...xs)+16+(index%4)*(Math.max(...xs)-Math.min(...xs)-32)/Math.min(3,Math.max(1,lampIds.length-1));
-      const type = room.outdoor && /spots?/i.test(name) ? 'spot' : houseLampType(name,slot?.type ?? 'decke');
+      const type = room.key==='office' && id==='switch.schreibtisch' ? 'monitor' : room.outdoor && /spots?/i.test(name) ? 'spot' : houseLampType(name,slot?.type ?? 'decke');
       const position = [...(slot?.position ?? [x,Math.min(...ys)+12+Math.floor(index/4)*24])];
       if (type==='kugel' && slot?.type!=='kugel') position[1]=Math.max(...ys)-30;
       if (!room.outdoor && type==='kommode') position[1]=Math.max(...ys)-22;

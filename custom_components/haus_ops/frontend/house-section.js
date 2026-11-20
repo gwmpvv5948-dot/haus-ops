@@ -1,7 +1,7 @@
 import {livingMarkup,livingSonos,LivingAcoustics} from './house-living.js?v=1.6.63&r=20';
 import {groundFloorSonosPlaying,cpuValue,cpuSparkline,inverterReading} from './house-telemetry.js?v=1.6.63&r=18';
 import { roomNames } from './climate-panel.js';
-import {resolveHouseData, validateHouseConfig, houseTemperatureColor, normalizeHouseName, houseWasher} from './house-model.js?v=1.6.63&r=18';
+import {resolveHouseData, validateHouseConfig, houseTemperatureColor, normalizeHouseName, houseWasher} from './house-model.js?v=1.6.63&r=19';
 export const housePageIndex = 11;
 const esc = value => String(value ?? '').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
 const fmt = value => Number.isFinite(value) ? value.toLocaleString('de-DE',{minimumFractionDigits:1,maximumFractionDigits:1})+'°' : '—';
@@ -17,7 +17,7 @@ export class HouseSection {
   constructor(panel) { this.panel=panel; this.acoustics=new LivingAcoustics(); this.selected=null; this.pending=new Set(); }
 
   load() {
-    const path=this.panel.config?.house_section_config || new URL('./house-section.json?v=1.6.63&r=18',import.meta.url).href;
+    const path=this.panel.config?.house_section_config || new URL('./house-section.json?v=1.6.63&r=19',import.meta.url).href;
     if (this.path===path) return;
     this.path=path; this.config=null; this.current=null; this.error=''; this.layoutKey='';
     fetch(path,{credentials:'same-origin'}).then(response=>{
@@ -153,10 +153,10 @@ export class HouseSection {
       ${rooms.map(room=>`<g data-house-room="${room.key}" data-outdoor="${!!room.outdoor}" data-house-owner="${room.key}" ${attrs('house-room:'+room.key)} aria-label="${esc(room.name)} · Raum auswählen"><polygon class="house-room-fill" points="${points(room)}"/><polygon class="house-room-glow" points="${points(room)}"/></g>`).join('')}
       ${lamps.filter(lamp=>lamp.room!=='living').map((lamp,i)=>{
         const [x,y]=lamp.position;
-        const spot=lamp.type==='spot', sphere=lamp.type==='kugel', cabinet=lamp.type==='schrank', stripe=lamp.type==='streifen', indirect=lamp.type==='kommode';
-        const cy=y+(indirect?-15:spot?-60:sphere?0:stripe?18:cabinet?28:47);
+        const monitor=lamp.type==='monitor', spot=lamp.type==='spot', sphere=lamp.type==='kugel', cabinet=lamp.type==='schrank', stripe=lamp.type==='streifen', indirect=lamp.type==='kommode';
+        const cy=y+(monitor?-10:indirect?-15:spot?-60:sphere?0:stripe?18:cabinet?28:47);
         const cone=cabinet?`M${x-20} ${y+3}L${x-36} ${y+85}H${x+36}L${x+20} ${y+3}Z`:`M${x-3} ${y+5}L${x-23} ${y+105}H${x+23}L${x+3} ${y+5}Z`;
-        return `<g class="house-lamp-light" data-house-glow="${esc(lamp.id)}" clip-path="url(#house-room-${lamp.room})" style="--lamp-order:${i}"><ellipse cx="${x}" cy="${cy}" rx="${indirect?65:sphere?42:stripe?88:cabinet?65:55}" ry="${indirect?45:sphere?36:stripe?45:cabinet?50:92}" fill="url(#house-halo)"/>${!lamp.outdoor&&!indirect&&!sphere&&!stripe?`<path d="${cone}" fill="url(#house-cone)" ${spot?`transform="rotate(180 ${x} ${y})"`:  ''}/>`:''}</g>`;
+        return `<g class="house-lamp-light" data-house-glow="${esc(lamp.id)}" clip-path="url(#house-room-${lamp.room})" style="--lamp-order:${i}"><ellipse cx="${x}" cy="${cy}" rx="${monitor?32:indirect?65:sphere?42:stripe?88:cabinet?65:55}" ry="${monitor?22:indirect?45:sphere?36:stripe?45:cabinet?50:92}" fill="url(#house-halo)"/>${!monitor&&!lamp.outdoor&&!indirect&&!sphere&&!stripe?`<path d="${cone}" fill="url(#house-cone)" ${spot?`transform="rotate(180 ${x} ${y})"`:  ''}/>`:''}</g>`;
       }).join('')}
 
       <g class="house-structure" transform="translate(0 0)">
@@ -170,7 +170,9 @@ export class HouseSection {
       <g class="house-windows" transform="translate(0 0)"><path d="M435 439h10v49h-10Z M435 555h10v52h-10Z M835 440h10v48h-10Z M835 553h10v54h-10Z"/><path d="M463 365l29-25l4 5l-29 25Z M785 340l28 24l-4 5l-28-24Z"/></g>
       ${lamps.filter(lamp=>lamp.room!=='living').map(lamp=>{
         const [x,y]=lamp.position;
-        const glyph=lamp.type==='kugel'
+        const glyph=lamp.type==='monitor'
+          ? `<g class="house-monitor" transform="translate(${x} ${y})"><path class="house-lamp-furniture" d="M0 4v7m-11 0h22"/><rect class="house-monitor-frame" x="-24" y="-26" width="48" height="30" rx="2"/><rect class="house-monitor-screen" x="-21" y="-23" width="42" height="24" rx="1"/><g class="house-monitor-image"><path d="M-19-20h38v3h-38Z" fill="#9999ff"/><rect x="-18" y="-14" width="12" height="12" rx="1" fill="#587eaa"/><path d="M-3-13h19m-19 4h13m-13 4h17" stroke="#a7d5ff" stroke-width="1.2"/><path d="M-20-10h40M-20-6h40M-20-2h40" stroke="#d8edff" stroke-opacity=".12" stroke-width=".6"/></g><circle class="house-monitor-led" cx="19" cy="3" r=".8"/></g>`
+          : lamp.type==='kugel'
           ? ` ${lamp.outdoor?'':lamp.onDresser?`<path class="house-lamp-furniture" d="M${x-24} ${y+10}h48v17h-48ZM${x} ${y+10}v17m-20 0v3m40-3v3"/>`:`<path class="house-lamp-furniture" d="M${x-15} ${y+10}h30v3h-30ZM${x-11} ${y+13}v17m22-17v17"/>`}<circle class="house-bulb" cx="${x}" cy="${y}" r="7.5"/><path d="M${x-4} ${y+8}h8" stroke="#cc99cc"/>`
           : lamp.type==='spot'
           ? `<path class="house-lamp-furniture" d="M${x-9} ${y+5}h18m-9 0v-7"/><path class="house-bulb" d="M${x-7} ${y}l3-6h8l3 6Z"/>`

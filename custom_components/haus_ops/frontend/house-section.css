@@ -107,3 +107,14 @@
 .house-living .house-bulb{transition:fill .8s,stroke .8s,filter .8s}
 @keyframes living-membrane{0%{transform:scale(1.25);stroke-width:3}100%{transform:scale(1);stroke-width:2}}
 .house-cpu text{font-size:18px}
+
+/* Desk monitor: only its screen animates, with a small luminance variation. */
+.house-monitor-frame {fill:#171b25;stroke:#cc99cc;stroke-width:1.2;}
+.house-monitor-screen {fill:#080c12;stroke:#303949;stroke-width:.5;transition:fill .35s;}
+.house-monitor-image {opacity:0;pointer-events:none;}
+.house-monitor-led {fill:#333;}
+.house-lamp.on .house-monitor-screen {fill:#1d3c58;}
+.house-lamp.on .house-monitor-image {animation:house-monitor-flicker 3.7s linear infinite;}
+.house-lamp.on .house-monitor-led {fill:#99ddbb;}
+.house-lamp.offline .house-monitor-frame {stroke:#777;stroke-dasharray:3 2;}
+@keyframes house-monitor-flicker {0%,27%,31%,73%,78%,100% {opacity:.94;}28%,74% {opacity:.8;}30%,76% {opacity:1;}}
