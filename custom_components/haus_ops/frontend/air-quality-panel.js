@@ -10,6 +10,10 @@ const metrics = {
   voc: {label:'VOC-Index', unit:'', device:''},
 };
 const keys = Object.keys(metrics);
+const roomMetricLabels = {co2:'CO₂',pm25:'PM2.5',pm10:'PM10',voc:'VOC'};
+const roomPools = room => Object.fromEntries(keys.map(key=>[key,[room.readings[key]].filter(Boolean)]));
+const highestReading = readings => readings.reduce((highest,reading)=>
+  reading.index!=null && (!highest || reading.index>highest.index) ? reading : highest,undefined);
 export const airRoomFields = [
   ['temperature','Lufttemperatur'], ['humidity','Relative Luftfeuchte'],
   ...keys.map(key=>[key,metrics[key].label]),
@@ -358,10 +362,10 @@ export class AirQualityPanel {
     const {rooms,aggregate,outdoorId,outdoorScale,outdoor,absolute,dew}=this.data(config);
     const demo=this.panel.demo, now=Date.now(), thresholds=config.thresholds;
     const selected=rooms.find(room=>room.name===this.selected);
-    const pools=selected?Object.fromEntries(keys.map(key=>[key,[selected.readings[key]].filter(Boolean)])):aggregate;
+    const pools=selected?roomPools(selected):aggregate;
     const indexOf=(key,v)=>airIndex(v,thresholds[key]);
     const readings=this.leadReading(pools,thresholds);
-    const lead=readings.filter(row=>row.index!=null).sort((a,b)=>b.index-a.index)[0];
+    const lead=highestReading(readings);
     const eventSources=(Array.isArray(config.events)?config.events:[]).filter(event=>event?.entity && this.panel.ha?.states?.[event.entity]);
     const timer=this.panel.config?.vent?.timer ?? this.panel.config?.timer;
     if(timer && !eventSources.some(event=>event.entity===timer))eventSources.push({entity:timer,state:'active',label:'Stoßlüftung'});
@@ -410,19 +414,20 @@ export class AirQualityPanel {
     const outdoorInk=outdoorRating?.ink ?? '#000';
     const showingRooms=rooms.slice(0,7);
     const roomRows=showingRooms.map((room,i)=>{
-      const co2=room.readings.co2, index=indexOf('co2',co2?.value), y=96+i*42, active=room===selected;
-      const summary=index!=null?num(co2.value)+' ppm · '+status(index):
+      const roomLead=highestReading(this.leadReading(roomPools(room),thresholds));
+      const index=roomLead?.index, y=96+i*42, active=room===selected;
+      const summary=roomLead?`${roomMetricLabels[roomLead.key]} ${num(roomLead.source.value)} · ${status(index)}`:
         [room.temperature?.value!=null?num(room.temperature.value)+' °C':'',room.humidity?.value!=null?num(room.humidity.value)+' %':''].filter(Boolean).join(' · ')||'—';
       const label=room.name+' · '+summary;
-      return action(room.name,`<title>${escape(label+' · '+[co2?.id,room.temperature?.id,room.humidity?.id].filter(Boolean).join(' · '))}</title>`+
+      return action(room.name,`<title>${escape(label+' · '+(roomLead?[roomLead.source.id]:[room.temperature?.id,room.humidity?.id]).filter(Boolean).join(' · '))}</title>`+
         rect(728,y,326,40,index==null?'#24202b':color(index),19,(active?`stroke="${white}" stroke-width="2" `:'')+(index>50?'class="air-room-warn"':''))+
-        txt(741,y+26,room.name,15,index==null?pink:'#000')+txt(1041,y+26,summary,15,index==null?white:'#000','end'),label,active);
+        txt(741,y+26,room.name,15,index==null?pink:'#000')+txt(1041,y+26,summary,13,index==null?white:'#000','end'),label,active);
     }).join('');
     this.chart={points,start,min,max,indexMode,environmentUnit};
     this.footer='Luftqualität innen · '+status(lead?.index);
     return `<svg class="air-quality-page" viewBox="0 0 1054 700" preserveAspectRatio="xMidYMin meet" role="group" aria-label="Luftqualität innen">
       ${txt(0,43,'Luftqualität · Innen',34,'#ff9966')}${txt(1054,42,subtitle,15,pink,'end')}
-      ${head(0,64,352,'Gesamtindex · Innen')}${head(378,64,329,'Schadstoffe · Aktuell')}${head(728,64,326,'Räume · CO₂ / Klima')}
+      ${head(0,64,352,'Gesamtindex · Innen')}${head(378,64,329,'Schadstoffe · Aktuell')}${head(728,64,326,'Räume · Luftqualität / Klima')}
       ${ring(lead?.index,lead?.key,demo)}
       ${readings.map(({key,source},i)=>particleRow(key,120+i*82,source,thresholds[key],rangeFor(source?.id))).join('')}
       ${roomRows}

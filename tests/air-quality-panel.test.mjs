@@ -67,6 +67,23 @@ test('area discovery keeps VOC concentration separate and room filtering changes
   assert.equal(panel.chart.points.at(-1),37.5);
 });
 
+test('bathroom row uses the leading pollutant and its status color',()=>{
+  const voc='sensor.bad_voc_index';
+  const co2='sensor.bad_co2';
+  const panel=fixture({
+    [voc]:entity(voc,300,undefined,undefined),
+    [co2]:entity(co2,900,'carbon_dioxide','ppm'),
+  });
+  panel.panel.config={air_quality:{roomSensors:{Bad:{voc,co2}}}};
+  panel.selected='Küche';
+  const row=()=>panel.view().match(/<g data-air-action="Bad"[^]*?<\/g>/)?.[0];
+  assert.match(row(),/VOC 300 · Erhöht/);
+  assert.match(row(),/fill="#ff9966"/);
+  panel.panel.ha.states[voc].state='unavailable';
+  assert.match(row(),/CO₂ 900 · Mäßig/);
+  assert.match(row(),/fill="#ffcc33"/);
+});
+
 test('saved room sensor overrides take precedence and clearing them restores YAML assignments',()=>{
   const kitchen = 'sensor.ku_temp';
   const manual = 'sensor.kitchen_temperature_manual';

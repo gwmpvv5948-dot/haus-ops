@@ -2,7 +2,7 @@
 
 Die HAUS-OPS-Navigation öffnet die Ansicht **Luftqualität**. Der Innenindex verwendet die höchste Teilbewertung der verfügbaren CO₂-, PM2.5-, PM10- und VOC-Index-Messwerte. Die Teilbewertungen verwenden die Grenzwerte aus der [JSON-Konfiguration](../custom_components/haus_ops/frontend/air-quality-config.json). Eine VOC-Konzentration in ppb oder µg/m³ braucht eine eigene Bewertung und wird nicht automatisch als VOC-Index interpretiert.
 
-Die Ansicht übernimmt die bekannten Temperaturquellen für Wohnzimmer, Küche, Schlafzimmer, Alwin und Bad. Bei fehlendem CO₂-Wert zeigt die Raumzeile die verfügbare Temperatur und relative Feuchte. Absolute Feuchte und Taupunkt kommen aus Thermal Comfort. Ohne Schadstoffquellen zeigt der Gesamtindex „Keine Messdaten“. Der Verlauf verwendet dann verfügbare Raumklimawerte. Die Seite im lokalen Demo-Modus verwendet gekennzeichnete Beispielwerte.
+Die Ansicht übernimmt die bekannten Temperaturquellen für Wohnzimmer, Küche, Schlafzimmer, Alwin und Bad. Jede Raumzeile zeigt den Schadstoff mit der höchsten Teilbewertung und übernimmt dessen Statusfarbe. Kann kein Schadstoff bewertet werden, zeigt die Zeile die verfügbare Temperatur und relative Feuchte. Absolute Feuchte und Taupunkt kommen aus Thermal Comfort. Ohne Schadstoffquellen zeigt der Gesamtindex „Keine Messdaten“. Der Verlauf verwendet dann verfügbare Raumklimawerte. Die Seite im lokalen Demo-Modus verwendet gekennzeichnete Beispielwerte.
 
 ## Sensoren und Verlauf
 
