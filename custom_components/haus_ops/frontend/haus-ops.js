@@ -26,12 +26,14 @@ const energyPageIndex = 6;
 const pvSimulationView = demo => ({
   status: 'PV-Simulation · Sonne und Schatten',
   layout: `<section class="pv-simulation-page">
+    <div class="pv-simulation-viewport">
+      <iframe title="PV-Simulation · Sonne und Schatten" src="${demo ? new URL('./pv-simulation/index.html?embedded=1', import.meta.url) : '/local/haus3d/index.html?embedded=1'}"></iframe>
+    </div>
     <div class="pv-simulation-toolbar">
       <button data-pv-back>‹ Energie</button>
-      <span>PV-Ist-Leistung <strong data-pv-live-power>—</strong></span>
+      <span>Ist-Leistung <strong data-pv-live-power>—</strong></span>
       <span>Ist-Ertrag heute <strong data-pv-live-yield>—</strong></span>
     </div>
-    <iframe title="PV-Simulation · Sonne und Schatten" src="${demo ? new URL('./pv-simulation/index.html?v=1.6.75', import.meta.url) : '/local/haus3d/index.html?v=1.6.75'}"></iframe>
   </section>`,
 });
 const waterPageIndex = 7;
@@ -128,7 +130,7 @@ class HausOps extends HTMLElement {
       if (this.demo && this.getAttribute('demo-page') === 'luftqualitaet') this.page = airQualityPageIndex;
       this.attachShadow({ mode: 'open' });
       this.shadowRoot.innerHTML = `
-        <link rel="stylesheet" href="${new URL('./haus-ops.css?v=1.6.63&r=pv-simulation', import.meta.url)}">
+        <link rel="stylesheet" href="${new URL('./haus-ops.css?v=1.6.63&r=wide-display', import.meta.url)}">
         <link rel="stylesheet" href="${new URL('./house-section.css?v=1.6.63&r=20', import.meta.url)}">
         <link rel="stylesheet" href="${new URL('./ventilation-panel.css?v=1.6.63&r=3', import.meta.url)}">
         <link rel="stylesheet" href="${new URL('./vehicle-panel.css?v=1.6.63&r=6', import.meta.url)}">
@@ -243,13 +245,16 @@ class HausOps extends HTMLElement {
       const width = this.clientWidth;
       const height = this.clientHeight;
       if (!width || !height) return;
-      // Switch at the midpoint between the two landscape aspect ratios.
-      const tallLandscape = width / height < (800 / 480 + 1920 / 1200) / 2;
-      const layoutHeight = tallLandscape ? 500 : 480;
+      const wideDisplay = width >= 1280 && height >= 800;
+      const tallLandscape = !wideDisplay && width / height < (800 / 480 + 1900 / 1200) / 2;
+      this.toggleAttribute('data-wide-display', wideDisplay);
       this.toggleAttribute('data-tall-landscape', tallLandscape);
-      const scale = Math.min(width / 800, height / layoutHeight);
+      const layoutWidth = wideDisplay ? 1000 : 800;
+      const layoutHeight = wideDisplay ? layoutWidth * 1200 / 1900 : tallLandscape ? 500 : 480;
+      const scale = Math.min(width / layoutWidth, height / layoutHeight);
       if (scale <= 0) return;
       this.style.setProperty('--scale', scale);
+      this.style.setProperty('--inverse-scale', 1 / scale);
       this.style.setProperty('--stage-width', (width / scale) + 'px');
       this.style.setProperty('--stage-height', (height / scale) + 'px');
       requestAnimationFrame(() => this.fitNavigation?.());
@@ -260,7 +265,8 @@ class HausOps extends HTMLElement {
       const height = navigationViewport.clientHeight;
       // Use the same large blocks at every display size; overflow stays scrollable.
       // Fit a whole number of rows so the lower elbow never exposes half a block.
-      const count = Math.max(1, Math.floor((height + 3) / 49));
+      const minimumRow = this.hasAttribute('data-wide-display') ? 34 : 46;
+      const count = Math.max(1, Math.min(navigationViewport.childElementCount, Math.floor((height + 3) / (minimumRow + 3))));
       navigationViewport.style.setProperty('--nav-block', ((height-(count-1)*3)/count)+'px');
     };
     this.navigationResize = new ResizeObserver(this.fitNavigation);

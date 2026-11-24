@@ -1,6 +1,6 @@
 # HAUS-OPS · LCARS-Wanddisplay
 
-Home-Assistant-Panel für ein Raspberry-Pi-Display im Querformat (800 × 480) mit Übersicht, Sicherheit, Lüftung, Rollos und Klima. Antonio und die zugehörige Schriftlizenz sind im Paket enthalten.
+Home-Assistant-Panel für ein Wanddisplay im Querformat (1900 × 1200) mit Übersicht, Sicherheit, Lüftung, Rollos und Klima. Antonio und die zugehörige Schriftlizenz sind im Paket enthalten.
 
 ## Installation über HACS
 
@@ -20,7 +20,7 @@ Home-Assistant-Panel für ein Raspberry-Pi-Display im Querformat (800 × 480) mi
 
 ## PV-Simulation
 
-Unter **Energie → PV-Simulation** öffnet sich die 3D-Ansicht für Sonnenstand, Verschattung und PV-Ertrag bei klarem Himmel. Die Ansicht bietet Datumsauswahl, Tagesablauf und Kameraperspektiven.
+Unter **Energie → PV-Simulation** öffnet sich die 3D-Ansicht für Sonnenstand, Verschattung und PV-Ertrag bei klarem Himmel. Die Ansicht bietet Datumsauswahl, Tagesablauf und Kameraperspektiven. Für die rahmenlose Einbettung die aktuelle Version der lokalen Haus3D-Dateien verwenden.
 
 Die Ist-Leistung über der 3D-Ansicht summiert die vier PV-Leistungssensoren aus **Energie**. Den Ist-Tagesertrag liefert `energy.solar_energy_today`. Beide Anzeigen aktualisieren sich mit den Zuständen aus Home Assistant. Die 3D-Ansicht berechnet die Werte für das ausgewählte Datum.
 
