@@ -1012,3 +1012,14 @@ main{grid-template-columns:minmax(0,1fr)}
   width:calc(100% * var(--scale));height:calc(100% * var(--scale));
   transform:scale(var(--inverse-scale));transform-origin:top left;
 }
+
+:host([data-wide-display]) nav .nav-scroll>button{font-size:16px}
+:host([data-wide-display]) header strong,
+:host([data-wide-display]) header>time,
+:host([data-wide-display]) footer .rail{font-size:15px}
+:host([data-wide-display]) .ops-overview .ops-heading{--heading-height:19px}
+:host([data-wide-display]) .ops-overview .ops-heading :is(h2,button){font-size:15px;line-height:var(--heading-height)}
+:host([data-wide-display]) .ops-overview .ops-heading b{font-size:10px}
+:host([data-wide-display]) .ops-overview>[data-card-page="4"]{grid-template-rows:19px minmax(0,1fr) 28px}
+:host([data-wide-display]) .ops-overview :is(.ops-climate,.ops-blind-rows)>div{font-size:13px}
+:host([data-wide-display]) .pv-simulation-toolbar{font-size:12px}

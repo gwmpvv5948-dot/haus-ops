@@ -27,7 +27,7 @@ const pvSimulationView = demo => ({
   status: 'PV-Simulation · Sonne und Schatten',
   layout: `<section class="pv-simulation-page">
     <div class="pv-simulation-viewport">
-      <iframe title="PV-Simulation · Sonne und Schatten" src="${demo ? new URL('./pv-simulation/index.html?embedded=1&v=1.6.77', import.meta.url) : '/local/haus3d/index.html?embedded=1&v=1.6.77'}"></iframe>
+      <iframe title="PV-Simulation · Sonne und Schatten" src="${demo ? new URL('./pv-simulation/index.html?embedded=1&v=1.6.78', import.meta.url) : '/local/haus3d/index.html?embedded=1&v=1.6.78'}"></iframe>
     </div>
     <div class="pv-simulation-toolbar">
       <button data-pv-back>‹ Energie</button>
@@ -130,7 +130,7 @@ class HausOps extends HTMLElement {
       if (this.demo && this.getAttribute('demo-page') === 'luftqualitaet') this.page = airQualityPageIndex;
       this.attachShadow({ mode: 'open' });
       this.shadowRoot.innerHTML = `
-        <link rel="stylesheet" href="${new URL('./haus-ops.css?v=1.6.63&r=wide-navigation', import.meta.url)}">
+        <link rel="stylesheet" href="${new URL('./haus-ops.css?v=1.6.63&r=wide-readable', import.meta.url)}">
         <link rel="stylesheet" href="${new URL('./house-section.css?v=1.6.63&r=20', import.meta.url)}">
         <link rel="stylesheet" href="${new URL('./ventilation-panel.css?v=1.6.63&r=3', import.meta.url)}">
         <link rel="stylesheet" href="${new URL('./vehicle-panel.css?v=1.6.63&r=6', import.meta.url)}">
@@ -249,7 +249,7 @@ class HausOps extends HTMLElement {
       const tallLandscape = !wideDisplay && width / height < (800 / 480 + 1900 / 1200) / 2;
       this.toggleAttribute('data-wide-display', wideDisplay);
       this.toggleAttribute('data-tall-landscape', tallLandscape);
-      const layoutWidth = wideDisplay ? 1000 : 800;
+      const layoutWidth = wideDisplay ? 920 : 800;
       const layoutHeight = wideDisplay ? layoutWidth * 1200 / 1900 : tallLandscape ? 500 : 480;
       const scale = Math.min(width / layoutWidth, height / layoutHeight);
       if (scale <= 0) return;
