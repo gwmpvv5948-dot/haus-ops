@@ -27,7 +27,7 @@ const pvSimulationView = demo => ({
   status: 'PV-Simulation · Sonne und Schatten',
   layout: `<section class="pv-simulation-page">
     <div class="pv-simulation-viewport">
-      <iframe title="PV-Simulation · Sonne und Schatten" src="${demo ? new URL('./pv-simulation/index.html?embedded=1', import.meta.url) : '/local/haus3d/index.html?embedded=1'}"></iframe>
+      <iframe title="PV-Simulation · Sonne und Schatten" src="${demo ? new URL('./pv-simulation/index.html?embedded=1&v=1.6.77', import.meta.url) : '/local/haus3d/index.html?embedded=1&v=1.6.77'}"></iframe>
     </div>
     <div class="pv-simulation-toolbar">
       <button data-pv-back>‹ Energie</button>
@@ -130,7 +130,7 @@ class HausOps extends HTMLElement {
       if (this.demo && this.getAttribute('demo-page') === 'luftqualitaet') this.page = airQualityPageIndex;
       this.attachShadow({ mode: 'open' });
       this.shadowRoot.innerHTML = `
-        <link rel="stylesheet" href="${new URL('./haus-ops.css?v=1.6.63&r=wide-display', import.meta.url)}">
+        <link rel="stylesheet" href="${new URL('./haus-ops.css?v=1.6.63&r=wide-navigation', import.meta.url)}">
         <link rel="stylesheet" href="${new URL('./house-section.css?v=1.6.63&r=20', import.meta.url)}">
         <link rel="stylesheet" href="${new URL('./ventilation-panel.css?v=1.6.63&r=3', import.meta.url)}">
         <link rel="stylesheet" href="${new URL('./vehicle-panel.css?v=1.6.63&r=6', import.meta.url)}">
@@ -263,10 +263,8 @@ class HausOps extends HTMLElement {
     const navigationViewport = this.shadowRoot.querySelector('.nav-scroll');
     this.fitNavigation = () => {
       const height = navigationViewport.clientHeight;
-      // Use the same large blocks at every display size; overflow stays scrollable.
       // Fit a whole number of rows so the lower elbow never exposes half a block.
-      const minimumRow = this.hasAttribute('data-wide-display') ? 34 : 46;
-      const count = Math.max(1, Math.min(navigationViewport.childElementCount, Math.floor((height + 3) / (minimumRow + 3))));
+      const count = Math.max(1, Math.min(navigationViewport.childElementCount, Math.floor((height + 3) / 49)));
       navigationViewport.style.setProperty('--nav-block', ((height-(count-1)*3)/count)+'px');
     };
     this.navigationResize = new ResizeObserver(this.fitNavigation);

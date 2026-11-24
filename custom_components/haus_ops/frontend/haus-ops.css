@@ -1004,7 +1004,6 @@ main{grid-template-columns:minmax(0,1fr)}
 .pv-simulation-toolbar strong{color:var(--blue)}
 
 :host([data-wide-display]) .frame{grid-template-columns:128px minmax(0,1fr);--frame-column-gap:20px}
-:host([data-wide-display]) .nav-scroll>button{align-items:center}
 :host([data-wide-display]) .ops-overview{gap:14px 16px}
 :host([data-wide-display]) .energy-page{display:grid;grid-template-rows:auto minmax(155px,1fr) auto auto auto auto auto;gap:9px}
 :host([data-wide-display]) .energy-source{height:auto;padding:8px 10px}
