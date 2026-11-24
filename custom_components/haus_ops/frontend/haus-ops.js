@@ -23,11 +23,11 @@ document.fonts.add(antonio);
 
 const airQualityWarningId = 'haus_ops.luftqualitaet';
 const energyPageIndex = 6;
-const pvSimulationView = demo => ({
+const pvSimulationView = (demo, openedAt) => ({
   status: 'PV-Simulation · Sonne und Schatten',
   layout: `<section class="pv-simulation-page">
     <div class="pv-simulation-viewport">
-      <iframe title="PV-Simulation · Sonne und Schatten" src="${demo ? new URL('./pv-simulation/index.html?embedded=1&v=1.6.78', import.meta.url) : '/local/haus3d/index.html?embedded=1&v=1.6.78'}"></iframe>
+      <iframe title="PV-Simulation · Sonne und Schatten" src="${demo ? new URL('./pv-simulation/index.html?embedded=1', import.meta.url) : '/local/haus3d/index.html?embedded=1'}&opened=${openedAt}"></iframe>
     </div>
     <div class="pv-simulation-toolbar">
       <button data-pv-back>‹ Energie</button>
@@ -812,7 +812,7 @@ class HausOps extends HTMLElement {
     this.syncWarpSound(this.page === energyPageIndex && this.engineeringMode && !this.pvOpen);
     let energy = null;
     if (this.page === energyPageIndex) {
-      if (this.pvOpen === 'simulation') energy = pvSimulationView(this.demo);
+      if (this.pvOpen === 'simulation') energy = pvSimulationView(this.demo, this.pvSimulationOpenedAt);
       else if (this.pvOpen) {
         void loadPV(this);
         if (this.pvOpen === 'day') void loadPVActual(this);
@@ -1410,6 +1410,7 @@ class HausOps extends HTMLElement {
     if (button.matches('[data-pv-open], [data-pv-back], [data-pv-day], [data-pv-simulation]')) {
       const wasSimulation = this.pvOpen === 'simulation';
       this.pvOpen = button.hasAttribute('data-pv-simulation') ? 'simulation' : !button.hasAttribute('data-pv-back');
+      if (this.pvOpen === 'simulation') this.pvSimulationOpenedAt = Date.now();
       if (button.dataset.pvDay !== undefined) this.pvSelected = Number(button.dataset.pvDay);
       this.render();
       const selector = button.dataset.pvDay !== undefined
