@@ -14,6 +14,7 @@ const power = value => Math.abs(value) >= 1000 ? fmt(Math.abs(value)/1000, 2) + 
 const sum = values => values.every(known) ? values.reduce((a,b) => a+b,0) : NaN;
 const ratio = (part, total) => known(part) && total > 0 ? Math.max(0, Math.min(100, 100*(1-part/total))) : NaN;
 const band = (label, color) => `<h2 class="band" style="--band:var(--${color})">${label}</h2>`;
+const simulationButton = '<button data-pv-simulation>PV-Simulation</button>';
 const demo = {solar:[0,0,0,0],battery:[0,24,1.2,39.6],grid:[-280,49.97,237,235,238],house:[280],daily:[10.3,22.9,13.4,.1,4.2,3.2],engineering:[748.7,NaN],loads:[0,1,2,0]};
 
 export function energyView(panel, engineering = false, summaryOnly = false) {
@@ -46,7 +47,7 @@ export function energyView(panel, engineering = false, summaryOnly = false) {
     const share = supplied > 0 ? watts/supplied*100 : 0;
     return `<span data-energy-flow="${color}" style="--flow:var(--${color});--share:${share}%" title="${name} ${fmt(share)} % · ${power(watts)}">${share >= 15 ? `${name} ${fmt(share)} % · ${power(watts)}` : ''}</span>`;
   }).join('');
-  const summary = {solar, house, grid, soc, segments};
+  const summary = {solar, yieldToday, house, grid, soc, segments};
   if (summaryOnly) return summary;
   const balance = [
     ['Solar','solar', fmt(yieldToday,1),'kWh'], ['Haus','peach',fmt(use,1),'kWh'],
@@ -58,7 +59,7 @@ export function energyView(panel, engineering = false, summaryOnly = false) {
     [house,solar,battery,grid].every(known) && Math.abs(house-solar-battery-grid)>Math.max(100,house*.15) && 'Leistungsbilanz prüfen'].filter(Boolean);
   const status = warnings.join(' · ') || `${grid < 0 ? 'Einspeisung' : 'Netzbezug'} ${power(grid)} · Akku ${fmt(soc)} % · PV ${solar ? power(solar) : 'inaktiv'}`;
   return {hz: known(hz) ? fmt(hz,2)+' Hz' : '— Hz', status, warning:warnings.length>0, layout:`<section class="energy-page">
-    <div class="eng-heading energy-heading-rail">${band('Leistung jetzt','peach')}<div class="energy-heading-actions"><button data-pv-daily>PV-Tagesverlauf</button><button data-energy-mode aria-pressed="false">Energiekern</button></div></div><div class="energy-sources">
+    <div class="eng-heading energy-heading-rail">${band('Leistung jetzt','peach')}<div class="energy-heading-actions">${simulationButton}<button data-pv-daily>PV-Tagesverlauf</button><button data-energy-mode aria-pressed="false">Energiekern</button></div></div><div class="energy-sources">
     ${source('Solar','solar',solar,solar>0?'Erzeugt':panel.state('sun.sun')?.state==='above_horizon'?'Inaktiv':'Nacht',`Ost ${fmt(pv[0])} · West ${fmt(pv[1])}<br>Garage ${fmt(pv[2])} · Schuppen ${fmt(pv[3])} W`)}
     ${source('Akku','battery',battery,battery>0?'Entlädt':battery<0?'Lädt':'Ruht',`<div class="energy-soc" style="--soc:${soc<20?'var(--red)':'var(--battery)'}">${Array.from({length:10},(_,i)=>`<i class="${soc >= (i+1)*10?'filled':''}"></i>`).join('')}</div>${fmt(soc)} % · ${fmt(stored,2)} kWh · ${fmt(temp,1)}°`)}
     ${source('Netz','purple',grid,grid>0?'Bezug':grid<0?'Einspeisung':'Ruht',`DREWAG<br>${volts.map(v=>fmt(v)).join(' · ')} V`)}
@@ -104,7 +105,7 @@ function engineeringView(data, demoMode) {
     warning: warn || missing,
     layout: `<section class="engineering">
       <div class="eng-heading">${rail('Energiekern · Wechselrichter 1')}
-        <button data-energy-mode aria-pressed="true">Zur Bilanz</button></div>
+        <div class="energy-heading-actions">${simulationButton}<button data-energy-mode aria-pressed="true">Zur Bilanz</button></div></div>
       <div class="eng-body">
         <div class="eng-data">
           <h3>PV-Erzeuger</h3>
@@ -148,5 +149,13 @@ function engineeringView(data, demoMode) {
       </div>
       ${rail(`Kern · ${coreStatus}${demoMode ? ' · Demo' : ''}`,'eng-bottom')}
     </section>`,
+  };
+}
+
+export function pvSimulationActual(panel) {
+  const {solar, yieldToday} = energyView(panel, false, true);
+  return {
+    power: known(solar) ? power(solar) : 'Keine Daten',
+    yield: known(yieldToday) ? fmt(yieldToday, 1) + ' kWh' : 'Keine Daten',
   };
 }

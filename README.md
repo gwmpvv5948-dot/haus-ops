@@ -18,6 +18,14 @@ Home-Assistant-Panel für ein Raspberry-Pi-Display im Querformat (800 × 480) mi
 - **Klima:** HAUS-OPS verwendet vorhandene Heizungsmanager-Daten oder die in den Einstellungen hinterlegten Klimasensoren und Thermostate.
 - **Navigation:** Wasser verlinkt auf das separate Panel unter `/wassermanager`, sofern es installiert ist. Garten ist als Platzhalter vorhanden.
 
+## PV-Simulation
+
+Unter **Energie → PV-Simulation** öffnet sich die 3D-Ansicht für Sonnenstand, Verschattung und PV-Ertrag bei klarem Himmel. Die Ansicht bietet Datumsauswahl, Tagesablauf und Kameraperspektiven.
+
+Die Ist-Leistung über der 3D-Ansicht summiert die vier PV-Leistungssensoren aus **Energie**. Den Ist-Tagesertrag liefert `energy.solar_energy_today`. Beide Anzeigen aktualisieren sich mit den Zuständen aus Home Assistant. Die 3D-Ansicht berechnet die Werte für das ausgewählte Datum.
+
+Die Simulationsdateien der eigenen Anlage lokal unter `/config/www/haus3d/` ablegen. HAUS-OPS lädt `/local/haus3d/index.html`. Den Ordner vollständig kopieren, damit Modell, Luftbild und Schriften verfügbar sind. Die Dateien unter `/local/` sind über die Home-Assistant-URL ohne Anmeldung abrufbar. Für Standortdaten Home Assistant nur im Heimnetz oder über ein privates VPN erreichbar machen.
+
 ## Vorschau und manuelle Installation
 
 Für die Demo im Repository `python3 -m http.server 8000 --bind 127.0.0.1` ausführen und [vorschau.html](http://127.0.0.1:8000/vorschau.html) öffnen. Die Demo verwendet simulierte Zustände.

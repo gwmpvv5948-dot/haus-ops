@@ -13,7 +13,7 @@ import { CircuitsPanel } from './circuits-panel.js?v=1.6.63';
 import { OverviewPanel, overviewFields } from './overview-panel.js?v=1.6.63&r=alarm-nav';
 import { MusicPanel, musicFields } from './music-panel.js?v=1.6.63';
 import { WaterPanel, waterFields } from './water-panel.js?v=1.6.63';
-import { energyFields, energyView } from './energy-panel.js?v=1.6.63';
+import { energyFields, energyView, pvSimulationActual } from './energy-panel.js?v=1.6.75';
 import { ClimatePanel, roomNames } from './climate-panel.js';
 const antonio = new FontFace('Antonio', `url("${new URL('./Antonio.ttf', import.meta.url).href}")`, {
   weight: '400 700',
@@ -23,6 +23,17 @@ document.fonts.add(antonio);
 
 const airQualityWarningId = 'haus_ops.luftqualitaet';
 const energyPageIndex = 6;
+const pvSimulationView = demo => ({
+  status: 'PV-Simulation · Sonne und Schatten',
+  layout: `<section class="pv-simulation-page">
+    <div class="pv-simulation-toolbar">
+      <button data-pv-back>‹ Energie</button>
+      <span>PV-Ist-Leistung <strong data-pv-live-power>—</strong></span>
+      <span>Ist-Ertrag heute <strong data-pv-live-yield>—</strong></span>
+    </div>
+    <iframe title="PV-Simulation · Sonne und Schatten" src="${demo ? new URL('./pv-simulation/index.html?v=1.6.75', import.meta.url) : '/local/haus3d/index.html?v=1.6.75'}"></iframe>
+  </section>`,
+});
 const waterPageIndex = 7;
 const musicPageIndex = 8;
 const circuitsPageIndex = 10;
@@ -117,7 +128,7 @@ class HausOps extends HTMLElement {
       if (this.demo && this.getAttribute('demo-page') === 'luftqualitaet') this.page = airQualityPageIndex;
       this.attachShadow({ mode: 'open' });
       this.shadowRoot.innerHTML = `
-        <link rel="stylesheet" href="${new URL('./haus-ops.css?v=1.6.63&r=embedded-footer-8', import.meta.url)}">
+        <link rel="stylesheet" href="${new URL('./haus-ops.css?v=1.6.63&r=pv-simulation', import.meta.url)}">
         <link rel="stylesheet" href="${new URL('./house-section.css?v=1.6.63&r=20', import.meta.url)}">
         <link rel="stylesheet" href="${new URL('./ventilation-panel.css?v=1.6.63&r=3', import.meta.url)}">
         <link rel="stylesheet" href="${new URL('./vehicle-panel.css?v=1.6.63&r=6', import.meta.url)}">
@@ -795,8 +806,15 @@ class HausOps extends HTMLElement {
     const music = this.page === musicPageIndex ? this.music.view() : null;
     const water = this.page === waterPageIndex ? this.water.view() : null;
     this.syncWarpSound(this.page === energyPageIndex && this.engineeringMode && !this.pvOpen);
-    if (this.page === energyPageIndex && this.pvOpen) { void loadPV(this); if(this.pvOpen==='day') void loadPVActual(this); }
-    const energy = this.page === energyPageIndex ? (this.pvOpen ? (this.pvOpen==='day'?pvDayView(this):pvView(this)) : energyView(this, this.engineeringMode)) : null;
+    let energy = null;
+    if (this.page === energyPageIndex) {
+      if (this.pvOpen === 'simulation') energy = pvSimulationView(this.demo);
+      else if (this.pvOpen) {
+        void loadPV(this);
+        if (this.pvOpen === 'day') void loadPVActual(this);
+        energy = this.pvOpen === 'day' ? pvDayView(this) : pvView(this);
+      } else energy = energyView(this, this.engineeringMode);
+    }
     const canConfigure = Boolean(this.ha?.user?.is_admin);
     this.shadowRoot.querySelector('[data-settings]').hidden = !canConfigure || Boolean(energy);
     this.shadowRoot.querySelector('[data-nav-spacer]').hidden = canConfigure || Boolean(energy);
@@ -964,7 +982,7 @@ class HausOps extends HTMLElement {
       this.water.update(main, layout);
       this.layout = layout;
     }
-    if (!entering && this.layout !== layout && energy && this.engineeringMode && main.querySelector('.engineering')) {
+    if (!entering && this.layout !== layout && energy && !this.pvOpen && this.engineeringMode && main.querySelector('.engineering')) {
       const template = document.createElement('template');
       template.innerHTML = layout;
       for (const selector of ['.eng-data', '.eng-details', '.eng-bottom']) {
@@ -990,6 +1008,13 @@ class HausOps extends HTMLElement {
       const lightData = main.querySelector('.light-data');
       const musicRoomScroll = main.querySelector('.music-room-list')?.scrollTop;
       main.innerHTML = layout;
+      main.querySelector('.pv-simulation-page iframe')?.addEventListener('load', event => {
+        const document = event.currentTarget.contentDocument;
+        const activity = input => this.recordDisplayActivity(input);
+        document?.addEventListener('pointerdown', activity, {passive:true});
+        document?.addEventListener('keydown', activity);
+        document?.addEventListener('wheel', activity, {passive:true});
+      });
       if (musicRoomScroll !== undefined && main.querySelector('.music-room-list')) main.querySelector('.music-room-list').scrollTop = musicRoomScroll;
       const nextRotor = rotor && main.querySelector('.ops-fan');
       if (nextRotor) {
@@ -1055,6 +1080,15 @@ class HausOps extends HTMLElement {
     this.updateOverviewRotor(main,level);
     this.tick();
     if (music) this.music.tick(main);
+    if (this.page === energyPageIndex && this.pvOpen === 'simulation') {
+      const power = main.querySelector('[data-pv-live-power]');
+      const yieldToday = main.querySelector('[data-pv-live-yield]');
+      if (power && yieldToday) {
+        const actual = pvSimulationActual(this);
+        if (power.textContent !== actual.power) power.textContent = actual.power;
+        if (yieldToday.textContent !== actual.yield) yieldToday.textContent = actual.yield;
+      }
+    }
     if (this.pvOpen==='day') bindPVDay(this,main);
     if (this.animatedPage !== this.page) {
       this.animatedPage = this.page;
@@ -1155,6 +1189,13 @@ class HausOps extends HTMLElement {
 
   get controlsDisplayBrightness() {
     try { return localStorage.getItem('haus-ops.brightness-control') === 'on'; } catch { return false; }
+  }
+
+  recordDisplayActivity(event) {
+    // Internal/synthetic clicks must not wake a sleeping wall display.
+    if (event && !event.isTrusted) return;
+    this.lastDisplayActivity = performance.now();
+    this.updateDisplayBrightness(false);
   }
 
   updateDisplayBrightness(standby) {
@@ -1331,7 +1372,7 @@ class HausOps extends HTMLElement {
     if (target.closest('a, input, select, textarea, label, summary, [contenteditable], .pv-daily-chart, [data-blind-position], [data-overview-dimmer], [data-warning-hold], [data-air-action], [data-air-chart], [data-air-cell]')) return false;
     const button = target.closest('button, [data-action], [data-page]');
     if (button?.disabled) return true;
-    if (button?.matches('[data-page], [data-action], [data-settings], [data-energy-mode], [data-pv-open], [data-pv-back], [data-pv-day], [data-pv-daily], [data-pv-week], [data-pv-date], [data-pv-day-shift]')) return false;
+    if (button?.matches('[data-page], [data-action], [data-settings], [data-energy-mode], [data-pv-simulation], [data-pv-open], [data-pv-back], [data-pv-day], [data-pv-daily], [data-pv-week], [data-pv-date], [data-pv-day-shift]')) return false;
     return !target.closest('[data-pv-card], [data-card-page]');
   }
 
@@ -1347,7 +1388,7 @@ class HausOps extends HTMLElement {
       event.target.closest('[data-pv-card]')?.querySelector('[data-pv-open]') ??
       event.target.closest('[data-card-page]')?.querySelector('button[data-page]');
     if (button?.hasAttribute('data-swiped') || button?.getAttribute('aria-disabled') === 'true') return;
-    if (!button || button.disabled || !button.matches('[data-page], [data-action], [data-settings], [data-energy-mode], [data-pv-open], [data-pv-back], [data-pv-day], [data-pv-daily], [data-pv-week], [data-pv-date], [data-pv-day-shift]')) {
+    if (!button || button.disabled || !button.matches('[data-page], [data-action], [data-settings], [data-energy-mode], [data-pv-simulation], [data-pv-open], [data-pv-back], [data-pv-day], [data-pv-daily], [data-pv-week], [data-pv-date], [data-pv-day-shift]')) {
       const interactive = event.target.closest('a, input, select, textarea, label, summary, [contenteditable], .pv-daily-chart, [data-blind-position], [data-overview-dimmer], [data-warning-hold]');
       if (!interactive && !playedAlarm && this.alarmAudio?.paused !== false && performance.now()-(this.lastErrorTap ?? -Infinity)>800) this.playTouchSound('error');
       return;
@@ -1362,13 +1403,14 @@ class HausOps extends HTMLElement {
       this.render();
       return;
     }
-    if (button.matches('[data-pv-open], [data-pv-back], [data-pv-day]')) {
-      this.pvOpen = !button.hasAttribute('data-pv-back');
+    if (button.matches('[data-pv-open], [data-pv-back], [data-pv-day], [data-pv-simulation]')) {
+      const wasSimulation = this.pvOpen === 'simulation';
+      this.pvOpen = button.hasAttribute('data-pv-simulation') ? 'simulation' : !button.hasAttribute('data-pv-back');
       if (button.dataset.pvDay !== undefined) this.pvSelected = Number(button.dataset.pvDay);
       this.render();
       const selector = button.dataset.pvDay !== undefined
         ? `[data-pv-day="${button.dataset.pvDay}"]`
-        : this.pvOpen ? '[data-pv-back]' : '[data-pv-open]';
+        : this.pvOpen ? '[data-pv-back]' : wasSimulation ? '[data-pv-simulation]' : '[data-pv-open]';
       this.shadowRoot.querySelector(selector)?.focus({preventScroll:true});
       return;
     }
