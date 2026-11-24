@@ -1,4 +1,3 @@
-// An empty or unavailable group never confirms that the ground floor is dark.
 export function nightDisplayOff(date, states = {}, registry, configured = [], timeZone = 'Europe/Berlin') {
   const hour = Number(new Intl.DateTimeFormat('en-GB', {
     timeZone, hour: '2-digit', hourCycle: 'h23',
@@ -15,5 +14,6 @@ export function nightDisplayOff(date, states = {}, registry, configured = [], ti
     ids = registry.entities.filter(entity => !entity.disabled_by && entity.entity_id.startsWith('light.') &&
       areas.has(entity.area_id ?? devices.get(entity.device_id)?.area_id)).map(entity => entity.entity_id);
   }
+  ids = ids.filter(id => ['on', 'off'].includes(states[id]?.state) && !states[id]?.attributes?.restored);
   return ids.length > 0 && ids.every(id => states[id]?.state === 'off');
 }

@@ -6,7 +6,7 @@ import { HouseSection, housePageIndex } from './house-section.js?v=1.6.63&r=22';
 import {loadPVActual,pvDayView,bindPVDay} from './pv-day-panel.js?v=1.6.63&r=alarm-nav';
 import { setupSettingsLayout } from './settings-layout.js?v=1.6.63';
 import { MobileNotifications } from './mobile-notifications.js?v=1.6.63';
-import { nightDisplayOff } from './display-night.js?v=1.6.63';
+import { nightDisplayOff } from './display-night.js?v=1.6.63&r=3';
 import {loadPV,pvView} from './pv-panel.js?v=1.6.63&r=alarm-nav';
 import { LightPanel } from './light-panel.js?v=1.6.63';
 import { CircuitsPanel } from './circuits-panel.js?v=1.6.63';
@@ -178,16 +178,13 @@ class HausOps extends HTMLElement {
       this.settings.open();
     },options);
     settingsButton.addEventListener('pointercancel', () => { settingsTouch = undefined; },options);
-    const recordActivity = () => {
-      this.lastDisplayActivity = performance.now();
-      this.updateDisplayBrightness(false);
-    };
+    const recordActivity = event => this.recordDisplayActivity(event);
     recordActivity();
     for (const type of ['pointerdown', 'pointerup', 'touchstart', 'touchend', 'keydown', 'wheel', 'click']) {
       window.addEventListener(type, recordActivity, {...options, capture:true, passive:true});
     }
     this.shadowRoot.addEventListener('pointermove', event => {
-      if (event.buttons) recordActivity();
+      if (event.buttons) recordActivity(event);
     }, {...options, capture:true, passive:true});
 
     this.shadowRoot.addEventListener('pointerdown', () => this.setAttribute('data-pointer-mode',''), {...options,capture:true,passive:true});
@@ -1210,7 +1207,7 @@ class HausOps extends HTMLElement {
     if (!/^shell_command\.[a-z0-9_]+$/.test(action ?? '') || !this.ha) return;
     this.circuits.load();
     const night = standby && nightDisplayOff(new Date(), this.ha.states, this.circuits.registry, this.config?.display_night_lights, this.ha.config?.time_zone || 'Europe/Berlin');
-    this.displayBrightnessTarget = {action,value:standby ? (night ? 0 : 10) : this.activeDisplayBrightness};
+    this.displayBrightnessTarget = {action,value:standby ? (night ? 0 : 5) : this.activeDisplayBrightness};
     void this.sendDisplayBrightness();
   }
 
