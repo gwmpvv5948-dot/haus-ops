@@ -1,6 +1,6 @@
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
 const names=['Aus','Low','1','2','Max'];
-const colors=['#9999ff','#99ccff','#ffcc99'];
+const colors=['#c099ff','#99ccff','#ffda66'];
 export const ventilationCharacteristics=[{flow:0,voltage:0,rpm:0},{flow:60,voltage:80,rpm:620},{flow:110,voltage:150,rpm:980},{flow:160,voltage:175,rpm:1380},{flow:220,voltage:230,rpm:1900}];
 export const ventilationFields=[
  ['vent.outside','Außentemperatur (optional)',['sensor','weather']],
@@ -134,9 +134,9 @@ export class VentilationPanel {
   // Rotor stays at display refresh rate; the lighter airflow layer runs at 30 fps.
   if(this.particleTime===undefined||now-this.particleTime>=1000/30){
    const particleDT=Math.min(.15,(now-(this.particleTime??now))/1000);this.particleTime=now;
-   if(d.stage>0)d.zones.forEach((z,i)=>{const rate=[0,2.2,3.6,5.5,8][d.stage]*z.share*1.5;if(now-this.lastSpawn[i]>1000/rate&&this.particles.length<30){this.lastSpawn[i]=now;let node=this.pool.pop();if(!node){node=document.createElementNS('http://www.w3.org/2000/svg','circle');node.setAttribute('r','2.4');}this.particleLayer.append(node);this.particles.push({node,zone:i,distance:0});}});
+   if(d.stage>0)d.zones.forEach((z,i)=>{const rate=[0,2.2,3.6,5.5,8][d.stage]*z.share*1.5;if(now-this.lastSpawn[i]>1000/rate&&this.particles.length<30){this.lastSpawn[i]=now;let node=this.pool.pop();if(!node){node=document.createElementNS('http://www.w3.org/2000/svg','circle');node.setAttribute('r','2.4');}node.setAttribute('fill',colors[i]);this.particleLayer.append(node);this.particles.push({node,zone:i,distance:0});}});
    const speed=this.velocity/700*150;
-   this.particles=this.particles.filter(p=>{p.distance+=speed*particleDT;const path=this.paths[p.zone];if(p.distance>=path.length){p.node.remove();this.pool.push(p.node);return false;}const point=ventilationPosition(path,p.distance);p.node.setAttribute('cx',(point.x+(p.distance>path.length-35?Math.sin(now/300+p.zone)*(p.distance-path.length+35)/12:0)).toFixed(2));p.node.setAttribute('cy',point.y.toFixed(2));const color=p.distance>path.length-35?'#e7f4ff':d.zones[p.zone].humidity>=70?'#cc99cc':'#99ccff';if(p.color!==color){p.node.setAttribute('fill',color);p.color=color;}p.node.setAttribute('opacity',(Math.max(0,Math.min(1,p.distance/14,(path.length-p.distance)/50))*(target===0?Math.min(1,this.velocity/70):1)).toFixed(2));return true;});
+   this.particles=this.particles.filter(p=>{p.distance+=speed*particleDT;const path=this.paths[p.zone];if(p.distance>=path.length){p.node.remove();this.pool.push(p.node);return false;}const point=ventilationPosition(path,p.distance);p.node.setAttribute('cx',(point.x+(p.distance>path.length-35?Math.sin(now/300+p.zone)*(p.distance-path.length+35)/12:0)).toFixed(2));p.node.setAttribute('cy',point.y.toFixed(2));p.node.setAttribute('opacity',(Math.max(0,Math.min(1,p.distance/14,(path.length-p.distance)/50))*(target===0?Math.min(1,this.velocity/70):1)).toFixed(2));return true;});
   }
   if(this.velocity===0)for(const p of this.particles.splice(0)){p.node.remove();this.pool.push(p.node);}
   if(target||this.velocity||this.particles.length)this.frame=requestAnimationFrame(t=>this.animate(t));

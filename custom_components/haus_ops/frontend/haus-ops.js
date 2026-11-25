@@ -1,7 +1,7 @@
 import {AirQualityPanel,airQualityPageIndex,airRoomFields,matchesAirRoomField} from './air-quality-panel.js?v=7';
 import {VehiclePanel,vehicleFields,vehiclePageIndex} from './vehicle-panel.js?v=1.6.63&r=3';
 import {validateVehicleBlueprint} from './vehicle-model.js?v=1.6.63&r=2';
-import {VentilationPanel,ventilationFields,ventilationCharacteristics,validateVentilationCharacteristics} from './ventilation-panel.js?v=1.6.63&r=3';
+import {VentilationPanel,ventilationFields,ventilationCharacteristics,validateVentilationCharacteristics} from './ventilation-panel.js?v=1.6.82';
 import { HouseSection, housePageIndex } from './house-section.js?v=1.6.63&r=22';
 import {loadPVActual,pvDayView,bindPVDay} from './pv-day-panel.js?v=1.6.63&r=alarm-nav';
 import { setupSettingsLayout } from './settings-layout.js?v=1.6.63';
