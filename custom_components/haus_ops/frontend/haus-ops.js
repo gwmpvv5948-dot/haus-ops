@@ -8,7 +8,7 @@ import { setupSettingsLayout } from './settings-layout.js?v=1.6.63';
 import { MobileNotifications } from './mobile-notifications.js?v=1.6.63';
 import { nightDisplayOff } from './display-night.js?v=1.6.63&r=3';
 import {loadPV,pvView} from './pv-panel.js?v=1.6.63&r=alarm-nav';
-import { LightPanel } from './light-panel.js?v=1.6.63';
+import { LightPanel } from './light-panel.js?v=1.6.84';
 import { CircuitsPanel } from './circuits-panel.js?v=1.6.63';
 import { OverviewPanel, overviewFields } from './overview-panel.js?v=1.6.63&r=alarm-nav';
 import { MusicPanel, musicFields } from './music-panel.js?v=1.6.63';
@@ -132,7 +132,7 @@ class HausOps extends HTMLElement {
       if (this.demo && this.getAttribute('demo-page') === 'luftqualitaet') this.page = airQualityPageIndex;
       this.attachShadow({ mode: 'open' });
       this.shadowRoot.innerHTML = `
-        <link rel="stylesheet" href="${new URL('./haus-ops.css?v=1.6.63&r=weather-page', import.meta.url)}">
+        <link rel="stylesheet" href="${new URL('./haus-ops.css?v=1.6.63&r=licht-raeume-1.6.84', import.meta.url)}">
         <link rel="stylesheet" href="${new URL('./house-section.css?v=1.6.63&r=20', import.meta.url)}">
         <link rel="stylesheet" href="${new URL('./ventilation-panel.css?v=1.6.63&r=3', import.meta.url)}">
         <link rel="stylesheet" href="${new URL('./vehicle-panel.css?v=1.6.63&r=6', import.meta.url)}">
@@ -192,7 +192,6 @@ class HausOps extends HTMLElement {
     this.shadowRoot.addEventListener('pointerdown', () => this.setAttribute('data-pointer-mode',''), {...options,capture:true,passive:true});
     this.shadowRoot.addEventListener('keydown', () => this.removeAttribute('data-pointer-mode'), {...options,capture:true});
     window.addEventListener('message', event => void this.respondToWeatherFrame(event), options);
-    this.bindLightMouseScroll(options);
     this.bindOverviewDimmer(options);
     this.bindWarningHold(options);
     this.shadowRoot.addEventListener('pointerdown', event => {
@@ -208,6 +207,7 @@ class HausOps extends HTMLElement {
       window.addEventListener(name, event => {
         if (this.lightDrag === event.pointerId) requestAnimationFrame(() => {
           this.lightDrag = undefined;
+          if (name === 'pointercancel' && this.page === 9) this.layout = undefined;
           this.render();
         });
       }, options);
@@ -228,15 +228,17 @@ class HausOps extends HTMLElement {
     }
     this.shadowRoot.addEventListener('input', event => {
       if (event.target.matches('[data-light-range]')) {
-        event.target.closest('[data-light-column]').style.setProperty('--level', event.target.value+'%');
+        this.lightsPanel.preview(event.target);
       }
       if (event.target.matches('[data-blind-position]')) this.previewBlindPosition(event.target);
     }, options);
     this.shadowRoot.addEventListener('change', event => {
       if (event.target.matches('[data-light-range]')) {
         const {dataset,value} = event.target;
-        this.lightsPanel.act('level',dataset.lightRange,value)
-          .catch(()=>this.notify('Licht konnte nicht eingestellt werden')).finally(()=>this.render());
+        const change = this.lightsPanel.act('level',dataset.lightRange,value);
+        this.layout = undefined;
+        this.render();
+        change.catch(()=>this.notify('Licht konnte nicht eingestellt werden')).finally(()=>this.render());
       }
       if (event.target.matches('[data-blind-position]')) void this.setBlindPosition(event.target);
     }, options);
@@ -271,7 +273,6 @@ class HausOps extends HTMLElement {
     this.navigationResize.observe(navigationViewport);
     this.render();
     this.tick();
-    this.lightDataClock = setInterval(() => this.updateLightData(), 160);
     this.houseDataClock = setInterval(() => this.house.updateNumbers(),180);
     this.overviewDataClock = setInterval(() => this.updateOverviewData(),700);
     this.clock = setInterval(() => { this.tick(); this.render(); }, 1000);
@@ -407,47 +408,6 @@ class HausOps extends HTMLElement {
     }
   }
 
-  bindLightMouseScroll(options) {
-    const main = this.shadowRoot.querySelector('main');
-    let drag;
-    let suppressClick = false;
-    main.addEventListener('wheel', event => {
-      const bank = event.target.closest('.light-columns');
-      if (!bank || event.ctrlKey || !event.deltaY || Math.abs(event.deltaX) >= Math.abs(event.deltaY) || bank.scrollWidth <= bank.clientWidth) return;
-      event.preventDefault();
-      const unit = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? bank.clientWidth : 1;
-      bank.scrollLeft += event.deltaY * unit;
-    }, {...options, passive:false});
-    main.addEventListener('pointerdown', event => {
-      suppressClick = false;
-      const bank = event.target.closest('.light-columns');
-      if (event.pointerType !== 'mouse' || event.button !== 0 || event.target.closest('input') ||
-          !bank || bank.scrollWidth <= bank.clientWidth) return;
-      drag = {bank, id:event.pointerId, x:event.clientX, left:bank.scrollLeft};
-    }, options);
-    main.addEventListener('pointermove', event => {
-      if (drag?.id !== event.pointerId || !(event.buttons & 1)) return;
-      const delta = event.clientX - drag.x;
-      if (!suppressClick && Math.abs(delta) < 6) return;
-      if (!suppressClick) {
-        main.setPointerCapture(event.pointerId);
-        suppressClick = true;
-      }
-      const scale = drag.bank.getBoundingClientRect().width / drag.bank.offsetWidth;
-      if (scale) drag.bank.scrollLeft = drag.left - delta / scale;
-    }, options);
-    for (const name of ['pointerup','pointercancel','lostpointercapture']) {
-      main.addEventListener(name, event => {
-        if (drag?.id === event.pointerId) drag = undefined;
-      }, options);
-    }
-    main.addEventListener('click', event => {
-      if (!suppressClick || event.detail === 0) return;
-      suppressClick = false;
-      event.stopPropagation();
-    }, {...options, capture:true});
-  }
-
   bindNavigationSwipe() {
     const navigation = this.shadowRoot.querySelector('.nav-scroll');
     let gesture;
@@ -491,14 +451,6 @@ class HausOps extends HTMLElement {
     }, { capture: true });
   }
 
-  updateLightData() {
-    if (this.page !== 9 || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-    const cells = this.shadowRoot.querySelectorAll('.light-data i');
-    for (let index = 0; index < 3 && cells.length; index++) {
-      cells[Math.floor(Math.random() * cells.length)].textContent = String(Math.floor(Math.random() * 900000) + 100000);
-    }
-  }
-
   updateOverviewData() {
     if (this.page !== 0 || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
     const cell = this.shadowRoot.querySelector('.overview-data');
@@ -515,7 +467,6 @@ class HausOps extends HTMLElement {
     this.animatedPage = undefined;
     cancelAnimationFrame(this.rotorFrame);
     this.rotorFrame = undefined;
-    clearInterval(this.lightDataClock);
     this.blindInputEvents?.abort();
     this.draggingBlind = undefined;
     this.stopWarpSound();
@@ -615,7 +566,7 @@ class HausOps extends HTMLElement {
   tick() {
     const clock = this.shadowRoot?.querySelector('header > time');
     if (!clock) return;
-    const offline = this.page === 4 && !this.demo && this.ha?.connection?.connected === false;
+    const offline = [4,9].includes(this.page) && !this.demo && this.ha?.connection?.connected === false;
     clock.classList.toggle('offline', offline);
     clock.textContent = offline ? 'Offline' : new Date().toLocaleTimeString('de-DE');
     if (this.demo && this.demoBaseLevel !== undefined && this.demoEnd <= Date.now()) {
@@ -1017,10 +968,10 @@ class HausOps extends HTMLElement {
       const action = main.contains(focused) && focused.dataset.action;
       const focusedBlind = main.contains(focused) && focused.dataset.blindPosition;
       const modeFocused = main.contains(focused) && focused.hasAttribute('data-energy-mode');
-      const lightScroll = [...main.querySelectorAll('.light-columns,.light-rooms')].map(node=>node.scrollLeft);
-      const previousMetrics = [...main.querySelectorAll('[data-light-metric]')].map(node=>Number(node.textContent));
+      const focusedRange = main.contains(focused) && focused.dataset.lightRange;
+      const lightRoomsScroll = main.querySelector('.light-rooms')?.scrollLeft;
+      const lightBankScroll = main.querySelector('.light-columns')?.scrollTop;
       const rotor = this.page === 0 ? main.querySelector('.ops-fan') : null;
-      const lightData = main.querySelector('.light-data');
       const musicRoomScroll = main.querySelector('.music-room-list')?.scrollTop;
       main.innerHTML = layout;
       main.querySelector('iframe[data-frame-activity]')?.addEventListener('load', event => {
@@ -1039,14 +990,11 @@ class HausOps extends HTMLElement {
         });
         nextRotor.replaceWith(rotor);
       }
-      if (lightData && lightView) main.querySelector('.light-data').replaceWith(lightData);
-      main.querySelectorAll('.light-columns,.light-rooms').forEach((node,index)=>{ node.scrollLeft = lightScroll[index] ?? 0; });
       if (lightView) {
-        this.lightsPanel.animateMetrics(main,previousMetrics);
-        if (this.lightsPanel.sceneWave) {
-          this.lightsPanel.sceneWave = false;
-          this.lightsPanel.animateBank(main,130);
-        }
+        main.querySelector('.light-rooms').scrollLeft = lightRoomsScroll ?? 0;
+        main.querySelector('.light-columns').scrollTop = lightBankScroll ?? 0;
+        if (focusedRange) [...main.querySelectorAll('[data-light-range]')]
+          .find(node => node.dataset.lightRange === focusedRange)?.focus({preventScroll:true});
       }
       flows.forEach(node => {
         const next = main.querySelector(`[data-energy-flow="${node.dataset.energyFlow}"]`);
@@ -1167,7 +1115,6 @@ class HausOps extends HTMLElement {
       animate(rail, [{transform:'scaleX(0)', transformOrigin:'left'},
         {transform:'scaleX(1)', transformOrigin:'left'}], this.page === 0 ? 700 : 800);
     });
-    if (this.page === 9) this.lightsPanel.animateBank(main,60);
     const wheel = main.querySelector('.circuits-wheel');
     if (wheel) {
       const radius = Math.min(wheel.clientWidth, wheel.clientHeight) / 2;
@@ -1519,7 +1466,9 @@ class HausOps extends HTMLElement {
         return;
       }
       if (kind.startsWith('light-')) {
-        await this.lightsPanel.act(kind.slice(6),index,value);
+        const change = this.lightsPanel.act(kind.slice(6),index,value);
+        this.render();
+        await change;
         return;
       }
       if (kind.startsWith('circuit-')) {
@@ -2028,6 +1977,7 @@ class HausOpsSettings {
     }
     next.light_scenes = {};
     next.light_rated = this.panel.config?.light_rated;
+    next.light_rooms = this.panel.config?.light_rooms;
     for (const key of ['off','evening','film','hell']) {
       const id = data.get('light-scene-'+key).trim();
       if (!id) continue;

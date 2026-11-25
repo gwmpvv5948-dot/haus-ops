@@ -21,3 +21,7 @@ haus_ops:
     - { name: Wohnzimmer, entity: sensor.wohnzimmer_temperatur }
     - { name: Bad, entity: sensor.bad_temperatur }
     - { name: Flur, entity: sensor.flur_temperatur }
+  # Optional. Schlüssel ist die Home-Assistant-Bereichs-ID oder der Bereichsname.
+  light_rooms:
+    wohnzimmer: {name: Wohnzimmer, color: "#99ddbb", column: 1}
+    garten: {name: Garten, color: "#9999ff", column: 2}
