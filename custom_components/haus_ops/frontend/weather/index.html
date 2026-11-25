@@ -1,0 +1,291 @@
+<!doctype html>
+<html lang="de">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Wettervorhersage · HAUS-OPS</title>
+<style>
+@font-face{font-family:Antonio;src:url('../Antonio.ttf') format('truetype');font-weight:400 700;font-display:swap}
+:root{color-scheme:dark;--amber:#ff9900;--peach:#ffcc99;--lavender:#cc99cc;--violet:#9999ff;--blue:#99ccff;--light:#fff4e0;--selected:#ffe3c4;--salmon:#cc6666}
+*{box-sizing:border-box}
+body{margin:0;overflow:hidden;background:#000;color:var(--amber);font:600 22px/1.12 Antonio,'Arial Narrow',sans-serif;text-transform:uppercase;letter-spacing:.02em}
+#stage{position:absolute;left:50%;top:50%;width:1280px;height:800px;padding:18px 22px;transform:translate(-50%,-50%) scale(var(--scale,1));display:grid;grid-template-rows:88px 16px 50px 310px 60px 122px minmax(0,1fr);gap:7px}
+header{display:flex;justify-content:space-between;align-items:center;gap:20px}
+header p{margin:.2em 0}
+h1{margin:0;text-align:right;font-size:56px;line-height:1}
+header .units{margin-top:10px;display:flex;gap:7px;justify-content:flex-end}
+header .units span{min-width:150px;padding:4px 14px;border-radius:22px;background:var(--violet);text-align:right;color:#000;font-size:18px}
+header .units span:nth-child(2){background:var(--lavender)}
+header .units span:nth-child(3){background:#ff9966}
+.rail{display:grid;grid-template-columns:6fr 24px 2fr 2fr 42px;gap:6px}
+.rail span{background:var(--lavender)}.rail span:first-child{background:var(--violet);border-radius:22px 0 0 0}.rail span:nth-child(2){background:var(--amber)}.rail span:last-child{background:var(--salmon)}
+.row{display:grid;grid-template-columns:repeat(var(--days,10),minmax(0,1fr)) 98px;gap:5px;align-items:stretch}
+button{font:inherit;text-transform:inherit;cursor:pointer;border:0;color:#000;touch-action:manipulation}
+button:focus-visible{outline:4px solid #fff;outline-offset:-4px}
+button:active{transform:scale(.96)}
+.dates button{min-height:48px;border-radius:28px;background:var(--lavender);font-size:19px}
+.dates button[data-weekend]{background:var(--violet)}.dates button[data-today]{background:var(--amber)}
+.dates button[aria-pressed=true]{background:var(--selected)}
+.tag{color:#000;background:var(--tone,var(--amber));display:flex;justify-content:flex-end;align-items:end;padding:5px;font-size:17px}
+.chart{position:relative;min-width:0}
+.chart svg{display:block;width:100%;height:100%}
+.chart [data-track]{position:absolute;inset-block:0;border:0;background:transparent;border-radius:0}
+.conditions button{display:flex;flex-direction:column;justify-content:space-between;align-items:start;text-align:right;padding:5px 6px;background:var(--condition);font-size:17px;min-height:48px}
+.conditions button[aria-pressed=true]{background:color-mix(in srgb,var(--condition),white 25%)}
+.conditions button span{align-self:end}
+.conditions svg{width:34px;height:34px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.metrics{display:grid;grid-template-rows:repeat(4,minmax(0,1fr));gap:3px}
+.metrics .tag{padding-block:2px}
+.metrics .row>span:not(.tag){align-self:center;text-align:center}
+.metrics .wet{color:var(--blue)}.metrics .current{color:var(--light)}
+#details{border-top:2px solid #5a4fb0;padding-top:5px;overflow:hidden}
+#details strong{font-size:32px;margin-right:14px;color:var(--light)}
+#details strong:first-child{color:var(--amber)}
+#details strong:nth-child(3){color:var(--peach)}
+.details-metrics{margin-top:6px;display:flex;flex-wrap:wrap;column-gap:15px;row-gap:3px;font-size:18px}
+.details-metrics span:nth-child(2){color:var(--blue)}.details-metrics span:nth-child(3){color:var(--violet)}.details-metrics span:nth-child(4){color:var(--lavender)}
+#status:not([hidden]){grid-row:3/-1;place-self:center;text-align:center;padding:30px;color:var(--peach)}
+#status button{display:block;margin:18px auto 0;background:var(--amber);border-radius:28px;min-height:48px;padding:0 20px}
+[hidden]{display:none!important}
+</style>
+<div id="stage">
+<header>
+  <div><p id="location"></p><p id="source">Prognose wird geladen</p><p id="period"></p></div>
+  <div><h1>Wetteranalyse</h1><div class="units"><span id="city"></span><span id="quantity">10 Tage</span><span>°C · mm · h</span></div></div>
+</header>
+<div class="rail" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span></div>
+<div id="dates" class="dates row" aria-label="Prognosetag wählen" hidden></div>
+<div id="chart" class="chart" hidden></div>
+<div id="conditions" class="conditions row" aria-label="Wetterlage" hidden></div>
+<div id="metrics" class="metrics" hidden></div>
+<div id="details" aria-live="polite" hidden></div>
+<div id="status" role="status">Wettervorhersage wird geladen …</div>
+</div>
+<script type="module">
+const config = {
+  name: 'Dresden', latitude: 51.05, longitude: 13.74, elevation: 113, timezone: 'Europe/Berlin', days: 10,
+};
+const params = new URLSearchParams(location.search);
+for (const [key, limit] of [['latitude', 90], ['longitude', 180]]) {
+  const raw = params.get(key);
+  if (raw !== null && raw.trim() && Number.isFinite(Number(raw)) && Math.abs(Number(raw)) <= limit) config[key] = Number(raw);
+}
+if (params.has('latitude') && params.has('longitude')) {
+  config.name = 'Wetterstandort';
+  config.elevation = null;
+}
+const $ = id => document.getElementById(id);
+const stage = $('stage');
+const resize = () => stage.style.setProperty('--scale', Math.min(innerWidth / 1280, innerHeight / 800));
+window.addEventListener('resize', resize);
+resize();
+
+const sunlight = '<circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5"/>';
+const cloud = '<path d="M6 16h13a4 4 0 0 0 .2-8 5.8 5.8 0 0 0-10.7 1.4A3.4 3.4 0 0 0 6 16Z"/>';
+const patterns = {
+  sun: ['Sonnig','#e09400',sunlight],
+  clear: ['Heiter','#e0b488','<path d="M5 10a3 3 0 0 1 6-1M5 3l.5 1.5M2 6l1.5.7M10 3l-1 1.5"/>'+cloud],
+  cloud: ['Bewölkt','#b07fb0',cloud],
+  fog: ['Nebel','#a8a0c0','<path d="M3 7h18M3 12h15M3 17h18"/>'],
+  rain: ['Regen','#6fb0e8',cloud+'<path d="M8 19l-1 3m5-3-1 3m5-3-1 3"/>'],
+  snow: ['Schnee','#c8cce0',cloud+'<path d="M8 18v4m-2-2h4m6-2v4m-2-2h4"/>'],
+  storm: ['Gewitter','#9999ff',cloud+'<path d="M12 16l-3 4h4l-2 3"/>'],
+  unknown: ['–','#a8a0c0',''],
+};
+const byCode = {
+  0:'sun',1:'clear',2:'clear',3:'cloud',45:'fog',48:'fog',51:'rain',53:'rain',55:'rain',56:'rain',57:'rain',
+  61:'rain',63:'rain',65:'rain',66:'rain',67:'rain',71:'snow',73:'snow',75:'snow',77:'snow',
+  80:'rain',81:'rain',82:'rain',85:'snow',86:'snow',95:'storm',96:'storm',99:'storm',
+};
+const byCondition = {
+  sunny:'sun','clear-night':'clear',partlycloudy:'clear',cloudy:'cloud',fog:'fog',rainy:'rain',pouring:'rain',
+  snowy:'snow','snowy-rainy':'snow',lightning:'storm','lightning-rainy':'storm',
+};
+const number = (n, digits = 0) => Number.isFinite(n) ? n.toLocaleString('de-DE',{minimumFractionDigits:digits,maximumFractionDigits:digits}) : '–';
+const valid = n => typeof n === 'number' && Number.isFinite(n);
+const time = value => typeof value === 'string' ? value.match(/T(\d\d:\d\d)/)?.[1] ?? '–' : '–';
+const dateFormat = new Intl.DateTimeFormat('de-DE',{timeZone:'UTC',day:'2-digit',month:'2-digit'});
+const weekdayFormat = new Intl.DateTimeFormat('de-DE',{timeZone:'UTC',weekday:'short'});
+const clockFormat = new Intl.DateTimeFormat('de-DE',{timeZone:config.timezone,hour:'2-digit',minute:'2-digit'});
+const dateKeyFormat = new Intl.DateTimeFormat('en-CA',{timeZone:config.timezone,year:'numeric',month:'2-digit',day:'2-digit'});
+const fields = 'temperature_2m_max,temperature_2m_min,temperature_2m_mean,weather_code,precipitation_sum,precipitation_probability_max,sunshine_duration,wind_speed_10m_max,wind_direction_10m_dominant,sunrise,sunset';
+const wind = (d, unit = '') => {
+  if (!valid(d.wind)) return '–';
+  const directions = ['N','NO','O','SO','S','SW','W','NW'];
+  const bearing = typeof d.direction === 'string' ? d.direction.toUpperCase().replace('E','O') : '';
+  const direction = valid(d.direction) ? directions[((Math.round(d.direction/45)%8)+8)%8] : directions.includes(bearing) ? bearing : '';
+  return [number(d.wind), unit, direction].filter(Boolean).join(' ');
+};
+const coord = (n, positive, negative) => `${number(Math.abs(n),2)} ${n<0?negative:positive}`;
+const rowLabel = (label,tone) => `<span class="tag" style="--tone:${tone}">${label}</span>`;
+let days = [], selected, attribution = '', timestamp = '', elevation = config.elevation;
+
+function normalizeOpenMeteo(data) {
+  const daily = data.daily;
+  return daily.time.slice(0,config.days).map((date,i) => ({
+    date, max:daily.temperature_2m_max?.[i], min:daily.temperature_2m_min?.[i],
+    mean:daily.temperature_2m_mean?.[i], kind:byCode[daily.weather_code?.[i]] ?? 'unknown',
+    precipitation:daily.precipitation_sum?.[i], probability:daily.precipitation_probability_max?.[i],
+    sun:valid(daily.sunshine_duration?.[i]) ? daily.sunshine_duration[i]/3600 : null,
+    wind:daily.wind_speed_10m_max?.[i], direction:daily.wind_direction_10m_dominant?.[i],
+    sunrise:time(daily.sunrise?.[i]), sunset:time(daily.sunset?.[i]),
+  }));
+}
+function normalizeHomeAssistant({forecast,units}) {
+  const temp = n => valid(n) ? units.temperature_unit === '°F' ? (n-32)*5/9 : n : null;
+  const speed = {'km/h':1,'m/s':3.6,mph:1.609344,kn:1.852,'ft/s':1.09728};
+  return forecast.flatMap(day => {
+    const stamp=new Date(day.datetime);
+    if (!Number.isFinite(stamp.valueOf())) return [];
+    return [{
+      date:dateKeyFormat.format(stamp),max:temp(day.temperature),min:temp(day.templow),
+      kind:byCondition[day.condition] ?? 'unknown', precipitation:valid(day.precipitation) ? day.precipitation*(units.precipitation_unit==='in'?25.4:1) : null,
+      probability:day.precipitation_probability,wind:valid(day.wind_speed) ? day.wind_speed*(speed[units.wind_speed_unit]??1) : null,direction:day.wind_bearing,
+    }];
+  }).slice(0,config.days);
+}
+async function homeAssistantForecast() {
+  if (window.parent === window) throw new Error('Home Assistant ist nicht verbunden');
+  return new Promise((resolve,reject) => {
+    const requestId = Math.random().toString(36).slice(2);
+    const finish = (error,data) => {
+      clearTimeout(timeout); window.removeEventListener('message',receive);
+      if (error) reject(error); else resolve(data);
+    };
+    function receive(event) {
+      if(event.source!==window.parent || event.origin!==location.origin || event.data?.type!=='haus-ops:weather:response' || event.data.requestId!==requestId) return;
+      if (Array.isArray(event.data.forecast)) finish(null,event.data);
+      else finish(new Error('Keine Home-Assistant-Prognose'));
+    }
+    const timeout=setTimeout(()=>finish(new Error('Home Assistant antwortet nicht')),5000);
+    window.addEventListener('message',receive);
+    window.parent.postMessage({type:'haus-ops:weather:request',requestId},location.origin);
+  });
+}
+
+function spline(points,fresh = true) {
+  if (!points.length) return '';
+  let result = `${fresh?'M':'L'}${points[0]}`;
+  for (let i=0;i<points.length-1;i++) {
+    const [ax,ay]=points[Math.max(0,i-1)], [bx,by]=points[i], [cx,cy]=points[i+1], [dx,dy]=points[Math.min(points.length-1,i+2)];
+    result += `C${bx+(cx-ax)/6},${by+(cy-ay)/6} ${cx-(dx-bx)/6},${cy-(dy-by)/6} ${cx},${cy}`;
+  }
+  return result;
+}
+function graph() {
+  const width=1236,height=330, plot=width-103, column=plot/days.length;
+  const temperatures=days.flatMap(d=>[d.min,d.max]).filter(valid);
+  const x=i=>(i+.5)*column;
+  const min=temperatures.length ? Math.floor(Math.min(...temperatures)/2)*2-2 : -2;
+  const max=temperatures.length ? Math.ceil(Math.max(...temperatures)/2)*2+2 : 2;
+  const y=value=>height-(value-min)/(max-min)*height;
+  let guides='';
+  for(let tick=max;tick>=min;tick-=2) {
+    const color=tick===0?'#99ccff':'#cc6666', py=y(tick), labelY=Math.max(14,Math.min(height-3,py+6));
+    guides+=`<path d="M0 ${py}H${plot}" stroke="${color}" opacity=".6"/><path d="M${plot+5} ${py}h24" stroke="${color}" stroke-width="5"/><text x="${width-2}" y="${labelY}" text-anchor="end" fill="${color}" font-size="18">${number(tick)}°</text>`;
+  }
+  const ranges=days.flatMap((d,i)=>valid(d.max)&&valid(d.min) ? [{x:x(i),d,i}] : []);
+  const runs=[];
+  for (const item of ranges) {
+    if (!runs.length || runs.at(-1).at(-1).i !== item.i-1) runs.push([]);
+    runs.at(-1).push(item);
+  }
+  const areas=runs.map(run=>{
+    const edge=[{x:run[0].i*column,d:run[0].d},...run,{x:(run.at(-1).i+1)*column,d:run.at(-1).d}];
+    const highs=edge.map(r=>[r.x,y(r.d.max+1.4)]);
+    const lows=Array.from(edge).reverse().map(r=>[r.x,y(r.d.min-1.4)]);
+    return `<path d="${spline(highs)+spline(lows,false)}Z" fill="#1414b4"/>`;
+  }).join('');
+  return `<svg viewBox="0 0 ${width} ${height}" preserveAspectRatio="none" aria-label="Temperaturverlauf in Grad Celsius" role="img">${areas}${guides}
+    ${days.map((d,i)=> {
+      const isSelected=d.date===selected, px=x(i), mean=valid(d.mean)?d.mean:valid(d.min)&&valid(d.max)?(d.min+d.max)/2:null;
+      return `<rect x="${px-9}" width="18" height="${height}" fill="${isSelected?'#8a80e0':'#5a4fb0'}" opacity=".78"/>
+      ${valid(d.min)&&valid(d.max)?`<rect x="${px-6}" y="${y(d.max)}" width="12" height="${Math.max(2,y(d.min)-y(d.max))}" fill="${isSelected?'#ffe3c4':'#d4a8d4'}"/>`:''}
+      ${valid(mean)?`<rect x="${px-7}" y="${y(mean)-7}" width="14" height="14" fill="#ff9900"/>`:''}
+      ${valid(d.max)?`<text x="${px+12}" y="${Math.max(18,y(d.max)-4)}" fill="#ffcc99" font-size="22">${number(d.max)}°</text>`:''}
+      ${valid(d.min)?`<text x="${px+12}" y="${Math.min(height-2,y(d.min)+19)}" fill="#99ccff" font-size="22">${number(d.min)}°</text>`:''}`;
+    }).join('')}</svg>${days.map((d,i)=>`<button data-track data-day="${i}" aria-label="Temperatur für ${dateFormat.format(new Date(d.date))}" aria-pressed="${d.date===selected}" style="left:${i*column/width*100}%;width:${column/width*100}%"></button>`).join('')}`;
+}
+function render() {
+  if (!days.length) return;
+  const today=dateKeyFormat.format(new Date());
+  if (!days.some(d=>d.date===selected)) selected=days.find(d=>d.date===today)?.date ?? days[0].date;
+  const chosen=days.find(d=>d.date===selected);
+  stage.style.setProperty('--days',days.length);
+  $('location').textContent=attribution==='Home Assistant' ? 'Standort · Home Assistant' : `Standort ${config.name} · ${coord(config.latitude,'N','S')} ${coord(config.longitude,'O','W')}${valid(elevation)?' · '+number(elevation)+' m':''}`;
+  $('city').textContent=attribution==='Home Assistant' ? 'Home Assistant' : config.name;
+  $('source').textContent=`${attribution} · aktualisiert ${timestamp}`;
+  $('quantity').textContent=`${days.length} ${days.length===1?'Tag':'Tage'}`;
+  $('period').textContent=`Prognose · ${dateFormat.format(new Date(days[0].date))} – ${dateFormat.format(new Date(days.at(-1).date))}`;
+  const dayButton=(day,i,content,attrs='')=>`<button data-day="${i}" aria-pressed="${day.date===selected}" ${attrs}>${content}</button>`;
+  $('dates').innerHTML=days.map((d,i)=>{
+    const stamp=new Date(d.date);
+    return dayButton(d,i,`${d.date===today?'Heute':weekdayFormat.format(stamp).replace('.','')} ${dateFormat.format(stamp)}`,
+      d.date===today?'data-today':[0,6].includes(stamp.getUTCDay())?'data-weekend':'');
+  }).join('')+rowLabel('Tag','var(--amber)');
+  $('chart').innerHTML=graph();
+  $('conditions').innerHTML=days.map((d,i)=>{
+    const [name,color,icon]=patterns[d.kind];
+    return dayButton(d,i,`<svg viewBox="0 0 24 24" aria-hidden="true">${icon}</svg><span>${name}</span>`,`style="--condition:${color}"`);
+  }).join('')+rowLabel('Lage','var(--lavender)');
+  const rows=[['mm','var(--blue)',d=>number(d.precipitation,1)],['Regen %','var(--lavender)',d=>number(d.probability)],
+    ['Sonne h','var(--amber)',d=>number(d.sun,1)],['Wind km/h','var(--violet)',d=>wind(d)]];
+  $('metrics').innerHTML=rows.map(([name,tone,format])=>`<div class="row">${days.map(d=>`<span class="${d.date===selected?'current':d.precipitation>2?'wet':''}">${format(d)}</span>`).join('')}${rowLabel(name,tone)}</div>`).join('');
+  const sunMinutes=valid(chosen.sun)?Math.round(chosen.sun*60):null;
+  const stamp=new Date(chosen.date);
+  $('details').innerHTML=`<div><strong>${weekdayFormat.format(stamp)} · ${dateFormat.format(stamp)}</strong>
+    <strong>${patterns[chosen.kind][0]}</strong><strong>${number(chosen.min,1)} bis ${number(chosen.max,1)} °C</strong></div>
+    <div class="details-metrics"><span>Sonne ${sunMinutes===null?'–':Math.floor(sunMinutes/60)+' h '+sunMinutes%60+' min'}</span>
+    <span>Niederschlag ${number(chosen.precipitation,1)} mm · ${number(chosen.probability)} %</span>
+    <span>Wind ${wind(chosen,'km/h')}</span><span>Aufgang ${chosen.sunrise??'–'} · Untergang ${chosen.sunset??'–'}</span></div>`;
+  for(const id of ['dates','chart','conditions','metrics','details']) $(id).hidden=false;
+  $('status').hidden=true;
+}
+stage.addEventListener('click',event=>{
+  const btn=event.target.closest('button[data-day]');
+  if (!btn) return;
+  const index=Number(btn.dataset.day), group=btn.parentElement.id;
+  if (!days[index]) return;
+  selected=days[index].date;
+  render();
+  $(group).querySelector(`button[data-day="${index}"]`)?.focus({preventScroll:true});
+});
+
+async function refresh() {
+  let next, source;
+  try {
+    const query=new URLSearchParams({latitude:config.latitude,longitude:config.longitude,timezone:config.timezone,forecast_days:config.days,daily:fields});
+    const response=await fetch('https://api.open-meteo.com/v1/forecast?'+query,{signal:AbortSignal.timeout(10000)});
+    if (!response.ok) throw new Error('Open-Meteo nicht erreichbar');
+    const data=await response.json();
+    next=normalizeOpenMeteo(data);
+    if (!next.length) throw new Error('Keine Open-Meteo-Prognose');
+    elevation=valid(data.elevation)?data.elevation:config.elevation;
+    source='Open-Meteo';
+  } catch {
+    try {
+      next=normalizeHomeAssistant(await homeAssistantForecast());
+      if (!next.length) throw new Error('Keine Home-Assistant-Prognose');
+      elevation=null;
+      source='Home Assistant';
+    } catch {
+      if (days.length) $('source').textContent=`${attribution} · Stand ${timestamp} · Abruf fehlgeschlagen`;
+      else {
+        $('status').textContent='Wettervorhersage derzeit nicht verfügbar';
+        const retry=document.createElement('button'); retry.textContent='Erneut laden';
+        retry.onclick=()=>{retry.disabled=true; void refresh();};
+        $('status').append(retry);
+      }
+      return;
+    }
+  }
+  days=next;
+  attribution=source;
+  timestamp=clockFormat.format(new Date());
+  render();
+}
+$('location').textContent=`Standort ${config.name}`;
+$('city').textContent=config.name;
+void refresh();
+setInterval(refresh,30*60*1000);
+</script>
+</html>

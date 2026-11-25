@@ -27,7 +27,7 @@ const pvSimulationView = (demo, openedAt) => ({
   status: 'PV-Simulation · Sonne und Schatten',
   layout: `<section class="pv-simulation-page">
     <div class="pv-simulation-viewport">
-      <iframe title="PV-Simulation · Sonne und Schatten" src="${demo ? new URL('./pv-simulation/index.html?embedded=1', import.meta.url) : '/local/haus3d/index.html?embedded=1'}&opened=${openedAt}"></iframe>
+      <iframe data-frame-activity title="PV-Simulation · Sonne und Schatten" src="${demo ? new URL('./pv-simulation/index.html?embedded=1', import.meta.url) : '/local/haus3d/index.html?embedded=1'}&opened=${openedAt}"></iframe>
     </div>
     <div class="pv-simulation-toolbar">
       <button data-pv-back>‹ Energie</button>
@@ -39,6 +39,7 @@ const pvSimulationView = (demo, openedAt) => ({
 const waterPageIndex = 7;
 const musicPageIndex = 8;
 const circuitsPageIndex = 10;
+const weatherPageIndex = 14;
 // Keep page IDs stable: HA actions and saved links use these IDs.
 const navigation = [
   [0, 'Übersicht', '01-01', '--peach', 'overview', ''],
@@ -49,6 +50,7 @@ const navigation = [
   [vehiclePageIndex, 'Fahrzeug', '02-14', '--sand', 'supply', ''],
   [9, 'Licht', '03-21', '--pink', 'comfort', ''],
   [4, 'Klima', '03-22', '--pink', 'comfort', ''],
+  [weatherPageIndex, 'Wetter', '03-27', '--sand', 'comfort', ''],
   [airQualityPageIndex, 'Luftqualität', '03-26', '--pink', 'comfort', ''],
   [2, 'Lüftung', '03-23', '--pink', 'comfort', 'Komfort'],
   [3, 'Rollos', '03-24', '--pink', 'comfort', ''],
@@ -130,7 +132,7 @@ class HausOps extends HTMLElement {
       if (this.demo && this.getAttribute('demo-page') === 'luftqualitaet') this.page = airQualityPageIndex;
       this.attachShadow({ mode: 'open' });
       this.shadowRoot.innerHTML = `
-        <link rel="stylesheet" href="${new URL('./haus-ops.css?v=1.6.63&r=display-standby-motion', import.meta.url)}">
+        <link rel="stylesheet" href="${new URL('./haus-ops.css?v=1.6.63&r=weather-page', import.meta.url)}">
         <link rel="stylesheet" href="${new URL('./house-section.css?v=1.6.63&r=20', import.meta.url)}">
         <link rel="stylesheet" href="${new URL('./ventilation-panel.css?v=1.6.63&r=3', import.meta.url)}">
         <link rel="stylesheet" href="${new URL('./vehicle-panel.css?v=1.6.63&r=6', import.meta.url)}">
@@ -189,6 +191,7 @@ class HausOps extends HTMLElement {
 
     this.shadowRoot.addEventListener('pointerdown', () => this.setAttribute('data-pointer-mode',''), {...options,capture:true,passive:true});
     this.shadowRoot.addEventListener('keydown', () => this.removeAttribute('data-pointer-mode'), {...options,capture:true});
+    window.addEventListener('message', event => void this.respondToWeatherFrame(event), options);
     this.bindLightMouseScroll(options);
     this.bindOverviewDimmer(options);
     this.bindWarningHold(options);
@@ -903,6 +906,16 @@ class HausOps extends HTMLElement {
       case waterPageIndex:
         layout = water.layout;
         break;
+      case weatherPageIndex: {
+        const url = new URL('./weather/index.html?v=1.6.83', import.meta.url);
+        const {latitude, longitude} = this.config?.weather_location ?? {};
+        if (Number.isFinite(latitude) && Math.abs(latitude)<=90 && Number.isFinite(longitude) && Math.abs(longitude)<=180) {
+          url.searchParams.set('latitude',latitude);
+          url.searchParams.set('longitude',longitude);
+        }
+        layout = `<iframe class="weather-page" data-frame-activity title="Wettervorhersage" src="${url}"></iframe>`;
+        break;
+      }
       case 5:
         layout = `<section class="detail">${band('Garten', '--pink')}<p>Gartenansicht noch ohne Inhalte</p></section>`;
         break;
@@ -952,7 +965,7 @@ class HausOps extends HTMLElement {
         ? warnings.some(item=>item.status==='stumm')
           ? `${warnings.filter(item=>item.status==='stumm').length} stumm · ${warnings.filter(item=>item.status==='quittiert').length} quittiert`
           : `${warnings.length} quittiert`
-        : `${overviewAlarm.count} ${overviewAlarm.count === 1 ? 'Meldung' : 'Meldungen'}`)) : this.page === 9 ? 'Licht' : circuits ? 'Stromkreise' : music ? 'Musik' : water ? 'Wasser' : energy ? 'Energie' : climatePage ? 'Klima' : this.page === 3 ? 'Rollos' : 'HAUS-OPS';
+        : `${overviewAlarm.count} ${overviewAlarm.count === 1 ? 'Meldung' : 'Meldungen'}`)) : this.page === 9 ? 'Licht' : circuits ? 'Stromkreise' : music ? 'Musik' : water ? 'Wasser' : energy ? 'Energie' : climatePage ? 'Klima' : this.page === 3 ? 'Rollos' : this.page === weatherPageIndex ? 'Wetter' : 'HAUS-OPS';
     if (!vehicleView) this.shadowRoot.querySelector('footer .rail').textContent = [
       this.demo ? 'Demo' : '', level >= 0 ? 'Lüftung Stufe ' + levels[level] : 'Haus-Ops'
     ].filter(Boolean).join(' · ');
@@ -970,6 +983,7 @@ class HausOps extends HTMLElement {
     if (music) footer.textContent = music.status;
     if (water) footer.textContent = water.status;
     if (energy) footer.textContent = energy.status;
+    if (this.page === weatherPageIndex) footer.textContent = 'Wettervorhersage';
     if (this.page === 3 && blinds.length) {
       const moving = blinds.filter(blind => blind.available && blind.movement);
       const status = (moving.length ? moving : blinds.filter(blind => blind.available)).map(blind =>
@@ -1009,7 +1023,7 @@ class HausOps extends HTMLElement {
       const lightData = main.querySelector('.light-data');
       const musicRoomScroll = main.querySelector('.music-room-list')?.scrollTop;
       main.innerHTML = layout;
-      main.querySelector('.pv-simulation-page iframe')?.addEventListener('load', event => {
+      main.querySelector('iframe[data-frame-activity]')?.addEventListener('load', event => {
         const document = event.currentTarget.contentDocument;
         const activity = input => this.recordDisplayActivity(input);
         document?.addEventListener('pointerdown', activity, {passive:true});
@@ -1183,6 +1197,33 @@ class HausOps extends HTMLElement {
 
   call(entity_id, service, data = {}) {
     return this.ha.callService(entity_id.split('.')[0], service, { entity_id, ...data });
+  }
+
+  async respondToWeatherFrame(event) {
+    const frame = this.shadowRoot?.querySelector('iframe.weather-page');
+    const {type, requestId} = event.data ?? {};
+    if (!frame || !event.source || event.source !== frame.contentWindow || event.origin !== location.origin ||
+        type !== 'haus-ops:weather:request' || typeof requestId !== 'string') return;
+
+    const states = this.ha?.states ?? {};
+    const preferred = this.config?.weather_entity;
+    const entity = [preferred, 'weather.home', ...Object.keys(states)].find(id =>
+      id?.startsWith?.('weather.') && states[id] && !['unknown', 'unavailable'].includes(states[id].state));
+    const message = {type:'haus-ops:weather:response', requestId};
+    if (entity && this.ha.callWS) {
+      try {
+        const {response} = await this.ha.callWS({
+          type:'call_service', domain:'weather', service:'get_forecasts',
+          target:{entity_id:entity}, service_data:{type:'daily'}, return_response:true,
+        });
+        message.forecast = response?.[entity]?.forecast;
+        const {temperature_unit, precipitation_unit, wind_speed_unit} = states[entity].attributes ?? {};
+        message.units = {temperature_unit, precipitation_unit, wind_speed_unit};
+      } catch {
+        // The weather page keeps the last available forecast if both sources fail.
+      }
+    }
+    event.source.postMessage(message, event.origin);
   }
 
   get activeDisplayBrightness() {
@@ -1755,7 +1796,7 @@ class HausOpsSettings {
       <fieldset><legend>Wetterstandort</legend>
         <label>Breitengrad (−90 bis 90)<input name="weather-latitude" inputmode="decimal" value="${escape(config.weather_location?.latitude)}"></label>
         <label>Längengrad (−180 bis 180)<input name="weather-longitude" inputmode="decimal" value="${escape(config.weather_location?.longitude)}"></label>
-        <p>Open-Meteo erhält diese Koordinaten für die PV-Wettervorschau. Beide Felder leer lassen, um den Wetterabruf auszuschalten.</p>
+        <p>Open-Meteo erhält diese Koordinaten für die PV-Wettervorschau und die Wetterseite. Bei leeren Feldern nutzt die Wetterseite Dresden und der PV-Wetterabruf ist deaktiviert.</p>
       </fieldset>
       <fieldset><legend>Haus · Schnitt</legend>
         <label>Eigene Raum- und Lampenpositionen (optional)

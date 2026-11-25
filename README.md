@@ -18,6 +18,12 @@ Home-Assistant-Panel für ein Wanddisplay im Querformat (1900 × 1200) mit Über
 - **Klima:** HAUS-OPS verwendet vorhandene Heizungsmanager-Daten oder die in den Einstellungen hinterlegten Klimasensoren und Thermostate.
 - **Navigation:** Wasser verlinkt auf das separate Panel unter `/wassermanager`, sofern es installiert ist. Garten ist als Platzhalter vorhanden.
 
+## Wettervorhersage
+
+Unter **Wetter** zeigt HAUS-OPS zehn Tage mit Temperaturverlauf, Wetterlage, Niederschlag, Sonnenstunden und Wind. Datum, Diagramm oder Wetterkachel antippen, um Tagesdetails und Sonnenzeiten anzuzeigen.
+
+Die Seite aktualisiert die Vorhersage alle 30 Minuten. Open-Meteo erhält standardmäßig die Koordinaten der Dresdner Innenstadt. Ein ausdrücklich hinterlegter `weather_location`-Standort hat Vorrang. Bei Ausfall von Open-Meteo verwendet die Seite eine verfügbare Home-Assistant-Wetterentität. Mit `weather_entity` kann eine bevorzugte Entität angegeben werden. Fehlende Werte erscheinen als Strich.
+
 ## PV-Simulation
 
 Unter **Energie → PV-Simulation** öffnet sich die 3D-Ansicht für Sonnenstand, Verschattung und PV-Ertrag bei klarem Himmel. Die Ansicht bietet Datumsauswahl, Tagesablauf und Kameraperspektiven. Für die rahmenlose Einbettung die aktuelle Version der lokalen Haus3D-Dateien verwenden.
