@@ -130,7 +130,7 @@ class HausOps extends HTMLElement {
       if (this.demo && this.getAttribute('demo-page') === 'luftqualitaet') this.page = airQualityPageIndex;
       this.attachShadow({ mode: 'open' });
       this.shadowRoot.innerHTML = `
-        <link rel="stylesheet" href="${new URL('./haus-ops.css?v=1.6.63&r=wide-readable', import.meta.url)}">
+        <link rel="stylesheet" href="${new URL('./haus-ops.css?v=1.6.63&r=display-standby-motion', import.meta.url)}">
         <link rel="stylesheet" href="${new URL('./house-section.css?v=1.6.63&r=20', import.meta.url)}">
         <link rel="stylesheet" href="${new URL('./ventilation-panel.css?v=1.6.63&r=3', import.meta.url)}">
         <link rel="stylesheet" href="${new URL('./vehicle-panel.css?v=1.6.63&r=6', import.meta.url)}">
@@ -1099,6 +1099,11 @@ class HausOps extends HTMLElement {
 
   updateOverviewRotor(main, level) {
     this.rotorTarget = [0,120,260,430,700][level] ?? 0;
+    if (this.hasAttribute('data-display-standby')) {
+      cancelAnimationFrame(this.rotorFrame);
+      this.rotorFrame = undefined;
+      return;
+    }
     if (this.rotorFrame) return;
     const fan = main.querySelector('.ops-fan');
     if (this.page !== 0 || !fan || !this.rotorTarget || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
@@ -1131,6 +1136,7 @@ class HausOps extends HTMLElement {
   }
 
   animatePage(main) {
+    if (this.hasAttribute('data-display-standby')) return;
     if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
     const frame = this.shadowRoot.querySelector('.frame');
     frame.getAnimations({ subtree: true }).filter(animation => animation.id === 'haus-ops-page-entry')
@@ -1200,11 +1206,14 @@ class HausOps extends HTMLElement {
   }
 
   updateDisplayBrightness(standby) {
-    if (!this.controlsDisplayBrightness) return;
+    const controlsBrightness = this.controlsDisplayBrightness;
+    const action = this.config?.display_brightness_action;
+    const configured = /^shell_command\.[a-z0-9_]+$/.test(action ?? '') && Boolean(this.ha);
+    this.toggleAttribute('data-display-standby', standby && controlsBrightness && configured);
+    if (!controlsBrightness) return;
     if (this.displayStandby && !standby) this.brightnessRetryAt = 0;
     this.displayStandby = standby;
-    const action = this.config?.display_brightness_action;
-    if (!/^shell_command\.[a-z0-9_]+$/.test(action ?? '') || !this.ha) return;
+    if (!configured) return;
     this.circuits.load();
     const night = standby && nightDisplayOff(new Date(), this.ha.states, this.circuits.registry, this.config?.display_night_lights, this.ha.config?.time_zone || 'Europe/Berlin');
     this.displayBrightnessTarget = {action,value:standby ? (night ? 0 : 5) : this.activeDisplayBrightness};

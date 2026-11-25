@@ -1023,3 +1023,10 @@ main{grid-template-columns:minmax(0,1fr)}
 :host([data-wide-display]) .ops-overview>[data-card-page="4"]{grid-template-rows:19px minmax(0,1fr) 28px}
 :host([data-wide-display]) .ops-overview :is(.ops-climate,.ops-blind-rows)>div{font-size:13px}
 :host([data-wide-display]) .pv-simulation-toolbar{font-size:12px}
+
+:host([data-display-standby]) .frame *,
+:host([data-display-standby]) .frame *::before,
+:host([data-display-standby]) .frame *::after {
+  animation-play-state:paused!important;
+  transition:none!important;
+}
