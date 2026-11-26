@@ -70,14 +70,22 @@ test('area discovery keeps VOC concentration separate and room filtering changes
 test('bathroom row uses the leading pollutant and its status color',()=>{
   const voc='sensor.bad_voc_index';
   const co2='sensor.bad_co2';
+  const temperature='sensor.bd_temp';
+  const humidity='sensor.bad_humidity';
   const panel=fixture({
     [voc]:entity(voc,300,undefined,undefined),
     [co2]:entity(co2,900,'carbon_dioxide','ppm'),
+    [temperature]:entity(temperature,21.4,'temperature','°C'),
+    [humidity]:entity(humidity,55,'humidity','%'),
   });
-  panel.panel.config={air_quality:{roomSensors:{Bad:{voc,co2}}}};
+  panel.panel.config={air_quality:{roomSensors:{Bad:{voc,co2,humidity}}}};
   panel.selected='Küche';
   const row=()=>panel.view().match(/<g data-air-action="Bad"[^]*?<\/g>/)?.[0];
   assert.match(row(),/VOC 300 · Erhöht/);
+  assert.match(row(),/>21,4 °C · 55 %<\/text>/);
+  panel.panel.ha.states[humidity].state='unavailable';
+  assert.match(row(),/>21,4 °C · — %<\/text>/);
+  assert.doesNotMatch(row(),/55 %/);
   assert.match(row(),/fill="#ff9966"/);
   panel.panel.ha.states[voc].state='unavailable';
   assert.match(row(),/CO₂ 900 · Mäßig/);

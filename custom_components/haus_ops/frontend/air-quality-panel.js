@@ -416,12 +416,22 @@ export class AirQualityPanel {
     const roomRows=showingRooms.map((room,i)=>{
       const roomLead=highestReading(this.leadReading(roomPools(room),thresholds));
       const index=roomLead?.index, y=96+i*42, active=room===selected;
-      const summary=roomLead?`${roomMetricLabels[roomLead.key]} ${num(roomLead.source.value)} · ${status(index)}`:
-        [room.temperature?.value!=null?num(room.temperature.value)+' °C':'',room.humidity?.value!=null?num(room.humidity.value)+' %':''].filter(Boolean).join(' · ')||'—';
-      const label=room.name+' · '+summary;
-      return action(room.name,`<title>${escape(label+' · '+(roomLead?[roomLead.source.id]:[room.temperature?.id,room.humidity?.id]).filter(Boolean).join(' · '))}</title>`+
+      const climate=[
+        (room.temperature?.value!=null ? num(room.temperature.value) : '—')+' °C',
+        (room.humidity?.value!=null ? num(room.humidity.value) : '—')+' %',
+      ].join(' · ');
+      const pollutant=roomLead ? `${roomMetricLabels[roomLead.key]} ${num(roomLead.source.value)} · ${status(index)}` : '';
+      const summary=pollutant || climate;
+      const detail=pollutant ? climate : '';
+      const baseline=y+(detail?17:26);
+      const label=[room.name,summary,detail].filter(Boolean).join(' · ');
+      const sources=[roomLead?.source,room.temperature,room.humidity]
+        .filter(source=>source?.value!=null).map(source=>source.id);
+      const ink=index==null?white:'#000';
+      return action(room.name,`<title>${escape([label,...sources].join(' · '))}</title>`+
         rect(728,y,326,40,index==null?'#24202b':color(index),19,(active?`stroke="${white}" stroke-width="2" `:'')+(index>50?'class="air-room-warn"':''))+
-        txt(741,y+26,room.name,15,index==null?pink:'#000')+txt(1041,y+26,summary,13,index==null?white:'#000','end'),label,active);
+        txt(741,y+26,room.name,15,index==null?pink:'#000')+txt(1041,baseline,summary,13,ink,'end')+
+        (detail?txt(1041,y+33,detail,13,ink,'end'):''),label,active);
     }).join('');
     this.chart={points,start,min,max,indexMode,environmentUnit};
     this.footer='Luftqualität innen · '+status(lead?.index);
