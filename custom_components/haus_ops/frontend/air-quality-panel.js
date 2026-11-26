@@ -108,15 +108,15 @@ function arc(r,a,b) {
 
 function ring(value, lead, demo) {
   const tint = color(value);
-  return `<defs><radialGradient id="air-glow"><stop offset="49%" stop-color="${tint}" stop-opacity="0"/><stop offset="69%" stop-color="${tint}" stop-opacity=".35"/><stop offset="100%" stop-color="${tint}" stop-opacity="0"/></radialGradient></defs>
-    <circle cx="178" cy="251" r="175" fill="url(#air-glow)" class="${value==null?'':'air-glow'}"/>
-    ${Array.from({length:40},(_,i)=>`<path d="${arc(122,150+i*6,154.3+i*6)}" fill="none" stroke="${colors[Math.floor(i/8)]}" stroke-width="29" opacity="${value!=null && i*6.25<=value ? 1:.18}"/>`).join('')}
+  return `<defs data-air-content="gradient"><radialGradient id="air-glow"><stop offset="49%" stop-color="${tint}" stop-opacity="0"/><stop offset="69%" stop-color="${tint}" stop-opacity=".35"/><stop offset="100%" stop-color="${tint}" stop-opacity="0"/></radialGradient></defs>
+    <circle data-air-background cx="178" cy="251" r="175" fill="url(#air-glow)" class="${value==null?'':'air-glow'}"/>
+    <g data-air-content="ring">${Array.from({length:40},(_,i)=>`<path d="${arc(122,150+i*6,154.3+i*6)}" fill="none" stroke="${colors[Math.floor(i/8)]}" stroke-width="29" opacity="${value!=null && i*6.25<=value ? 1:.18}"/>`).join('')}
     ${Array.from({length:6},(_,i)=>{const a=(150+48*i)*Math.PI/180; return txt(178+150*Math.cos(a),256+150*Math.sin(a),i*50,13,pink,'middle');}).join('')}
     ${value==null?'':`<circle cx="${178+141*Math.cos((150+value*.96)*Math.PI/180)}" cy="${251+141*Math.sin((150+value*.96)*Math.PI/180)}" r="5" fill="${white}"/>`}
     ${txt(178,265,value==null?'—':Math.round(value),87,white,'middle')}
     ${txt(178,308,status(value),value==null?25:37,value==null?pink:tint,'middle')}
     ${txt(178,334,lead?'Leitschadstoff · '+metrics[lead].label:demo?'Demo':'CO₂ · PM2.5 · PM10 · VOC',13,pink,'middle')}
-    ${stages.map((word,i)=>rect(i*71,408,68,25,'#131117',4,i===stage(value)&&value!=null?`stroke="${colors[i]}"`:'')+rect(i*71+5,417,7,7,colors[i],1)+txt(i*71+16,425,word,11)).join('')}`;
+    ${stages.map((word,i)=>rect(i*71,408,68,25,'#131117',4,i===stage(value)&&value!=null?`stroke="${colors[i]}"`:'')+rect(i*71+5,417,7,7,colors[i],1)+txt(i*71+16,425,word,11)).join('')}</g>`;
 }
 
 function particleRow(key,y,source,limits,range) {
@@ -428,19 +428,21 @@ export class AirQualityPanel {
       const sources=[roomLead?.source,room.temperature,room.humidity]
         .filter(source=>source?.value!=null).map(source=>source.id);
       const ink=index==null?white:'#000';
-      return action(room.name,`<title>${escape([label,...sources].join(' · '))}</title>`+
-        rect(728,y,326,40,index==null?'#24202b':color(index),19,(active?`stroke="${white}" stroke-width="2" `:'')+(index>50?'class="air-room-warn"':''))+
+      return action(room.name,
+        rect(728,y,326,40,index==null?'#24202b':color(index),19,'data-air-background '+(active?`stroke="${white}" stroke-width="2" `:'')+(index>50?'class="air-room-warn"':''))+
+        `<g data-air-content="room"><title>${escape([label,...sources].join(' · '))}</title>`+
         txt(741,y+26,room.name,15,index==null?pink:'#000')+txt(1041,baseline,summary,13,ink,'end')+
-        (detail?txt(1041,y+33,detail,13,ink,'end'):''),label,active);
+        (detail?txt(1041,y+33,detail,13,ink,'end'):'')+'</g>',label,active);
     }).join('');
     this.chart={points,start,min,max,indexMode,environmentUnit};
     this.footer='Luftqualität innen · '+status(lead?.index);
     return `<svg class="air-quality-page" viewBox="0 0 1054 700" preserveAspectRatio="xMidYMin meet" role="group" aria-label="Luftqualität innen">
-      ${txt(0,43,'Luftqualität · Innen',34,'#ff9966')}${txt(1054,42,subtitle,15,pink,'end')}
-      ${head(0,64,352,'Gesamtindex · Innen')}${head(378,64,329,'Schadstoffe · Aktuell')}${head(728,64,326,'Räume · Luftqualität / Klima')}
+      <g data-air-content="heading">${txt(0,43,'Luftqualität · Innen',34,'#ff9966')}${txt(1054,42,subtitle,15,pink,'end')}
+      ${head(0,64,352,'Gesamtindex · Innen')}${head(378,64,329,'Schadstoffe · Aktuell')}${head(728,64,326,'Räume · Luftqualität / Klima')}</g>
       ${ring(lead?.index,lead?.key,demo)}
-      ${readings.map(({key,source},i)=>particleRow(key,120+i*82,source,thresholds[key],rangeFor(source?.id))).join('')}
-      ${roomRows}
+      <g data-air-content="readings">${readings.map(({key,source},i)=>particleRow(key,120+i*82,source,thresholds[key],rangeFor(source?.id))).join('')}</g>
+      <g data-air-rooms>${roomRows}</g>
+      <g data-air-content="details">
       <g><title>${escape(demo?'Beispielwert · US‑EPA':outdoorId ? outdoorId+(epa?' · US‑EPA':' · Europäischer AQI') : 'Außen-AQI nicht zugeordnet')}</title>
       ${rect(728,393,326,40,outdoorRating?.color??blue,20)}${txt(741,419,'Außen · AQI',16,outdoorInk)}
       ${txt(1041,419,outdoorValue,outdoorRating?.label.length>20?13:17,outdoorInk,'end')}</g>
@@ -452,7 +454,39 @@ export class AirQualityPanel {
       ${heatmap(days,indexMode,indexMode?'Index':environmentUnit)}
       ${txt(378,427,[absolute?.value!=null?'Abs. Feuchte '+num(absolute.value)+' g/m³':'',dew?.value!=null?'Taupunkt '+num(dew.value)+' °C':''].filter(Boolean).join(' · '),12,pink)}
       ${this.configError?txt(1054,14,'Konfiguration nicht geladen',12,pink,'end'):''}
+      </g>
     </svg>`;
+  }
+
+  update(main, layout) {
+    const current = main.querySelector('.air-quality-page');
+    if (!current) return false;
+    const template = document.createElement('template');
+    template.innerHTML = layout;
+    const next = template.content.firstElementChild;
+    const sync = (node, target) => {
+      for (const name of node.getAttributeNames()) if (!target.hasAttribute(name)) node.removeAttribute(name);
+      for (const {name,value} of target.attributes) if (node.getAttribute(name) !== value) node.setAttribute(name,value);
+    };
+    const rooms = current.querySelector('[data-air-rooms]');
+    const nextRooms = next.querySelector('[data-air-rooms]');
+    const existing = [...rooms.children];
+    const targets = [...nextRooms.children];
+    const names = new Set(targets.map(room=>room.dataset.airAction));
+    for (const target of targets) {
+      const node = existing.find(room=>room.dataset.airAction===target.dataset.airAction);
+      if (!node) { rooms.append(target); continue; }
+      sync(node,target);
+      sync(node.firstElementChild,target.firstElementChild);
+      if (node.lastElementChild.innerHTML !== target.lastElementChild.innerHTML) node.lastElementChild.replaceWith(target.lastElementChild);
+    }
+    for (const node of existing) if (!names.has(node.dataset.airAction)) node.remove();
+    sync(current.querySelector(':scope > [data-air-background]'),next.querySelector(':scope > [data-air-background]'));
+    for (const target of [...next.querySelectorAll(':scope > [data-air-content]')]) {
+      const node = current.querySelector(`:scope > [data-air-content="${target.dataset.airContent}"]`);
+      if (node.innerHTML !== target.innerHTML) node.replaceWith(target);
+    }
+    return true;
   }
 
   bind(main) {

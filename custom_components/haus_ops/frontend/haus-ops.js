@@ -1,4 +1,4 @@
-import {AirQualityPanel,airQualityPageIndex,airRoomFields,matchesAirRoomField} from './air-quality-panel.js?v=1.6.85';
+import {AirQualityPanel,airQualityPageIndex,airRoomFields,matchesAirRoomField} from './air-quality-panel.js?v=1.6.86';
 import {VehiclePanel,vehicleFields,vehiclePageIndex} from './vehicle-panel.js?v=1.6.63&r=3';
 import {validateVehicleBlueprint} from './vehicle-model.js?v=1.6.63&r=2';
 import {VentilationPanel,ventilationFields,ventilationCharacteristics,validateVentilationCharacteristics} from './ventilation-panel.js?v=1.6.82';
@@ -136,7 +136,7 @@ class HausOps extends HTMLElement {
         <link rel="stylesheet" href="${new URL('./house-section.css?v=1.6.63&r=20', import.meta.url)}">
         <link rel="stylesheet" href="${new URL('./ventilation-panel.css?v=1.6.63&r=3', import.meta.url)}">
         <link rel="stylesheet" href="${new URL('./vehicle-panel.css?v=1.6.63&r=6', import.meta.url)}">
-        <link rel="stylesheet" href="${new URL('./air-quality-panel.css?v=1', import.meta.url)}">
+        <link rel="stylesheet" href="${new URL('./air-quality-panel.css?v=2', import.meta.url)}">
         <div class="stage"><div class="frame">
           <div class="brand">LCARS 77</div>
           <header><span class="rail"></span><span class="overview-data" aria-hidden="true" hidden></span><span class="overview-rail" aria-hidden="true" hidden></span><strong>HAUS-OPS</strong><time></time><span class="cap"></span></header>
@@ -962,6 +962,9 @@ class HausOps extends HTMLElement {
       }
       this.layout = layout;
     }
+    if (!entering && this.layout !== layout && this.page === airQualityPageIndex && this.airQuality.update(main, layout)) {
+      this.layout = layout;
+    }
     const dragging = [0,3].includes(this.page) && this.draggingBlind !== undefined;
     if (!entering && !dragging && !(this.page === 1 && this.warningHold) && !(this.page === 0 && this.overviewLightDrag) && !(lightView && this.lightDrag !== undefined) && this.layout !== layout) {
       const focused = this.shadowRoot.activeElement;
@@ -1124,7 +1127,7 @@ class HausOps extends HTMLElement {
       ], 900, 100);
     }
     const cards = main.querySelector('.ops-overview')?.children ?? main.firstElementChild?.children ?? [];
-    Array.from(cards).forEach((card, index) => {
+    Array.from(this.page === airQualityPageIndex ? [] : cards).forEach((card, index) => {
       animate(card, [{opacity:0, transform:this.page === 0 ? 'translateY(8px)' : 'translateX(-7px)'}, {opacity:1, transform:'none'}],
         this.page === 0 ? 600 : 650, Math.min(index, 5) * (this.page === 0 ? 100 : 65));
     });

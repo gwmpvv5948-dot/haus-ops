@@ -21,6 +21,7 @@
   .air-quality-page .air-glow {animation:none}
 }
 @media (prefers-reduced-motion:no-preference) {
-  .air-quality-page .air-room-warn {animation:air-glow 1.6s ease-in-out infinite alternate}
+  .air-quality-page .air-room-warn {animation:air-room-breathe 2s ease-in-out infinite alternate}
 }
+@keyframes air-room-breathe {from {opacity:.72} to {opacity:1}}
 .air-quality-page .air-unit {text-transform:none}
