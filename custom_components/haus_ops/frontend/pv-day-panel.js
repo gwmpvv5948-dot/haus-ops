@@ -22,6 +22,11 @@ function points(panel,day,zone){
   }
   return [...result.values()].sort((a,b)=>a.t-b.t);
 }
+export function pvSimulationForecast(panel, now = Date.now()) {
+  const zone = panel.ha?.config?.time_zone || 'Europe/Berlin';
+  const day = dateKey(now,zone);
+  return {day, rows:points(panel,day,zone).map(({t,p})=>[t,p])};
+}
 export function normalizePVHistory(row, fallbackUnit) {
   const rawTime = row.lu ?? row.lc ?? row.last_updated ?? row.last_changed;
   const t = typeof rawTime === 'number' ? rawTime * 1000 : Date.parse(rawTime);

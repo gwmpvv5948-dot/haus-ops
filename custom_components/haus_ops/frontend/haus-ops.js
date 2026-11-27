@@ -3,7 +3,7 @@ import {VehiclePanel,vehicleFields,vehiclePageIndex} from './vehicle-panel.js?v=
 import {validateVehicleBlueprint} from './vehicle-model.js?v=1.6.63&r=2';
 import {VentilationPanel,ventilationFields,ventilationCharacteristics,validateVentilationCharacteristics} from './ventilation-panel.js?v=1.6.82';
 import { HouseSection, housePageIndex } from './house-section.js?v=1.6.63&r=22';
-import {loadPVActual,pvDayView,bindPVDay} from './pv-day-panel.js?v=1.6.63&r=alarm-nav';
+import {loadPVActual,pvDayView,bindPVDay,pvSimulationForecast} from './pv-day-panel.js?v=1.6.87';
 import { setupSettingsLayout } from './settings-layout.js?v=1.6.63';
 import { MobileNotifications } from './mobile-notifications.js?v=1.6.63';
 import { nightDisplayOff } from './display-night.js?v=1.6.63&r=3';
@@ -191,7 +191,10 @@ class HausOps extends HTMLElement {
 
     this.shadowRoot.addEventListener('pointerdown', () => this.setAttribute('data-pointer-mode',''), {...options,capture:true,passive:true});
     this.shadowRoot.addEventListener('keydown', () => this.removeAttribute('data-pointer-mode'), {...options,capture:true});
-    window.addEventListener('message', event => void this.respondToWeatherFrame(event), options);
+    window.addEventListener('message', event => {
+      if (event.data?.type === 'haus3d:pv-weather:request') this.respondToPVSimulation(event);
+      else void this.respondToWeatherFrame(event);
+    }, options);
     this.bindOverviewDimmer(options);
     this.bindWarningHold(options);
     this.shadowRoot.addEventListener('pointerdown', event => {
@@ -1147,6 +1150,14 @@ class HausOps extends HTMLElement {
 
   call(entity_id, service, data = {}) {
     return this.ha.callService(entity_id.split('.')[0], service, { entity_id, ...data });
+  }
+
+  respondToPVSimulation(event) {
+    const frame = this.shadowRoot?.querySelector('.pv-simulation-viewport iframe');
+    const requestId = event.data?.requestId;
+    if (!frame || !event.source || event.source !== frame.contentWindow || event.origin !== location.origin ||
+        !Number.isSafeInteger(requestId)) return;
+    event.source.postMessage({type:'haus3d:pv-weather:response',requestId,...pvSimulationForecast(this)},event.origin);
   }
 
   async respondToWeatherFrame(event) {
